@@ -1,65 +1,159 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { ArrowRight, BarChart3, PiggyBank, Wallet, Shield } from 'lucide-react';
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+      {/* Header */}
+      <header className="container mx-auto px-4 py-6">
+        <nav className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Wallet className="h-8 w-8 text-primary-600" />
+            <span className="text-2xl font-bold text-primary-900">FinTek</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Link 
+              href="/login"
+              className="text-neutral-600 hover:text-primary-600 font-medium transition-colors"
+            >
+              Iniciar Sesión
+            </Link>
+            <Link 
+              href="/register"
+              style={{
+                backgroundColor: '#0073ea',
+                color: 'white',
+                padding: '0.625rem 1.5rem',
+                borderRadius: '0.75rem',
+                fontWeight: '600',
+                display: 'inline-block',
+                textDecoration: 'none',
+              }}
+              className="hover:bg-primary-700 transition-all"
+            >
+              Registrarse
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      {/* Hero Section */}
+      <main className="container mx-auto px-4 py-20">
+        <div className="text-center max-w-4xl mx-auto">
+          <h1 className="text-5xl md:text-6xl font-bold text-neutral-900 mb-6 leading-tight">
+            Controla tus finanzas de forma{' '}
+            <span className="text-primary-600">simple y eficiente</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-xl text-neutral-600 mb-10 max-w-2xl mx-auto">
+            Gestiona tus cuentas, registra transacciones y visualiza tus gastos e ingresos en un solo lugar. Todo de forma segura y privada.
           </p>
+          <div className="flex items-center justify-center space-x-4">
+            <Link 
+              href="/register"
+              style={{
+                backgroundColor: '#0073ea',
+                color: 'white',
+                padding: '1rem 2rem',
+                borderRadius: '0.75rem',
+                fontWeight: '600',
+                fontSize: '1.125rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                textDecoration: 'none',
+              }}
+              className="hover:bg-primary-700 transition-all shadow-medium hover:shadow-strong"
+            >
+              <span>Comenzar Gratis</span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+            <Link 
+              href="/login"
+              style={{
+                backgroundColor: 'white',
+                color: '#0073ea',
+                padding: '1rem 2rem',
+                borderRadius: '0.75rem',
+                fontWeight: '600',
+                fontSize: '1.125rem',
+                border: '2px solid #cce5ff',
+                display: 'inline-block',
+                textDecoration: 'none',
+              }}
+              className="hover:border-primary-300 transition-all shadow-soft hover:shadow-medium"
+            >
+              Iniciar Sesión
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Features Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-24 max-w-6xl mx-auto">
+          <FeatureCard
+            icon={<Wallet className="h-8 w-8 text-primary-600" />}
+            title="Múltiples Cuentas"
+            description="Gestiona todas tus cuentas bancarias en un solo lugar"
+          />
+          <FeatureCard
+            icon={<BarChart3 className="h-8 w-8 text-secondary-600" />}
+            title="Análisis Visual"
+            description="Gráficos claros para entender tus finanzas"
+          />
+          <FeatureCard
+            icon={<PiggyBank className="h-8 w-8 text-accent-600" />}
+            title="Presupuestos"
+            description="Define límites y controla tus gastos por categoría"
+          />
+          <FeatureCard
+            icon={<Shield className="h-8 w-8 text-primary-600" />}
+            title="100% Seguro"
+            description="Tus datos están protegidos y encriptados"
+          />
+        </div>
+
+        {/* Stats Section */}
+        <div className="mt-24 bg-white rounded-2xl shadow-medium p-12 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div>
+              <div className="text-4xl font-bold text-primary-600 mb-2">100%</div>
+              <div className="text-neutral-600 font-medium">Gratuito</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold text-secondary-600 mb-2">∞</div>
+              <div className="text-neutral-600 font-medium">Transacciones ilimitadas</div>
+            </div>
+            <div>
+              <div className="text-4xl font-bold text-accent-600 mb-2">🔒</div>
+              <div className="text-neutral-600 font-medium">Datos privados</div>
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="container mx-auto px-4 py-8 mt-20 border-t border-neutral-200">
+        <div className="text-center text-neutral-500 text-sm">
+          <p>© 2024 FinTek. Gestión financiera personal.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ 
+  icon, 
+  title, 
+  description 
+}: { 
+  icon: React.ReactNode; 
+  title: string; 
+  description: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl p-6 shadow-soft hover:shadow-medium transition-all-smooth">
+      <div className="mb-4">{icon}</div>
+      <h3 className="text-lg font-semibold text-neutral-900 mb-2">{title}</h3>
+      <p className="text-neutral-600 text-sm">{description}</p>
     </div>
   );
 }
