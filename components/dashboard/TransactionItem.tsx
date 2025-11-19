@@ -59,7 +59,7 @@ export default function TransactionItem({ transaction }: Props) {
         {/* Left: Icon & Info */}
         <div className="flex items-start space-x-3 flex-1 min-w-0">
           {/* Icon */}
-          <div className={`${isIncome ? 'bg-secondary-100' : 'bg-accent-100'} rounded-full p-2 flex-shrink-0`}>
+          <div className={`${isIncome ? 'bg-secondary-100' : 'bg-accent-100'} rounded-full p-2 shrink-0`}>
             {isIncome ? (
               <TrendingUp className={`h-5 w-5 ${amountColor}`} />
             ) : (
@@ -103,7 +103,7 @@ export default function TransactionItem({ transaction }: Props) {
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="text-accent-500 hover:text-accent-700 p-2 rounded-lg hover:bg-white transition-colors disabled:opacity-50 flex-shrink-0"
+          className="text-accent-500 hover:text-accent-700 p-2 rounded-lg hover:bg-white transition-colors disabled:opacity-50 shrink-0"
           title="Eliminar transacción"
         >
           <Trash2 className="h-4 w-4" />

@@ -68,7 +68,7 @@ export default async function CuentasPage() {
                 </div>
 
                 {/* Resumen Total */}
-                <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl shadow-medium p-8 mb-8 text-black">
+                <div className="bg-linear-to-r from-primary-500 to-primary-600 rounded-2xl shadow-medium p-8 mb-8 text-black">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-primary-200 mb-2">Patrimonio Total</p>

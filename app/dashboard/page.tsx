@@ -147,7 +147,7 @@ export default async function DashboardPage() {
 
       {/* Getting Started Guide */}
       {(!accounts || accounts.length === 0) && (
-        <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-8">
+        <div className="bg-linear-to-r from-primary-50 to-secondary-50 rounded-2xl p-8">
           <div className="max-w-3xl mx-auto text-center">
             <Wallet className="h-16 w-16 text-primary-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-neutral-900 mb-2">

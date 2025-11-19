@@ -104,7 +104,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
     return (
       <div className="bg-accent-50 border border-accent-200 rounded-xl p-6">
         <div className="flex items-start space-x-3">
-          <AlertCircle className="h-5 w-5 text-accent-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="h-5 w-5 text-accent-600 shrink-0 mt-0.5" />
           <div>
             <h3 className="font-semibold text-neutral-900 mb-1">Configuración incompleta</h3>
             <p className="text-sm text-neutral-600 mb-3">
@@ -143,7 +143,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-accent-50 border border-accent-200 rounded-lg p-3 flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-accent-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-4 w-4 text-accent-600 shrink-0 mt-0.5" />
             <p className="text-sm text-accent-800">{error}</p>
           </div>
         )}
