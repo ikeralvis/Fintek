@@ -1,0 +1,120 @@
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { CreditCard, ArrowLeft, Wallet } from 'lucide-react';
+import CreateAccountForm from '@/components/dashboard/CreateAccountForm';
+import AccountCard from '@/components/dashboard/AccountCard';
+import { getAccountStats } from '@/lib/actions/accounts';
+import { formatCurrency } from '@/lib/utils';
+
+export default async function CuentasPage() {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect('/login');
+    }
+
+    // Obtener bancos
+    const { data: banks } = await supabase
+        .from('banks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+
+    // Obtener cuentas con información del banco
+    const { data: accounts } = await supabase
+        .from('accounts')
+        .select(`
+      *,
+      banks (
+        id,
+        name
+      )
+    `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+    // Calcular balance total
+    const totalBalance = accounts?.reduce((sum, acc) => sum + acc.current_balance, 0) || 0;
+
+    // Obtener estadísticas de cada cuenta
+    const accountsWithStats = await Promise.all(
+        (accounts || []).map(async (account) => {
+            const stats = await getAccountStats(account.id);
+            return {
+                ...account,
+                monthlyIncome: stats.data?.monthlyIncome || 0,
+                monthlyExpense: stats.data?.monthlyExpense || 0,
+            };
+        })
+    );
+
+    return (
+        <div className="min-h-screen bg-neutral-50">
+            <div className="container mx-auto px-4 py-8 max-w-7xl">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center space-x-3 mb-2">
+                        <CreditCard className="h-8 w-8 text-primary-600" />
+                        <h1 className="text-3xl font-bold text-neutral-900">Mis Cuentas</h1>
+                    </div>
+                    <p className="text-neutral-600">
+                        Gestiona tus cuentas bancarias y visualiza tus saldos
+                    </p>
+                </div>
+
+                {/* Resumen Total */}
+                <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl shadow-medium p-8 mb-8 text-black">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-primary-200 mb-2">Patrimonio Total</p>
+                            <p className="text-4xl font-bold">{formatCurrency(totalBalance)}</p>
+                            <p className="text-primary-100 mt-2 text-sm">
+                                {accounts?.length || 0} {accounts?.length === 1 ? 'cuenta' : 'cuentas'}
+                            </p>
+                        </div>
+                        <Wallet className="h-24 w-24 text-primary-300 opacity-50" />
+                    </div>
+                </div>
+
+                {/* Formulario de Nueva Cuenta */}
+                <div className="mb-8">
+                    <CreateAccountForm banks={banks || []} />
+                </div>
+
+                {/* Lista de Cuentas */}
+                {accountsWithStats.length === 0 ? (
+                    <div className="bg-white rounded-2xl shadow-soft p-12 text-center">
+                        <CreditCard className="h-16 w-16 text-neutral-300 mx-auto mb-4" />
+                        <h2 className="text-xl font-semibold text-neutral-700 mb-2">
+                            No tienes cuentas creadas
+                        </h2>
+                        <p className="text-neutral-500 mb-6">
+                            Crea tu primera cuenta para comenzar a registrar transacciones
+                        </p>
+                    </div>
+                ) : (
+                    <div>
+                        <h2 className="text-xl font-bold text-neutral-900 mb-4">
+                            Todas tus Cuentas ({accountsWithStats.length})
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {accountsWithStats.map((account) => (
+                                <AccountCard
+                                    key={account.id}
+                                    account={account}
+                                    monthlyIncome={account.monthlyIncome}
+                                    monthlyExpense={account.monthlyExpense}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
