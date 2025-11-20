@@ -11,6 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Fintek - Gestor Financiero Personal",
   description: "Gestiona tus finanzas personales de forma simple y eficiente",
+  
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -29,6 +30,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="icon" href="/logo.png" sizes="192x192" type="image/png" />
+        <link rel="icon" href="/logo.png" sizes="512x512" type="image/png" />
+      </head>
       <body className={`${inter.variable} font-sans`}>
         {children}
       </body>
