@@ -1,0 +1,9 @@
+{
+  "name": "Fintek - Gestor Financiero Personal",
+  "short_name": "Fintek",
+  "description": "Gestiona tus finanzas personales de forma simple y eficiente",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981"
+}
