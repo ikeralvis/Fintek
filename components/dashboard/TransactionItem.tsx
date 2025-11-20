@@ -47,9 +47,9 @@ export default function TransactionItem({ transaction }: Props) {
   };
 
   const isIncome = transaction.type === 'income';
-  const amountColor = isIncome ? 'text-secondary-600' : 'text-accent-600';
-  const bgColor = isIncome ? 'bg-secondary-50' : 'bg-accent-50';
-  const borderColor = isIncome ? 'border-secondary-200' : 'border-accent-200';
+  const amountColor = isIncome ? 'text-green-600' : 'text-red-600';
+  const bgColor = isIncome ? 'bg-green-50' : 'bg-red-50';
+  const borderColor = isIncome ? 'border-green-200' : 'border-red-200';
 
   return (
     <div
@@ -80,15 +80,15 @@ export default function TransactionItem({ transaction }: Props) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
-              <span className="bg-white px-2 py-0.5 rounded-full text-xs font-medium">
+              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-xs font-medium">
                 {transaction.categories?.name || 'Sin categoría'}
               </span>
               <span>•</span>
-              <span>
+              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-xs font-medium">
                 {transaction.accounts.name} ({transaction.accounts.banks.name})
               </span>
               <span>•</span>
-              <span>{formatDate(transaction.transaction_date)}</span>
+              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-xs font-medium">{formatDate(transaction.transaction_date)}</span>
             </div>
 
             {transaction.description && transaction.categories && (

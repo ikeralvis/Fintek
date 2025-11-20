@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Wallet, Settings, TrendingUp, CreditCard, FileText } from 'lucide-react';
+import DashboardWidgets from '@/components/dashboard/DashboardWidgets';
+import MiniTransactions from '@/components/dashboard/MiniTransactions';
+import { getSummaryData } from '@/lib/actions/summary';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -40,6 +43,20 @@ export default async function DashboardPage() {
     ?.filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0) || 0;
 
+  // Summary per month (use summary action to get monthly series and recent transactions)
+  const year = new Date().getFullYear();
+  const { data: summaryData } = await getSummaryData(year);
+  const monthlySeries = [] as any[];
+  if (summaryData?.monthlyData) {
+    // monthlyData indexed by month number 0-11
+    for (let m = 0; m < 12; m++) {
+      const md = summaryData.monthlyData[m] || { income: 0, expense: 0 };
+      monthlySeries.push({ month: `${year}-${String(m + 1).padStart(2, '0')}`, income: md.income || 0, expense: md.expense || 0 });
+    }
+  }
+
+  const recentTransactions = summaryData?.transactions?.slice().sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || [];
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Welcome Section */}
@@ -53,55 +70,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-soft p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-neutral-600">Patrimonio Total</h3>
-            <Wallet className="h-5 w-5 text-primary-600" />
-          </div>
-          <p className="text-3xl font-bold text-primary-600">
-            {new Intl.NumberFormat('es-ES', {
-              style: 'currency',
-              currency: 'EUR',
-            }).format(totalBalance)}
-          </p>
-          <p className="text-xs text-neutral-500 mt-2">
-            En {accounts?.length || 0} {accounts?.length === 1 ? 'cuenta' : 'cuentas'}
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-soft p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-neutral-600">Ingresos del Mes</h3>
-            <TrendingUp className="h-5 w-5 text-secondary-600" />
-          </div>
-          <p className="text-3xl font-bold text-secondary-600">
-            {new Intl.NumberFormat('es-ES', {
-              style: 'currency',
-              currency: 'EUR',
-            }).format(monthlyIncome)}
-          </p>
-          <p className="text-xs text-neutral-500 mt-2">
-            {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-soft p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-neutral-600">Gastos del Mes</h3>
-            <TrendingUp className="h-5 w-5 text-accent-600 rotate-180" />
-          </div>
-          <p className="text-3xl font-bold text-accent-600">
-            {new Intl.NumberFormat('es-ES', {
-              style: 'currency',
-              currency: 'EUR',
-            }).format(monthlyExpense)}
-          </p>
-          <p className="text-xs text-neutral-500 mt-2">
-            {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-      </div>
+      <DashboardWidgets totalBalance={totalBalance} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} monthlySeries={monthlySeries} />
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl shadow-soft p-6 mb-8">
@@ -214,6 +183,23 @@ export default async function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Latest Transactions and small widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <div className="lg:col-span-2">
+          <MiniTransactions transactions={recentTransactions} />
+        </div>
+        <div>
+          <div className="bg-white rounded-xl shadow-soft p-6">
+            <h3 className="text-sm font-medium text-neutral-600">Resumen rápido</h3>
+            <div className="mt-4 text-sm text-neutral-700">
+              <div>Saldo total: <strong>{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalBalance)}</strong></div>
+              <div>Ingresos mes: <strong>{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(monthlyIncome)}</strong></div>
+              <div>Gastos mes: <strong>{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(monthlyExpense)}</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

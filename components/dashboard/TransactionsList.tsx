@@ -61,27 +61,27 @@ export default function TransactionsList({ transactions }: Props) {
           📊 Resumen ({transactions.length} transacciones)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-secondary-50 rounded-lg p-4">
+          <div className="bg-green-50 rounded-lg p-4">
             <p className="text-sm text-neutral-600 mb-1">Total Ingresos</p>
-            <p className="text-2xl font-bold text-secondary-600">
+            <p className="text-2xl font-bold text-green-600">
               {new Intl.NumberFormat('es-ES', {
                 style: 'currency',
                 currency: 'EUR',
               }).format(totalIncome)}
             </p>
           </div>
-          <div className="bg-accent-50 rounded-lg p-4">
+          <div className="bg-red-50 rounded-lg p-4">
             <p className="text-sm text-neutral-600 mb-1">Total Gastos</p>
-            <p className="text-2xl font-bold text-accent-600">
+            <p className="text-2xl font-bold text-red-600">
               {new Intl.NumberFormat('es-ES', {
                 style: 'currency',
                 currency: 'EUR',
               }).format(totalExpense)}
             </p>
           </div>
-          <div className={`${balance >= 0 ? 'bg-primary-50' : 'bg-accent-50'} rounded-lg p-4`}>
+          <div className={`${balance >= 0 ? 'bg-green-50' : 'bg-red-50'} rounded-lg p-4`}>
             <p className="text-sm text-neutral-600 mb-1">Balance</p>
-            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-primary-600' : 'text-accent-600'}`}>
+            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {new Intl.NumberFormat('es-ES', {
                 style: 'currency',
                 currency: 'EUR',
