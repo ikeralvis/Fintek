@@ -4,7 +4,9 @@ import { FileText } from 'lucide-react';
 import SummaryFilters from '@/components/dashboard/SummaryFilters';
 import SummaryCharts from '@/components/dashboard/SummaryCharts';
 import MonthlyCategoryTable from '@/components/dashboard/MonthlyCategoryTable';
+import ExportButton from '@/components/dashboard/ExportButton';
 import { getSummaryData, getAvailableYears } from '@/lib/actions/summary';
+import { getBudgetProgress } from '@/lib/actions/budgets';
 
 type SearchParams = {
     year?: string;
@@ -14,9 +16,10 @@ type SearchParams = {
 export default async function ResumenPage({
     searchParams,
 }: {
-    searchParams: SearchParams;
+    searchParams: Promise<SearchParams>;
 }) {
     const supabase = await createClient();
+    const resolvedSearchParams = await searchParams;
 
     const {
         data: { user },
@@ -31,8 +34,8 @@ export default async function ResumenPage({
     const years = availableYears || [new Date().getFullYear()];
 
     // Año actual o del query param
-    const currentYear = searchParams.year
-        ? parseInt(searchParams.year)
+    const currentYear = resolvedSearchParams.year
+        ? parseInt(resolvedSearchParams.year)
         : new Date().getFullYear();
 
     // Obtener categorías
@@ -45,8 +48,17 @@ export default async function ResumenPage({
     // Obtener datos del resumen
     const { data: summaryData } = await getSummaryData(
         currentYear,
-        searchParams.categoryId
+        resolvedSearchParams.categoryId
     );
+
+    // Obtener cuentas para el reporte
+    const { data: accounts } = await supabase
+        .from('accounts')
+        .select('*, banks(name)')
+        .eq('user_id', user.id);
+
+    // Obtener presupuestos para el reporte
+    const { data: budgets } = await getBudgetProgress();
 
     if (!summaryData) {
         return (
@@ -77,17 +89,45 @@ export default async function ResumenPage({
     );
     const yearlyBalance = yearlyIncome - yearlyExpense;
 
+    // Datos para el reporte PDF
+    const now = new Date();
+    const currentMonthIndex = now.getMonth();
+    const currentMonthData = monthlyData[currentMonthIndex] || { income: 0, expense: 0 };
+
+    // Preparar series mensuales para el gráfico del reporte
+    const monthlySeries = [];
+    for (let m = 0; m < 12; m++) {
+        const md = monthlyData[m] || { income: 0, expense: 0 };
+        monthlySeries.push({ month: `${currentYear}-${String(m + 1).padStart(2, '0')}`, income: md.income || 0, expense: md.expense || 0 });
+    }
+
+    const reportData = {
+        userName: user.user_metadata?.name || 'Usuario',
+        totalBalance: accounts?.reduce((sum, acc) => sum + acc.current_balance, 0) || 0,
+        monthlyIncome: currentMonthData.income,
+        monthlyExpense: currentMonthData.expense,
+        accounts: accounts || [],
+        budgets: budgets || [],
+        monthlySeries,
+        monthlyData
+    };
+
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl">
             {/* Header */}
-            <div className="mb-8">
-                <div className="flex items-center space-x-3 mb-2">
-                    <FileText className="h-8 w-8 text-primary-600" />
-                    <h1 className="text-3xl font-bold text-neutral-900">Resumen Financiero</h1>
+            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <div className="flex items-center space-x-3 mb-2">
+                        <FileText className="h-8 w-8 text-primary-600" />
+                        <h1 className="text-3xl font-bold text-neutral-900">Resumen Financiero</h1>
+                    </div>
+                    <p className="text-neutral-600">
+                        Análisis detallado de tus finanzas en {currentYear}
+                    </p>
                 </div>
-                <p className="text-neutral-600">
-                    Análisis detallado de tus finanzas en {currentYear}
-                </p>
+                <div>
+                    <ExportButton data={reportData} />
+                </div>
             </div>
 
             {/* Filtros */}
@@ -96,7 +136,7 @@ export default async function ResumenPage({
                     availableYears={years}
                     categories={categories || []}
                     currentYear={currentYear}
-                    currentCategoryId={searchParams.categoryId}
+                    currentCategoryId={resolvedSearchParams.categoryId}
                 />
             </div>
 
@@ -137,6 +177,7 @@ export default async function ResumenPage({
                         {new Intl.NumberFormat('es-ES', {
                             style: 'currency',
                             currency: 'EUR',
+                            signDisplay: 'always'
                         }).format(yearlyBalance)}
                     </p>
                 </div>

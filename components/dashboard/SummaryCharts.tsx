@@ -25,6 +25,9 @@ const monthNames = [
 ];
 
 export default function SummaryCharts({ monthlyData }: Props) {
+  // Safety check
+  if (!monthlyData) return null;
+
   // Preparar datos para el gráfico de barras
   const barChartData = useMemo(() => {
     return Object.keys(monthlyData).map((monthKey) => {

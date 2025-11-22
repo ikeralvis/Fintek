@@ -2,16 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  CreditCard, 
-  TrendingUp, 
-  FileText, 
-  Settings, 
+import {
+  LayoutDashboard,
+  CreditCard,
+  TrendingUp,
+  FileText,
+  Settings,
   LogOut,
   Wallet,
   Menu,
-  X
+  X,
+  PieChart
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -25,6 +26,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
   { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-5 w-5" /> },
   { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-5 w-5" /> },
+  { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <PieChart className="h-5 w-5" /> },
   { name: 'Resumen', href: '/dashboard/resumen', icon: <FileText className="h-5 w-5" /> },
   { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-5 w-5" /> },
 ];
@@ -65,11 +67,10 @@ export default function DashboardNav({ userName, userEmail }: Props) {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      active
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${active
                         ? 'bg-primary-50 text-primary-700'
                         : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
-                    }`}
+                      }`}
                   >
                     {item.icon}
                     <span>{item.name}</span>
@@ -123,18 +124,17 @@ export default function DashboardNav({ userName, userEmail }: Props) {
                   key={item.name}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-                    active
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-colors ${active
                       ? 'bg-primary-50 text-primary-700'
                       : 'text-neutral-600 hover:bg-neutral-50'
-                  }`}
+                    }`}
                 >
                   {item.icon}
                   <span>{item.name}</span>
                 </Link>
               );
             })}
-            
+
             {/* Mobile User Info */}
             <div className="pt-4 mt-4 border-t border-neutral-200">
               <div className="px-4 py-2">
