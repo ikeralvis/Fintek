@@ -15,7 +15,6 @@
     color: #171717;            /* Tailwind text-neutral-900 */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-smooth: always;
   }
 
   /* Fix para inputs y botones */

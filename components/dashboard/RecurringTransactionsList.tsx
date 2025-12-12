@@ -92,8 +92,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Tipo</label>
+                                <label htmlFor="recurring-type" className="block text-sm font-medium text-neutral-700 mb-1">Tipo</label>
                                 <select
+                                    id="recurring-type"
                                     value={formData.type}
                                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                     className="w-full p-2 border border-neutral-200 rounded-lg"
@@ -103,8 +104,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Frecuencia</label>
+                                <label htmlFor="recurring-frequency" className="block text-sm font-medium text-neutral-700 mb-1">Frecuencia</label>
                                 <select
+                                    id="recurring-frequency"
                                     value={formData.frequency}
                                     onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
                                     className="w-full p-2 border border-neutral-200 rounded-lg"
@@ -115,8 +117,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Cuenta</label>
+                                <label htmlFor="recurring-account" className="block text-sm font-medium text-neutral-700 mb-1">Cuenta</label>
                                 <select
+                                    id="recurring-account"
                                     value={formData.accountId}
                                     onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
                                     className="w-full p-2 border border-neutral-200 rounded-lg"
@@ -129,8 +132,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Categoría</label>
+                                <label htmlFor="recurring-category" className="block text-sm font-medium text-neutral-700 mb-1">Categoría</label>
                                 <select
+                                    id="recurring-category"
                                     value={formData.categoryId}
                                     onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                                     className="w-full p-2 border border-neutral-200 rounded-lg"
@@ -143,8 +147,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Importe</label>
+                                <label htmlFor="recurring-amount" className="block text-sm font-medium text-neutral-700 mb-1">Importe</label>
                                 <input
+                                    id="recurring-amount"
                                     type="number"
                                     step="0.01"
                                     value={formData.amount}
@@ -154,8 +159,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Fecha de Inicio</label>
+                                <label htmlFor="recurring-start-date" className="block text-sm font-medium text-neutral-700 mb-1">Fecha de Inicio</label>
                                 <input
+                                    id="recurring-start-date"
                                     type="date"
                                     value={formData.startDate}
                                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
@@ -164,8 +170,9 @@ export default function RecurringTransactionsList({ recurringTransactions, accou
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Descripción</label>
+                                <label htmlFor="recurring-description" className="block text-sm font-medium text-neutral-700 mb-1">Descripción</label>
                                 <input
+                                    id="recurring-description"
                                     type="text"
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}

@@ -52,7 +52,7 @@ export async function getCategoryMonthlySummary(filters?: Filters) {
       else categoryMap[catId].months[month].expense += t.amount;
     });
 
-    const months = Array.from(monthsSet).sort();
+    const months = Array.from(monthsSet).sort((a, b) => a.localeCompare(b));
 
     const monthlyTotals = months.map((m) => ({ month: m, income: monthlyTotalsMap[m]?.income || 0, expense: monthlyTotalsMap[m]?.expense || 0, net: (monthlyTotalsMap[m]?.income || 0) - (monthlyTotalsMap[m]?.expense || 0) }));
 
