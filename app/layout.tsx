@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
-
-const inter = Inter({ 
-  subsets: ["latin"],
-  variable: '--font-inter',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: "Fintek - Gestor Financiero Personal",
   description: "Gestiona tus finanzas personales de forma simple y eficiente",
-  
+
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -35,7 +29,7 @@ export default function RootLayout({
         <link rel="icon" href="/logo.png" sizes="192x192" type="image/png" />
         <link rel="icon" href="/logo.png" sizes="512x512" type="image/png" />
       </head>
-      <body className={`${inter.variable} font-sans`}>
+      <body className={`${GeistSans.variable} font-sans antialiased text-neutral-900 bg-neutral-50`}>
         {children}
       </body>
     </html>

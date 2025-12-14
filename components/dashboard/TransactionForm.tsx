@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, AlertCircle } from 'lucide-react';
+import { Plus, AlertCircle, ArrowUpCircle, ArrowDownCircle, Calendar, FileText, Wallet, Tag } from 'lucide-react';
 import { createTransaction } from '@/lib/actions/transactions';
 
 type Account = {
@@ -22,7 +22,7 @@ type Props = {
 
 export default function TransactionForm({ accounts, categories }: Readonly<Props>) {
   const today = new Date().toISOString().split('T')[0];
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -56,15 +56,6 @@ export default function TransactionForm({ accounts, categories }: Readonly<Props
 
     setLoading(true);
 
-    console.log('Submitting transaction:', {
-      type: formData.type,
-      accountId: formData.accountId,
-      categoryId: formData.categoryId,
-      amount,
-      description: formData.description.trim() || undefined,
-      transactionDate: formData.transactionDate,
-    });
-
     const result = await createTransaction({
       type: formData.type,
       accountId: formData.accountId,
@@ -78,10 +69,9 @@ export default function TransactionForm({ accounts, categories }: Readonly<Props
       setError(result.error);
       setLoading(false);
     } else {
-      // Resetear formulario
       setFormData({
         type: 'expense',
-        accountId: formData.accountId, // Mantener cuenta seleccionada
+        accountId: formData.accountId,
         categoryId: '',
         amount: '',
         description: '',
@@ -102,31 +92,23 @@ export default function TransactionForm({ accounts, categories }: Readonly<Props
 
   if (accounts.length === 0 || categories.length === 0) {
     return (
-      <div className="bg-accent-50 border border-accent-200 rounded-xl p-6">
+      <div className="bg-accent-50 border border-accent-200 rounded-2xl p-6">
         <div className="flex items-start space-x-3">
-          <AlertCircle className="h-5 w-5 text-accent-600 shrink-0 mt-0.5" />
+          <AlertCircle className="h-6 w-6 text-accent-600 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-neutral-900 mb-1">Configuración incompleta</h3>
-            <p className="text-sm text-neutral-600 mb-3">
-              {accounts.length === 0 && 'No tienes cuentas creadas. '}
-              {categories.length === 0 && 'No tienes categorías creadas. '}
-              Configura esto antes de registrar transacciones.
+            <h3 className="font-bold text-neutral-900 mb-1 text-lg">Configuración incompleta</h3>
+            <p className="text-neutral-600 mb-4">
+              Para comenzar, necesitas configurar tus cuentas y categorías.
             </p>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               {accounts.length === 0 && (
-                <a
-                  href="/dashboard/cuentas"
-                  className="text-sm font-medium text-primary-600 hover:text-primary-700"
-                >
-                  Crear Cuenta →
+                <a href="/dashboard/cuentas" className="bg-primary-600 text-white px-4 py-2 rounded-xl text-center font-medium hover:bg-primary-700 transition-colors">
+                  Crear Cuenta
                 </a>
               )}
               {categories.length === 0 && (
-                <a
-                  href="/dashboard/configuracion"
-                  className="text-sm font-medium text-primary-600 hover:text-primary-700"
-                >
-                  Añadir Categorías →
+                <a href="/dashboard/configuracion" className="bg-neutral-900 text-white px-4 py-2 rounded-xl text-center font-medium hover:bg-neutral-800 transition-colors">
+                  Añadir Categorías
                 </a>
               )}
             </div>
@@ -137,160 +119,169 @@ export default function TransactionForm({ accounts, categories }: Readonly<Props
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-soft p-6">
-      <h2 className="text-lg font-bold text-neutral-900 mb-4">➕ Nueva Transacción</h2>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="bg-white/50 backdrop-blur-sm rounded-3xl p-1">
+      <form onSubmit={handleSubmit} className="space-y-8">
         {error && (
-          <div className="bg-accent-50 border border-accent-200 rounded-lg p-3 flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-accent-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-accent-800">{error}</p>
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center space-x-3 animate-fade-in">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <p className="text-sm font-medium text-red-800">{error}</p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          {/* Tipo */}
-          <div className="lg:col-span-1">
-            <label htmlFor="type" className="block text-sm font-medium text-neutral-700 mb-1">
-              Tipo *
-            </label>
-            <select
-              id="type"
-              name="type"
-              value={formData.type}
+        {/* 1. Selector de Tipo (Segmented Control Grande) */}
+        <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-100/80 rounded-2xl">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, type: 'expense' })}
+            className={`flex items-center justify-center gap-2 py-4 rounded-xl text-lg font-bold transition-all duration-200 ${formData.type === 'expense'
+              ? 'bg-white text-accent-600 shadow-sm ring-1 ring-black/5'
+              : 'text-neutral-500 hover:bg-neutral-200/50'
+              }`}
+          >
+            <ArrowDownCircle className={`h-6 w-6 ${formData.type === 'expense' ? 'text-accent-500' : 'text-neutral-400'}`} />
+            Gasto
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, type: 'income' })}
+            className={`flex items-center justify-center gap-2 py-4 rounded-xl text-lg font-bold transition-all duration-200 ${formData.type === 'income'
+              ? 'bg-white text-secondary-600 shadow-sm ring-1 ring-black/5'
+              : 'text-neutral-500 hover:bg-neutral-200/50'
+              }`}
+          >
+            <ArrowUpCircle className={`h-6 w-6 ${formData.type === 'income' ? 'text-secondary-500' : 'text-neutral-400'}`} />
+            Ingreso
+          </button>
+        </div>
+
+        {/* 2. Input de Cantidad Gigante */}
+        <div className="text-center">
+          <label htmlFor="amount" className="block text-sm font-medium text-neutral-400 uppercase tracking-wider mb-2">Importe</label>
+          <div className="relative inline-block max-w-[200px] sm:max-w-xs mx-auto">
+            <span className={`absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-bold ${formData.type === 'expense' ? 'text-accent-500' : 'text-secondary-500'}`}>€</span>
+            <input
+              id="amount"
+              name="amount"
+              type="number"
+              step="0.01"
+              value={formData.amount}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-            >
-              <option value="expense">💸 Gasto</option>
-              <option value="income">💰 Ingreso</option>
-            </select>
+              placeholder="0.00"
+              className="w-full bg-transparent text-center text-6xl font-black focus:outline-none placeholder-neutral-200 p-2 text-neutral-900"
+            />
           </div>
+        </div>
 
-          {/* Cuenta */}
-          <div className="lg:col-span-2">
-            <label htmlFor="accountId" className="block text-sm font-medium text-neutral-700 mb-1">
-              Cuenta *
-            </label>
-            <select
-              id="accountId"
-              name="accountId"
-              value={formData.accountId}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-            >
-              <option value="">Seleccionar...</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name} ({account.banks.name})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Categoría */}
-          <div className="lg:col-span-2">
-            <label htmlFor="categoryId" className="block text-sm font-medium text-neutral-700 mb-1">
-              Categoría *
-            </label>
-            <select
-              id="categoryId"
-              name="categoryId"
-              value={formData.categoryId}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-            >
-              <option value="">Seleccionar...</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Importe */}
-          <div className="lg:col-span-1">
-            <label htmlFor="amount" className="block text-sm font-medium text-neutral-700 mb-1">
-              Importe *
+        {/* 3. Grid de Campos (Cuenta y Categoría) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+              <Wallet className="h-4 w-4 mr-2" /> Cuenta
             </label>
             <div className="relative">
-              <input
-                id="amount"
-                name="amount"
-                type="number"
-                step="0.01"
-                value={formData.amount}
+              <select
+                id="accountId"
+                name="accountId"
+                value={formData.accountId}
                 onChange={handleChange}
                 required
-                placeholder="0.00"
-                className="w-full px-3 py-2 pr-8 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-              />
-              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-500 text-sm">
-                €
-              </span>
+                className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all cursor-pointer hover:bg-neutral-100"
+              >
+                <option value="">Seleccionar cuenta...</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} · {account.banks.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+              <Tag className="h-4 w-4 mr-2" /> Categoría
+            </label>
+            <div className="relative">
+              <select
+                id="categoryId"
+                name="categoryId"
+                value={formData.categoryId}
+                onChange={handleChange}
+                required
+                className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all cursor-pointer hover:bg-neutral-100"
+              >
+                <option value="">Seleccionar categoría...</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Fecha */}
-          <div>
-            <label htmlFor="transactionDate" className="block text-sm font-medium text-neutral-700 mb-1">
-              Fecha *
+        {/* 4. Fecha y Detalles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+              <Calendar className="h-4 w-4 mr-2" /> Fecha
             </label>
             <input
-              id="transactionDate"
-              name="transactionDate"
               type="date"
+              name="transactionDate"
               value={formData.transactionDate}
               onChange={handleChange}
               required
-              max={today}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-base font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all"
             />
           </div>
 
-          {/* Descripción */}
-          <div className="md:col-span-2">
-            <label htmlFor="description" className="block text-sm font-medium text-neutral-700 mb-1">
-              Descripción (opcional)
+          <div className="space-y-2">
+            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+              <FileText className="h-4 w-4 mr-2" /> Nota (Opcional)
             </label>
             <input
-              id="description"
-              name="description"
               type="text"
+              name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Ej: Compra en Mercadona, Gasolina..."
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
+              placeholder="¿En qué gastaste?"
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-base font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all placeholder-neutral-400"
             />
           </div>
         </div>
 
-        {/* Botón Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            backgroundColor: loading ? '#94a3b8' : '#0073ea',
-            color: 'white',
-            padding: '0.625rem 1.5rem',
-            borderRadius: '0.5rem',
-            fontWeight: '600',
-            border: 'none',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            marginLeft: 'auto',
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          {loading ? 'Añadiendo...' : 'Añadir Transacción'}
-        </button>
+        {/* 5. Botón de Acción Masivo */}
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-5 rounded-2xl text-xl font-bold text-white shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${loading
+                ? 'bg-neutral-400 cursor-not-allowed'
+                : formData.type === 'expense'
+                  ? 'bg-neutral-900 hover:bg-neutral-800'
+                  : 'bg-primary-600 hover:bg-primary-500'
+              }`}
+          >
+            {loading ? (
+              <span className="animate-pulse">Guardando...</span>
+            ) : (
+              <>
+                <Plus className="h-6 w-6" />
+                {formData.type === 'expense' ? 'Registrar Gasto' : 'Registrar Ingreso'}
+              </>
+            )}
+          </button>
+        </div>
+
       </form>
     </div>
   );

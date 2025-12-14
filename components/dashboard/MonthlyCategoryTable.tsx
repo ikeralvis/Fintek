@@ -34,7 +34,7 @@ const monthNames = [
 ];
 
 export default function MonthlyCategoryTable({ monthlyData, categoryTotals }: Props) {
-  const categories = Object.keys(categoryTotals).sort((a, b) => 
+  const categories = Object.keys(categoryTotals).sort((a, b) =>
     Math.abs(categoryTotals[b].balance) - Math.abs(categoryTotals[a].balance)
   );
 
@@ -89,9 +89,8 @@ export default function MonthlyCategoryTable({ monthlyData, categoryTotals }: Pr
               return (
                 <tr
                   key={category}
-                  className={`border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${
-                    isEven ? 'bg-white' : 'bg-neutral-25'
-                  }`}
+                  className={`border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${isEven ? 'bg-white' : 'bg-neutral-25'
+                    }`}
                 >
                   <td className="sticky left-0 bg-inherit z-10 px-4 py-3 font-medium text-neutral-900">
                     {category}
@@ -105,13 +104,12 @@ export default function MonthlyCategoryTable({ monthlyData, categoryTotals }: Pr
                     return (
                       <td
                         key={month}
-                        className={`px-3 py-3 text-right ${
-                          balance > 0
-                            ? 'text-secondary-600 font-semibold'
+                        className={`px-3 py-3 text-right ${balance > 0
+                            ? 'text-emerald-600 font-semibold'
                             : balance < 0
-                            ? 'text-accent-600 font-semibold'
-                            : 'text-neutral-400'
-                        }`}
+                              ? 'text-red-600 font-semibold'
+                              : 'text-neutral-400'
+                          }`}
                       >
                         {balance !== 0
                           ? formatCurrency(balance)
@@ -120,13 +118,12 @@ export default function MonthlyCategoryTable({ monthlyData, categoryTotals }: Pr
                     );
                   })}
                   <td
-                    className={`px-4 py-3 text-right font-bold bg-neutral-50 ${
-                      categoryTotals[category].balance > 0
+                    className={`px-4 py-3 text-right font-bold bg-neutral-50 ${categoryTotals[category].balance > 0
                         ? 'text-secondary-700'
                         : categoryTotals[category].balance < 0
-                        ? 'text-accent-700'
-                        : 'text-neutral-500'
-                    }`}
+                          ? 'text-accent-700'
+                          : 'text-neutral-500'
+                      }`}
                   >
                     {formatCurrency(categoryTotals[category].balance)}
                   </td>
@@ -142,25 +139,23 @@ export default function MonthlyCategoryTable({ monthlyData, categoryTotals }: Pr
               {monthlyTotals.map((total, month) => (
                 <td
                   key={month}
-                  className={`px-3 py-3 text-right ${
-                    total > 0
+                  className={`px-3 py-3 text-right ${total > 0
                       ? 'text-secondary-700'
                       : total < 0
-                      ? 'text-accent-700'
-                      : 'text-neutral-500'
-                  }`}
+                        ? 'text-accent-700'
+                        : 'text-neutral-500'
+                    }`}
                 >
                   {formatCurrency(total)}
                 </td>
               ))}
               <td
-                className={`px-4 py-3 text-right ${
-                  yearTotal > 0
+                className={`px-4 py-3 text-right ${yearTotal > 0
                     ? 'text-secondary-800'
                     : yearTotal < 0
-                    ? 'text-accent-800'
-                    : 'text-neutral-700'
-                }`}
+                      ? 'text-accent-800'
+                      : 'text-neutral-700'
+                  }`}
               >
                 {formatCurrency(yearTotal)}
               </td>

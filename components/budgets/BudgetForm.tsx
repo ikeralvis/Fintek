@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, AlertCircle } from 'lucide-react';
+import { AlertCircle, Tag, Target } from 'lucide-react';
 import { createBudget } from '@/lib/actions/budgets';
 
 type Category = {
@@ -67,19 +67,16 @@ export default function BudgetForm({ categories }: Readonly<Props>) {
 
     if (categories.length === 0) {
         return (
-            <div className="bg-accent-50 border border-accent-200 rounded-xl p-6 mb-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
                 <div className="flex items-start space-x-3">
-                    <AlertCircle className="h-5 w-5 text-accent-600 shrink-0 mt-0.5" />
+                    <AlertCircle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                        <h3 className="font-semibold text-neutral-900 mb-1">No hay categorías</h3>
-                        <p className="text-sm text-neutral-600 mb-3">
+                        <h3 className="font-bold text-neutral-900 mb-1">No hay categorías</h3>
+                        <p className="text-neutral-600 mb-3">
                             Necesitas crear categorías antes de definir presupuestos.
                         </p>
-                        <a
-                            href="/dashboard/configuracion"
-                            className="text-sm font-medium text-primary-600 hover:text-primary-700"
-                        >
-                            Ir a Configuración →
+                        <a href="/dashboard/configuracion" className="inline-block bg-amber-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-amber-600 transition-colors">
+                            Ir a Configuración
                         </a>
                     </div>
                 </div>
@@ -88,45 +85,20 @@ export default function BudgetForm({ categories }: Readonly<Props>) {
     }
 
     return (
-        <div className="bg-white rounded-xl shadow-soft p-6 mb-8">
-            <h2 className="text-lg font-bold text-neutral-900 mb-4">➕ Nuevo Presupuesto</h2>
-
-            <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 items-end">
+        <div className="bg-white/50 backdrop-blur-sm rounded-3xl p-1 mb-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
-                    <div className="w-full md:w-auto bg-accent-50 border border-accent-200 rounded-lg p-3 flex items-start space-x-2 mb-4 md:mb-0">
-                        <AlertCircle className="h-4 w-4 text-accent-600 shrink-0 mt-0.5" />
-                        <p className="text-sm text-accent-800">{error}</p>
+                    <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center space-x-3 animate-fade-in">
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                        <p className="text-sm font-medium text-red-800">{error}</p>
                     </div>
                 )}
 
-                {/* Categoría */}
-                <div className="w-full md:flex-1">
-                    <label htmlFor="categoryId" className="block text-sm font-medium text-neutral-700 mb-1">
-                        Categoría *
-                    </label>
-                    <select
-                        id="categoryId"
-                        name="categoryId"
-                        value={formData.categoryId}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-                    >
-                        <option value="">Seleccionar...</option>
-                        {categories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                                {category.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Importe */}
-                <div className="w-full md:w-48">
-                    <label htmlFor="amount" className="block text-sm font-medium text-neutral-700 mb-1">
-                        Límite Mensual *
-                    </label>
-                    <div className="relative">
+                {/* 1. Input de Cantidad Gigante */}
+                <div className="text-center pt-2">
+                    <label htmlFor="amount" className="block text-sm font-medium text-neutral-400 uppercase tracking-wider mb-2">Límite Mensual</label>
+                    <div className="relative inline-block max-w-[200px] mx-auto">
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-bold text-amber-500">€</span>
                         <input
                             id="amount"
                             name="amount"
@@ -136,26 +108,56 @@ export default function BudgetForm({ categories }: Readonly<Props>) {
                             onChange={handleChange}
                             required
                             placeholder="0.00"
-                            className="w-full px-3 py-2 pr-8 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
+                            className="w-full bg-transparent text-center text-6xl font-black focus:outline-none placeholder-neutral-200 p-2 text-neutral-900"
                         />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-500 text-sm">
-                            €
-                        </span>
+                    </div>
+                </div>
+
+                {/* 2. Selector de Categoría */}
+                <div className="max-w-md mx-auto space-y-2">
+                    <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+                        <Tag className="h-4 w-4 mr-2" /> Categoría a Limitar
+                    </label>
+                    <div className="relative">
+                        <select
+                            id="categoryId"
+                            name="categoryId"
+                            value={formData.categoryId}
+                            onChange={handleChange}
+                            required
+                            className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-amber-100 focus:border-amber-500 transition-all cursor-pointer hover:bg-neutral-100"
+                        >
+                            <option value="">Seleccionar...</option>
+                            {categories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                    {category.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
                     </div>
                 </div>
 
                 {/* Botón Submit */}
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className={`
-            w-full md:w-auto px-6 py-2 rounded-lg font-semibold text-white flex items-center justify-center gap-2 transition-colors
-            ${loading ? 'bg-neutral-400 cursor-not-allowed' : 'bg-primary-600 hover:bg-primary-700'}
-          `}
-                >
-                    <Plus className="h-4 w-4" />
-                    {loading ? 'Guardando...' : 'Guardar'}
-                </button>
+                <div className="pt-2 max-w-md mx-auto">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className={`w-full py-4 rounded-2xl text-xl font-bold text-white shadow-lg transition-all flex items-center justify-center gap-3 ${loading ? 'bg-neutral-400 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 hover:shadow-xl active:scale-[0.98]'
+                            }`}
+                    >
+                        {loading ? (
+                            <span className="animate-pulse">Guardando...</span>
+                        ) : (
+                            <>
+                                <Target className="h-6 w-6" />
+                                Definir Objetivo
+                            </>
+                        )}
+                    </button>
+                </div>
             </form>
         </div>
     );

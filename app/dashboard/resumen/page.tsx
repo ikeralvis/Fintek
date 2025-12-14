@@ -114,15 +114,17 @@ export default async function ResumenPage({
     };
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-12 max-w-7xl">
             {/* Header */}
-            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <div className="flex items-center space-x-3 mb-2">
-                        <FileText className="h-8 w-8 text-primary-600" />
-                        <h1 className="text-3xl font-bold text-neutral-900">Resumen Financiero</h1>
+                        <div className="p-2.5 bg-teal-50 rounded-xl">
+                            <FileText className="h-6 w-6 text-teal-600" />
+                        </div>
+                        <h1 className="text-4xl font-bold text-neutral-900 tracking-tight">Resumen Financiero</h1>
                     </div>
-                    <p className="text-neutral-600">
+                    <p className="text-lg text-neutral-500 font-medium ml-12">
                         Análisis detallado de tus finanzas en {currentYear}
                     </p>
                 </div>
@@ -133,22 +135,24 @@ export default async function ResumenPage({
             </div>
 
             {/* Filtros */}
-            <div className="mb-6">
-                <SummaryFilters
-                    availableYears={years}
-                    categories={categories || []}
-                    currentYear={currentYear}
-                    currentCategoryId={resolvedSearchParams.categoryId}
-                />
+            <div className="mb-8">
+                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-4">
+                    <SummaryFilters
+                        availableYears={years}
+                        categories={categories || []}
+                        currentYear={currentYear}
+                        currentCategoryId={resolvedSearchParams.categoryId}
+                    />
+                </div>
             </div>
 
             {/* Resumen Anual */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white rounded-xl shadow-soft p-6">
-                    <h3 className="text-sm font-medium text-neutral-600 mb-2">
+                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6">
+                    <h3 className="text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">
                         Total Ingresos {currentYear}
                     </h3>
-                    <p className="text-3xl font-bold text-secondary-600">
+                    <p className="text-3xl font-bold text-emerald-600">
                         {new Intl.NumberFormat('es-ES', {
                             style: 'currency',
                             currency: 'EUR',
@@ -156,11 +160,11 @@ export default async function ResumenPage({
                     </p>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-soft p-6">
-                    <h3 className="text-sm font-medium text-neutral-600 mb-2">
+                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6">
+                    <h3 className="text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">
                         Total Gastos {currentYear}
                     </h3>
-                    <p className="text-3xl font-bold text-accent-600">
+                    <p className="text-3xl font-bold text-rose-600">
                         {new Intl.NumberFormat('es-ES', {
                             style: 'currency',
                             currency: 'EUR',
@@ -168,12 +172,12 @@ export default async function ResumenPage({
                     </p>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-soft p-6">
-                    <h3 className="text-sm font-medium text-neutral-600 mb-2">
+                <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6">
+                    <h3 className="text-sm font-medium text-neutral-500 mb-2 uppercase tracking-wide">
                         Balance {currentYear}
                     </h3>
                     <p
-                        className={`text-3xl font-bold ${yearlyBalance >= 0 ? 'text-primary-600' : 'text-accent-600'
+                        className={`text-3xl font-bold ${yearlyBalance >= 0 ? 'text-blue-600' : 'text-rose-600'
                             }`}
                     >
                         {new Intl.NumberFormat('es-ES', {
@@ -186,12 +190,12 @@ export default async function ResumenPage({
             </div>
 
             {/* Gráficos */}
-            <div className="mb-8">
+            <div className="mb-8 bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6">
                 <SummaryCharts monthlyData={monthlyData} />
             </div>
 
             {/* Tabla Mensual */}
-            <div>
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6 mb-8">
                 <MonthlyCategoryTable
                     monthlyData={monthlyData}
                     categoryTotals={categoryTotals}
@@ -199,10 +203,16 @@ export default async function ResumenPage({
             </div>
 
             {/* Info adicional */}
-            <div className="mt-6 bg-primary-50 border border-primary-200 rounded-xl p-4">
-                <p className="text-sm text-primary-800">
-                    💡 <strong>Tip:</strong> Los valores positivos (verde) indican más ingresos que gastos. Los negativos (rojo) indican más gastos que ingresos.
-                </p>
+            <div className="bg-teal-50 border border-teal-200 rounded-2xl p-6 flex items-start space-x-3">
+                <div className="p-2 bg-teal-100 rounded-full mt-0.5">
+                    <FileText className="h-4 w-4 text-teal-700" />
+                </div>
+                <div>
+                    <h4 className="font-bold text-teal-900 text-sm mb-1">Entendiendo tu reporte</h4>
+                    <p className="text-sm text-teal-800">
+                        Los valores positivos (verde) indican más ingresos que gastos. Los negativos (rojo) indican más gastos que ingresos.
+                    </p>
+                </div>
             </div>
         </div>
     );

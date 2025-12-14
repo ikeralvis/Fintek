@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X, AlertCircle } from 'lucide-react';
+import { Plus, X, AlertCircle, Building2, Wallet } from 'lucide-react';
 import { createAccount } from '@/lib/actions/accounts';
 
 type Bank = {
@@ -71,25 +71,14 @@ export default function CreateAccountForm({ banks }: Props) {
 
   if (banks.length === 0) {
     return (
-      <div className="bg-accent-50 border border-accent-200 rounded-xl p-6 text-center">
-        <AlertCircle className="h-12 w-12 text-accent-600 mx-auto mb-3" />
-        <h3 className="font-semibold text-neutral-900 mb-2">No tienes bancos configurados</h3>
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center">
+        <Building2 className="h-12 w-12 text-blue-500 mx-auto mb-3" />
+        <h3 className="font-bold text-neutral-900 mb-2">No tienes bancos configurados</h3>
         <p className="text-sm text-neutral-600 mb-4">
-          Antes de crear una cuenta, debes añadir al menos un banco en Configuración.
+          Antes de crear una cuenta, debes añadir al menos un banco.
         </p>
-        
-        <a
-          href="/dashboard/configuracion"
-          style={{
-            backgroundColor: '#0073ea',
-            color: 'white',
-            padding: '0.5rem 1.5rem',
-            borderRadius: '0.5rem',
-            fontWeight: '600',
-            display: 'inline-block',
-            textDecoration: 'none',
-          }}
-        >
+
+        <a href="/dashboard/configuracion" className="inline-block bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors">
           Ir a Configuración
         </a>
       </div>
@@ -101,145 +90,111 @@ export default function CreateAccountForm({ banks }: Props) {
       {!isOpen ? (
         <button
           onClick={() => setIsOpen(true)}
-          style={{
-            backgroundColor: '#0073ea',
-            color: 'white',
-            padding: '0.75rem 1.5rem',
-            borderRadius: '0.75rem',
-            fontWeight: '600',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            width: '100%',
-            justifyContent: 'center',
-          }}
-          className="hover:bg-primary-700 transition-colors"
+          className="w-full bg-gradient-to-r from-primary-600 to-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-6 w-6" />
           Nueva Cuenta
         </button>
       ) : (
-        <div className="bg-white rounded-xl shadow-medium p-6 border-2 border-primary-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-neutral-900">Nueva Cuenta Bancaria</h3>
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                setError('');
-                setFormData({ bankId: '', name: '', initialBalance: '' });
-              }}
-              className="text-neutral-400 hover:text-neutral-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-accent-50 border border-accent-200 rounded-lg p-3 flex items-start space-x-2">
-                <AlertCircle className="h-4 w-4 text-accent-600 shrink-0 mt-0.5" />
-                <p className="text-sm text-accent-800">{error}</p>
-              </div>
-            )}
-
-            {/* Banco */}
-            <div>
-              <label htmlFor="bankId" className="block text-sm font-medium text-neutral-700 mb-2">
-                Banco *
-              </label>
-              <select
-                id="bankId"
-                name="bankId"
-                value={formData.bankId}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-              >
-                <option value="">Selecciona un banco</option>
-                {banks.map((bank) => (
-                  <option key={bank.id} value={bank.id}>
-                    {bank.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Nombre de Cuenta */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-neutral-700 mb-2">
-                Nombre de la Cuenta *
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="Ej: Cuenta Principal, Ahorros, Nómina..."
-                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-              />
-            </div>
-
-            {/* Saldo Inicial */}
-            <div>
-              <label htmlFor="initialBalance" className="block text-sm font-medium text-neutral-700 mb-2">
-                Saldo Inicial *
-              </label>
-              <div className="relative">
-                <input
-                  id="initialBalance"
-                  name="initialBalance"
-                  type="number"
-                  step="0.01"
-                  value={formData.initialBalance}
-                  onChange={handleChange}
-                  required
-                  placeholder="0.00"
-                  className="w-full px-4 py-2.5 pr-12 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white text-neutral-900"
-                />
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-neutral-500">
-                  €
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-neutral-500">
-                El saldo actual con el que comienza esta cuenta
-              </p>
-            </div>
-
-            {/* Botones */}
-            <div className="flex space-x-3 pt-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-strong w-full max-w-lg overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+              <h3 className="text-xl font-bold text-neutral-900">Nueva Cuenta</h3>
               <button
-                type="button"
                 onClick={() => {
                   setIsOpen(false);
                   setError('');
                   setFormData({ bankId: '', name: '', initialBalance: '' });
                 }}
-                className="flex-1 px-4 py-2.5 border border-neutral-300 rounded-lg font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
+                className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
               >
-                Cancelar
+                <X className="h-6 w-6 text-neutral-500" />
               </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-8">
+              {error && (
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center space-x-3">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <p className="text-sm font-medium text-red-800">{error}</p>
+                </div>
+              )}
+
+              {/* 1. Saldo Inicial Gigante */}
+              <div className="text-center">
+                <label htmlFor="initialBalance" className="block text-sm font-medium text-neutral-400 uppercase tracking-wider mb-2">Saldo Inicial</label>
+                <div className="relative inline-block max-w-[200px] mx-auto">
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-bold text-blue-500">€</span>
+                  <input
+                    id="initialBalance"
+                    name="initialBalance"
+                    type="number"
+                    step="0.01"
+                    value={formData.initialBalance}
+                    onChange={handleChange}
+                    required
+                    placeholder="0.00"
+                    className="w-full bg-transparent text-center text-6xl font-black focus:outline-none placeholder-neutral-200 p-2 text-neutral-900"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Grid de Campos */}
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+                    <Building2 className="h-4 w-4 mr-2" /> Banco
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="bankId"
+                      name="bankId"
+                      value={formData.bankId}
+                      onChange={handleChange}
+                      required
+                      className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all cursor-pointer hover:bg-neutral-100"
+                    >
+                      <option value="">Selecciona un banco...</option>
+                      {banks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
+                    <Wallet className="h-4 w-4 mr-2" /> Nombre de la Cuenta
+                  </label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    placeholder="Ej: Ahorros, Nómina..."
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder-neutral-400"
+                  />
+                </div>
+              </div>
+
+              {/* Botón Submit */}
               <button
                 type="submit"
                 disabled={loading}
-                style={{
-                  backgroundColor: loading ? '#94a3b8' : '#0073ea',
-                  color: 'white',
-                  padding: '0.625rem 1rem',
-                  borderRadius: '0.5rem',
-                  fontWeight: '600',
-                  border: 'none',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  flex: 1,
-                }}
+                className={`w-full py-4 rounded-2xl text-xl font-bold text-white shadow-lg transition-all flex items-center justify-center gap-3 ${loading ? 'bg-neutral-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 hover:shadow-xl active:scale-[0.98]'
+                  }`}
               >
                 {loading ? 'Creando...' : 'Crear Cuenta'}
               </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
     </div>
