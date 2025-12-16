@@ -90,7 +90,7 @@ export default function CreateAccountForm({ banks }: Props) {
       {!isOpen ? (
         <button
           onClick={() => setIsOpen(true)}
-          className="w-full bg-gradient-to-r from-primary-600 to-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          className="w-full bg-linear-to-r from-primary-600 to-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
         >
           <Plus className="h-6 w-6" />
           Nueva Cuenta

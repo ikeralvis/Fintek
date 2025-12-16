@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, BarChart3, PiggyBank, Wallet, Shield, CheckCircle2 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -44,7 +45,7 @@ export default function LandingPage() {
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-neutral-950 mb-8 tracking-tight leading-[1.1]">
             Tus finanzas, <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-600">
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-700 to-indigo-600">
               en piloto automático.
             </span>
           </h1>
@@ -71,13 +72,15 @@ export default function LandingPage() {
 
           {/* Mockup / Visual */}
           <div className="mt-20 relative mx-auto max-w-4xl">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-purple-600 rounded-[2.5rem] blur opacity-20"></div>
-            <div className="relative bg-white rounded-[2rem] border border-neutral-200 shadow-2xl overflow-hidden p-2 md:p-4">
-              <img
+            <div className="absolute -inset-1 bg-linear-to-r from-primary-500 to-purple-600 rounded-[2.5rem] blur opacity-20"></div>
+            <div className="relative bg-white rounded-4xl border border-neutral-200 shadow-2xl overflow-hidden p-2 md:p-4">
+              <Image
                 src="/dashboard-preview.png"
                 alt="App Dashboard"
                 className="rounded-xl w-full h-auto bg-neutral-50"
-              // Placeholder for actual image or we can simulate a UI with code
+                width={1200}
+                height={700}
+                priority={false}
               />
               {/* Safe fallback if image missing: Simulated UI Header */}
               <div className="absolute inset-0 bg-neutral-50 flex flex-col items-center justify-center text-neutral-300 pointer-events-none -z-10">
@@ -109,7 +112,7 @@ export default function LandingPage() {
                   No solo te dice cuánto has gastado, sino cuánto <strong>vas a gastar</strong>. Nuestro algoritmo se adapta a tu historial (3, 6, o 12 meses) para darte una visión clara del futuro.
                 </p>
               </div>
-              <div className="absolute right-0 bottom-0 w-1/3 h-full bg-gradient-to-l from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="absolute right-0 bottom-0 w-1/3 h-full bg-linear-to-l from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
 
             {/* Feature 2: Tall */}

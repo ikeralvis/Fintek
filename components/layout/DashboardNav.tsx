@@ -12,7 +12,6 @@ import {
   Wallet,
   Menu,
   X,
-  PieChart,
   Activity
 } from 'lucide-react';
 import { useState } from 'react';
@@ -33,8 +32,8 @@ const navigation: NavItem[] = [
 ];
 
 type Props = {
-  userName?: string;
-  userEmail?: string;
+  readonly userName?: string;
+  readonly userEmail?: string;
 };
 
 export default function DashboardNav({ userName, userEmail }: Props) {

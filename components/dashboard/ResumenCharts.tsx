@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,7 +17,7 @@ import {
 type Monthly = { month: string; income: number; expense: number; net: number };
 type CategorySeries = { id: string; name: string; monthly: Monthly[] };
 
-export default function ResumenCharts({ months, monthlyTotals, categories }: { months: string[]; monthlyTotals: Monthly[]; categories: CategorySeries[] }) {
+export default function ResumenCharts({ monthlyTotals, categories }: { monthlyTotals: Monthly[]; categories: CategorySeries[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(categories[0]?.id || null);
 
   const categoryData = useMemo(() => categories.find((c) => c.id === selectedCategory) ?? null, [categories, selectedCategory]);

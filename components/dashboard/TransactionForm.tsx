@@ -25,27 +25,31 @@ export default function TransactionForm({ accounts, categories }: Readonly<Props
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
+  const defaultForm = {
     type: 'expense' as 'income' | 'expense',
     accountId: '',
     categoryId: '',
     amount: '',
     description: '',
     transactionDate: today,
-  });
+  };
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('transactionFormDraft');
-    if (saved) {
-      try {
+  const [formData, setFormData] = useState(() => {
+    try {
+      if (globalThis.window === undefined) return defaultForm;
+      const saved = localStorage.getItem('transactionFormDraft');
+      if (saved) {
         const parsed = JSON.parse(saved);
-        setFormData(prev => ({ ...prev, ...parsed }));
-      } catch (e) {
-        console.error('Failed to parse draft', e);
+        return { ...defaultForm, ...parsed };
+      }
+    } catch (e) {
+      // Log parse errors and fall back to default
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error parsing transactionFormDraft from localStorage:', e);
       }
     }
-  }, []);
+    return defaultForm;
+  });
 
   // Save to localStorage on change
   useEffect(() => {

@@ -74,7 +74,7 @@ export default function MonthlyCategoryTable({ monthlyData, categoryTotals }: Pr
                 Categoría
               </th>
               {monthNames.map((month) => (
-                <th key={month} className="px-3 py-3 text-right font-semibold text-neutral-700 min-w-[80px]">
+                <th key={month} className="px-3 py-3 text-right font-semibold text-neutral-700 min-w-20">
                   {month}
                 </th>
               ))}

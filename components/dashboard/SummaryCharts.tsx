@@ -26,7 +26,7 @@ const monthNames = [
 ];
 
 export default function SummaryCharts({ monthlyData, className }: Props) {
-  const data = monthlyData ?? {};
+  const data = useMemo(() => monthlyData ?? {}, [monthlyData]);
 
   // Preparar datos para el gráfico de barras
   const barChartData = useMemo(() => {

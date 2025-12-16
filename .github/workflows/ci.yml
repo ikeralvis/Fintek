@@ -72,8 +72,8 @@ jobs:
           uploadArtifacts: true
           temporaryPublicStorage: true
           runs: 3
+          serverStartCommand: "PORT=3000 npm start"
+          serverStartTimeout: 120000
           urls: |
             http://localhost:3000/
             http://localhost:3000/login
-          serverStartCommand: npm start
-          serverWaitAboveCoverage: 90

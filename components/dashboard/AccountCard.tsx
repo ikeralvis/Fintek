@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Building2, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { Building2, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { deleteAccount } from '@/lib/actions/accounts';
 import { formatCurrency } from '@/lib/utils';
 
@@ -17,9 +17,9 @@ type Account = {
 };
 
 type Props = {
-  account: Account;
-  monthlyIncome?: number;
-  monthlyExpense?: number;
+  readonly account: Account;
+  readonly monthlyIncome?: number;
+  readonly monthlyExpense?: number;
 };
 
 export default function AccountCard({ account, monthlyIncome = 0, monthlyExpense = 0 }: Props) {

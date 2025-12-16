@@ -1,97 +1,228 @@
-![CI](https://github.com/ikeralvis/expense-tracker/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://codecov.io/gh/ikeralvis/expense-tracker/branch/master/graph/badge.svg)
+<div align="center">
 
-# Expense Tracker
+# 💰 FinTek — Gestor Financiero Personal
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+[![CI/CD](https://github.com/ikeralvis/expense-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ikeralvis/expense-tracker/actions/workflows/ci.yml)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?logo=supabase)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Getting Started
+**Una aplicación moderna y segura para gestionar tus finanzas personales con análisis predictivo impulsado por algoritmos estadísticos.**
 
-First, run the development server:
+[🚀 Demo en Vivo](https://fintek-app.vercel.app) · [📖 Documentación](#-estructura-del-proyecto) · [🐛 Reportar Bug](https://github.com/ikeralvis/expense-tracker/issues)
+
+</div>
+
+---
+
+## 📸 Vista Previa
+
+<div align="center">
+<img src="public/dashboard-preview.png" alt="FinTek Dashboard" width="80%" />
+</div>
+
+---
+
+## ✨ Características Principales
+
+| Módulo | Descripción |
+|--------|-------------|
+| 🏦 **Multi-Cuenta** | Gestiona múltiples bancos y cuentas (efectivo, tarjetas, ahorros) con saldos en tiempo real |
+| 📊 **Dashboard Inteligente** | Visualiza tu balance total, ingresos vs gastos mensuales y tendencias |
+| 💳 **Transacciones** | Registra ingresos y gastos con categorías personalizables y fechas |
+| 🔄 **Suscripciones Recurrentes** | Automatiza pagos periódicos (semanales, mensuales, anuales) con cron jobs |
+| 📈 **Presupuestos** | Establece límites por categoría y monitorea el progreso en tiempo real |
+| 🤖 **Análisis Predictivo (IA)** | Motor de forecasting híbrido (WMA + Regresión Lineal) con detección de anomalías |
+| 📄 **Exportación de Reportes** | Genera informes PDF con gráficos y resúmenes mensuales |
+| 🔐 **Seguridad RLS** | Row Level Security en Supabase: cada usuario solo ve sus propios datos |
+| 🌙 **Tema Oscuro/Claro** | Soporte completo de temas con Tailwind CSS |
+
+---
+
+## 🛠️ Tech Stack
+
+| Capa | Tecnología |
+|------|------------|
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript 5 |
+| **Estilos** | Tailwind CSS 4, Geist Font, Lucide Icons |
+| **Backend** | Next.js Server Actions, API Routes |
+| **Base de Datos** | Supabase (PostgreSQL) con Row Level Security |
+| **Autenticación** | Supabase Auth (Google OAuth, Email/Password) |
+| **Validación** | Zod |
+| **Gráficos** | Recharts |
+| **Testing** | Vitest, Testing Library |
+| **CI/CD** | GitHub Actions (Lint, Typecheck, Tests, Lighthouse) |
+| **Deploy** | Vercel |
+
+---
+
+## 🚀 Inicio Rápido
+
+### Prerrequisitos
+
+- Node.js 20+
+- npm / yarn / pnpm
+- Cuenta en [Supabase](https://supabase.com)
+
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/ikeralvis/expense-tracker.git
+cd expense-tracker
+```
+
+### 2. Instalar dependencias
+
+```bash
+npm install
+```
+
+### 3. Configurar variables de entorno
+
+Crea un archivo `.env.local` en la raíz:
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key
+
+# Opcional: Para cron jobs externos
+CRON_SECRET=tu-secreto-para-cron
+```
+
+### 4. Configurar la base de datos
+
+Ejecuta los scripts SQL en tu proyecto de Supabase:
+
+```bash
+# Orden recomendado:
+1. schema.sql          # Tablas y triggers
+2. secure_tables.sql   # Políticas RLS optimizadas
+```
+
+### 5. Ejecutar en desarrollo
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load fonts.
+## 📂 Estructura del Proyecto
 
-## Tests & CI
+```
+expense-tracker/
+├── app/                          # Next.js App Router
+│   ├── (auth)/                   # Rutas de autenticación (login, register)
+│   ├── api/                      # API Routes (cron, auth callbacks)
+│   ├── dashboard/                # Dashboard principal y sub-páginas
+│   │   ├── analisis/             # Análisis predictivo con IA
+│   │   ├── cuentas/              # Gestión de cuentas bancarias
+│   │   ├── presupuestos/         # Control de presupuestos
+│   │   ├── suscripciones/        # Transacciones recurrentes
+│   │   ├── transacciones/        # CRUD de transacciones
+│   │   └── configuracion/        # Bancos y categorías
+│   └── page.tsx                  # Landing page
+├── components/                   # Componentes React reutilizables
+│   ├── dashboard/                # Widgets, formularios, listas
+│   ├── analysis/                 # Componentes de análisis IA
+│   └── ui/                       # Componentes UI genéricos
+├── lib/
+│   ├── actions/                  # Server Actions (transactions, budgets, etc.)
+│   ├── supabase/                 # Clientes Supabase (server/client)
+│   └── utils/                    # Utilidades (analysis engine, helpers)
+├── tests/                        # Tests unitarios y de integración
+├── types/                        # Tipos TypeScript (database.types.ts)
+├── schema.sql                    # Schema de la base de datos
+├── secure_tables.sql             # Políticas RLS
+└── docs/                         # Documentación adicional
+```
 
-This repository includes GitHub Actions workflows for CI and coverage.
+---
 
-Key scripts (already in `package.json`):
+## 🧪 Scripts Disponibles
 
-- `npm run lint` — run ESLint
-- `npm run typecheck` — run TypeScript type checks
-- `npm run test` — run unit tests with Vitest
-- `npm run test:coverage` — run tests and produce coverage (lcov + html)
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Servidor de desarrollo (hot reload) |
+| `npm run build` | Build de producción |
+| `npm run start` | Servidor de producción |
+| `npm run lint` | Ejecutar ESLint |
+| `npm run typecheck` | Verificar tipos con TypeScript |
+| `npm run test` | Ejecutar tests con Vitest |
+| `npm run test:coverage` | Tests con reporte de cobertura |
 
-Run tests locally:
+---
+
+## 🔬 Motor de Análisis Predictivo
+
+FinTek incluye un motor de forecasting financiero que combina:
+
+1. **Weighted Moving Average (WMA)** — Prioriza datos recientes para estabilidad
+2. **Regresión Lineal (OLS)** — Detecta tendencias direccionales
+3. **Modelo Híbrido** — Pondera ambos según la volatilidad de los datos (Coeficiente de Variación)
+4. **Detección de Anomalías** — Alertas cuando el gasto actual supera predicciones
+
+```typescript
+// Ejemplo de uso interno
+const result = forecaster.predict(historyValues, currentSpending);
+// { prediction: 450.50, trend: 'increasing', confidence: 'high' }
+```
+
+---
+
+## 🔒 Seguridad
+
+- **Row Level Security (RLS)**: Cada tabla tiene políticas que garantizan que los usuarios solo acceden a sus propios datos
+- **Supabase Auth**: Autenticación segura con soporte para OAuth (Google) y email/password
+- **Validación con Zod**: Todos los inputs se validan antes de procesar
+- **HTTPS**: Desplegado en Vercel con SSL automático
+
+Ver [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) para más detalles.
+
+---
+
+## 🚢 Despliegue
+
+### Vercel (Recomendado)
+
+1. Conecta tu repositorio en [vercel.com](https://vercel.com)
+2. Configura las variables de entorno en el dashboard de Vercel
+3. Deploy automático en cada push a `main`
+
+### Docker (Alternativo)
 
 ```bash
-npm ci
-npm run test
+docker build -t fintek .
+docker run -p 3000:3000 --env-file .env.local fintek
 ```
 
-Coverage report will be written to `coverage/` when running `npm run test:coverage`.
+---
 
-Badges above show CI status and coverage (Codecov). If you want Codecov uploads to work for private repos, add `CODECOV_TOKEN` to repository secrets.
+## 🤝 Contribuir
 
-## Learn More
+1. Fork el repositorio
+2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit tus cambios (`git commit -m 'feat: añadir nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📄 Licencia
 
-## Deploy on Vercel
+Este proyecto está bajo la licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme).
+---
 
-Check out the Next.js deployment documentation for more details.
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+Hecho con ❤️ por [Iker Alvis](https://github.com/ikeralvis)
 
-First, run the development server:
+⭐ Si te gusta este proyecto, ¡dale una estrella!
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</div>

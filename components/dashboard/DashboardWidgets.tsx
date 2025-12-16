@@ -39,7 +39,7 @@ export default function DashboardWidgets({ totalBalance, monthlyIncome, monthlyE
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       {/* Patrimonio Total - Bento Card Large */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-3xl p-6 shadow-strong hover:shadow-xl transition-all duration-300 relative overflow-hidden group border border-blue-800">
+      <div className="bg-linear-to-r from-blue-900 to-indigo-900 rounded-3xl p-6 shadow-strong hover:shadow-xl transition-all duration-300 relative overflow-hidden group border border-blue-800">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full mix-blend-overlay filter blur-3xl opacity-10 -translate-y-1/2 translate-x-1/2"></div>
         <h3 className="text-sm font-semibold text-blue-200 uppercase tracking-wider relative z-10">Patrimonio Total</h3>
         <p className="text-4xl font-bold text-white mt-2 tracking-tight relative z-10">

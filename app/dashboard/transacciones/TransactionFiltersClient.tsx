@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import TransactionFilters from '@/components/dashboard/TransactionFilters';
 
 type Account = {
@@ -21,7 +21,6 @@ type Props = {
 
 export default function TransactionFiltersClient({ accounts, categories }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const handleFilterChange = (filters: {
     type?: 'income' | 'expense';

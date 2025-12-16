@@ -159,7 +159,7 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
         
         {error && (
           <div className="mt-2 bg-accent-50 border border-accent-200 rounded-lg p-3 flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-accent-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-4 w-4 text-accent-600 shrink-0 mt-0.5" />
             <p className="text-sm text-accent-800">{error}</p>
           </div>
         )}

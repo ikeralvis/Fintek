@@ -22,7 +22,6 @@ const ReportView = forwardRef<HTMLDivElement, Props>(({
     monthlyExpense,
     accounts,
     budgets,
-    monthlySeries,
     monthlyData
 }, ref) => {
     const date = new Date().toLocaleDateString('es-ES', {
