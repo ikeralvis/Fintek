@@ -1,140 +1,49 @@
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import { TrendingUp } from 'lucide-react';
-import TransactionForm from '@/components/dashboard/TransactionForm';
-import TransactionsList from '@/components/dashboard/TransactionsList';
-import { getTransactions } from '@/lib/actions/transactions';
+import TransactionsView from '@/components/dashboard/TransactionsView';
 
-type SearchParams = {
-  type?: 'income' | 'expense';
-  accountId?: string;
-  categoryId?: string;
-  dateFrom?: string;
-  dateTo?: string;
-};
-
-export default async function TransaccionesPage({
-  searchParams,
-}: {
-  readonly searchParams: SearchParams;
-}) {
+export default async function TransactionsPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Parallelize data fetching
-  const [accountsResult, categoriesResult, resolvedSearchParams] = await Promise.all([
-    // Obtener cuentas
+  // FETCH EVERYTHING IN PARALLEL
+  const [txRes, accRes, catRes] = await Promise.all([
     supabase
-      .from('accounts')
-      .select(`
-        id,
-        name,
-        banks (
-          name
-        )
-      `)
-      .eq('user_id', user.id)
-      .order('name', { ascending: true }),
-
-    // Obtener categorías
-    supabase
-      .from('categories')
+      .from('transactions')
       .select('*')
       .eq('user_id', user.id)
-      .order('name', { ascending: true }),
+      .order('transaction_date', { ascending: false })
+      .limit(1000),
 
-    // Resolver params
-    Promise.resolve(searchParams)
+    supabase.from('accounts').select('id, name').eq('user_id', user.id),
+    supabase.from('categories').select('*').eq('user_id', user.id)
   ]);
 
-  const accounts = accountsResult.data;
-  const categories = categoriesResult.data;
+  const rawTransactions = txRes.data || [];
+  const accounts = accRes.data || [];
+  const categories = catRes.data || [];
 
-  // Obtener transacciones con filtros (esto depende de los params, asi que lo hacemos despues o en paralelo si no dependiera)
-  // Como getTransactions es una Server Action que hace su propia query, la llamamos aqui.
-  // Podriamos paralelizarla tambien si 'resolvedSearchParams' no fuera async (que en Next 15 lo es, pero aqui lo resolvimos arriba).
+  const accountsMap = accounts.reduce((acc: any, a: any) => ({ ...acc, [a.id]: { id: a.id, name: a.name } }), {});
+  const categoriesMap = categories.reduce((acc: any, c: any) => ({ ...acc, [c.id]: c }), {});
 
-  const filters: any = {};
-  if (resolvedSearchParams.type) filters.type = resolvedSearchParams.type;
-  if (resolvedSearchParams.accountId) filters.accountId = resolvedSearchParams.accountId;
-  if (resolvedSearchParams.categoryId) filters.categoryId = resolvedSearchParams.categoryId;
-  if (resolvedSearchParams.dateFrom) filters.dateFrom = resolvedSearchParams.dateFrom;
-  if (resolvedSearchParams.dateTo) filters.dateTo = resolvedSearchParams.dateTo;
+  // ROBUST DATA ENRICHMENT
+  const enrichedTransactions = rawTransactions.map((t: any) => {
+    // Check if category_id exists and is in the map
+    const cat = t.category_id ? categoriesMap[t.category_id] : null;
 
-  const { data: transactions } = await getTransactions(filters);
+    return {
+      ...t,
+      // Pass the category object directly. TransactionsView handles t.categories?.name
+      categories: cat || { name: 'General', icon: '💰', color: '#737373' },
+      accounts: accountsMap[t.account_id] || { name: 'Cuenta' }
+    };
+  });
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-7xl">
-      {/* Header */}
-      <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="p-2.5 bg-violet-50 rounded-xl">
-              <TrendingUp className="h-6 w-6 text-violet-600" />
-            </div>
-            <h1 className="text-4xl font-bold text-neutral-900 tracking-tight">Transacciones</h1>
-          </div>
-          <p className="text-lg text-neutral-500 font-medium ml-12">
-            Registra y gestiona tus gastos e ingresos
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Sidebar: Formulario (Sticky en Desktop) */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6 sticky top-8">
-            <h2 className="text-lg font-bold text-neutral-900 mb-4">Nueva Transacción</h2>
-            <TransactionForm
-              accounts={
-                (accounts || []).map((account: any) => ({
-                  id: account.id,
-                  name: account.name,
-                  banks: { name: account.banks?.name || '' }
-                }))
-              }
-              categories={categories || []}
-            />
-          </div>
-        </div>
-
-        {/* Contenido Principal: Filtros + Lista */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Filtros arriba */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6">
-
-            <TransactionFiltersClient
-              accounts={
-                (accounts || []).map((account: any) => ({
-                  id: account.id,
-                  name: account.name,
-                  banks: { name: account.banks?.name || '' }
-                }))
-              }
-              categories={categories || []}
-            />
-          </div>
-
-          {/* Lista de Transacciones */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6 min-h-[500px]">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-200/50">
-              <h2 className="text-xl font-bold text-neutral-900">Historial</h2>
-              <span className="text-sm text-neutral-500 bg-neutral-100/50 px-3 py-1 rounded-full">{transactions?.length || 0} movimientos</span>
-            </div>
-            <TransactionsList transactions={transactions || []} />
-          </div>
-        </div>
-      </div>
-    </div>
+    <TransactionsView
+      initialTransactions={enrichedTransactions}
+      accounts={accounts}
+      categories={categories}
+    />
   );
 }
-
-// Client Component para manejar filtros con navegación
-import TransactionFiltersClient from './TransactionFiltersClient';

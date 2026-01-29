@@ -80,19 +80,19 @@ export default function TransactionItem({ transaction }: Props) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
-              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-xs font-medium">
+              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-sm font-medium">
                 {transaction.categories?.name || 'Sin categoría'}
               </span>
               <span>•</span>
-              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-xs font-medium">
+              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-sm font-medium">
                 {transaction.accounts.name} ({transaction.accounts.banks.name})
               </span>
               <span>•</span>
-              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-xs font-medium">{formatDate(transaction.transaction_date)}</span>
+              <span className="bg-neutral-100 px-2 py-0.5 rounded-full text-sm font-medium">{formatDate(transaction.transaction_date)}</span>
             </div>
 
             {transaction.description && transaction.categories && (
-              <p className="text-xs text-neutral-500 mt-1 italic truncate">
+              <p className="text-sm text-neutral-500 mt-1 italic truncate">
                 {transaction.description}
               </p>
             )}

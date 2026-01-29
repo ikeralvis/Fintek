@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Wallet, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -66,7 +66,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center space-x-2 mb-4">
-            <Wallet className="h-10 w-10 text-primary-600" />
+            <img src="/logo.png" alt="FinTek Logo" className="h-10 w-10" />
             <span className="text-3xl font-bold text-primary-900">FinTek</span>
           </Link>
           <h1 className="text-2xl font-bold text-neutral-900 mb-2">Iniciar Sesión</h1>
@@ -141,9 +141,9 @@ export default function LoginPage() {
                 <input
                   id="remember"
                   type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
+                  className="h-4 w-4 accent-primary-600 border-neutral-400 rounded cursor-pointer transition-all"
                 />
-                <label htmlFor="remember" className="ml-2 block text-sm text-neutral-600">
+                <label htmlFor="remember" className="ml-2 block text-sm text-neutral-600 cursor-pointer">
                   Recordarme
                 </label>
               </div>

@@ -159,11 +159,12 @@ export async function deleteTransaction(transactionId: string) {
 }
 
 export async function getTransactions(filters?: {
-  type?: 'income' | 'expense';
+  type?: 'income' | 'expense' | 'transfer';
   accountId?: string;
   categoryId?: string;
   dateFrom?: string;
   dateTo?: string;
+  includeTransfers?: boolean;
 }) {
   const supabase = await createClient();
 
@@ -213,6 +214,10 @@ export async function getTransactions(filters?: {
     if (filters?.dateTo) {
       query = query.lte('transaction_date', filters.dateTo);
     }
+    // By default, exclude transfers from analysis (income/expense view)
+    if (filters?.includeTransfers !== true && !filters?.type) {
+      query = query.not('type', 'eq', 'transfer');
+    }
 
     const { data, error } = await query;
 
@@ -221,6 +226,71 @@ export async function getTransactions(filters?: {
     return { data, error: null };
   } catch (err: any) {
     console.error('Error fetching transactions:', err);
+    return { data: null, error: err.message };
+  }
+}
+
+/**
+ * Get transaction summary stats (income, expense, net)
+ * Excludes transfers from calculations
+ */
+export async function getTransactionStats(filters?: {
+  accountId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { data: null, error: 'No autenticado' };
+  }
+
+  try {
+    let query = supabase
+      .from('transactions')
+      .select('type, amount')
+      .eq('user_id', user.id)
+      .not('type', 'eq', 'transfer'); // Exclude transfers from stats
+
+    if (filters?.accountId) {
+      query = query.eq('account_id', filters.accountId);
+    }
+    if (filters?.dateFrom) {
+      query = query.gte('transaction_date', filters.dateFrom);
+    }
+    if (filters?.dateTo) {
+      query = query.lte('transaction_date', filters.dateTo);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Calculate totals
+    const stats = {
+      totalIncome: 0,
+      totalExpense: 0,
+      net: 0,
+    };
+
+    if (data) {
+      data.forEach((tx: any) => {
+        if (tx.type === 'income') {
+          stats.totalIncome += tx.amount;
+        } else if (tx.type === 'expense') {
+          stats.totalExpense += tx.amount;
+        }
+      });
+      stats.net = stats.totalIncome - stats.totalExpense;
+    }
+
+    return { data: stats, error: null };
+  } catch (err: any) {
+    console.error('Error fetching transaction stats:', err);
     return { data: null, error: err.message };
   }
 }

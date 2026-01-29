@@ -1,100 +1,79 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { RefreshCw } from 'lucide-react';
-import SubscriptionForm from '@/components/dashboard/SubscriptionForm';
-import SubscriptionList from '@/components/dashboard/SubscriptionList';
-import { getRecurringTransactions } from '@/lib/actions/recurring';
+import SubscriptionsView from '@/components/dashboard/SubscriptionsView';
+import { AlertTriangle } from 'lucide-react';
 
 export default async function SuscripcionesPage() {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    if (!user) redirect('/login');
 
-    if (!user) {
-        redirect('/login');
-    }
-
-    // 1. Obtener Cuentas (para el formulario)
-    const { data: accounts } = await supabase
-        .from('accounts')
-        .select(`
-      id,
-      name,
-      banks (
-        name
-      )
-    `)
-        .eq('user_id', user.id)
-        .order('name', { ascending: true });
-
-    // 2. Obtener Categorías (para el formulario)
-    const { data: categories } = await supabase
-        .from('categories')
+    const { data: subscriptions, error } = await supabase
+        .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .order('name', { ascending: true });
+        .order('next_payment_date', { ascending: true }); // Showing upcoming first
 
-    // 3. Obtener Suscripciones (Recurrentes tipo gasto)
-    const { data: allRecurring } = await getRecurringTransactions();
+    // Handling missing table error gracefully
+    if (error && error.code === '42P01') { // 42P01 is undefined_table
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <div className="bg-amber-50 border border-amber-200 rounded-3xl p-8 max-w-2xl mx-auto text-center shadow-sm">
+                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600">
+                        <AlertTriangle className="w-8 h-8" />
+                    </div>
+                    <h2 className="text-xl font-bold text-amber-900 mb-2">Módulo de Suscripciones</h2>
+                    <p className="text-amber-800 mb-6">
+                        Para activar este módulo, necesitas actualizar tu base de datos con la nueva tabla **subscriptions**.
+                    </p>
+                    <div className="bg-white p-4 rounded-xl border border-amber-100 text-left text-sm font-mono text-neutral-600 overflow-x-auto">
+                        <p className="whitespace-pre">
+                            {`create table public.subscriptions (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  name text not null,
+  amount numeric not null,
+  currency text not null default 'EUR',
+  billing_cycle text not null check (billing_cycle in ('monthly', 'yearly', 'weekly', 'bi-weekly')),
+  next_payment_date date not null,
+  category_id uuid references public.categories (id) on delete set null,
+  logo_url text null,
+  status text not null default 'active' check (status in ('active', 'paused', 'cancelled')),
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+alter table public.subscriptions enable row level security;
+create policy "Users can view their own subscriptions" on public.subscriptions for select using (auth.uid() = user_id);
+create policy "Users can insert their own subscriptions" on public.subscriptions for insert with check (auth.uid() = user_id);
+create policy "Users can update their own subscriptions" on public.subscriptions for update using (auth.uid() = user_id);
+create policy "Users can delete their own subscriptions" on public.subscriptions for delete using (auth.uid() = user_id);`}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
-    // Filtrar solo gastos (subscriptions)
-    const subscriptions = allRecurring
-        ? allRecurring.filter((t: any) => t.type === 'expense')
-        : [];
+    // For calculating stats
+    // We could do this in the view, but passing pre-calc data is nice
+    const activeSubs = (subscriptions || []).filter((s: any) => s.status === 'active');
+
+    // Simple Monthly total Estimate 
+    // (Weekly * 4, Yearly / 12, etc)
+    const monthlyTotal = activeSubs.reduce((acc: number, s: any) => {
+        let amount = Number(s.amount);
+        if (s.billing_cycle === 'weekly') amount *= 4;
+        if (s.billing_cycle === 'bi-weekly') amount *= 2;
+        if (s.billing_cycle === 'yearly') amount /= 12;
+        return acc + amount;
+    }, 0);
 
     return (
-        <div className="container mx-auto px-4 py-12 max-w-7xl">
-            {/* Header */}
-            <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2.5 bg-violet-50 rounded-xl">
-                            <RefreshCw className="h-6 w-6 text-violet-600" />
-                        </div>
-                        <h1 className="text-4xl font-bold text-neutral-900 tracking-tight">Suscripciones</h1>
-                    </div>
-                    <p className="text-lg text-neutral-500 font-medium ml-12">
-                        Controla tus gastos recurrentes y evita sorpresas
-                    </p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Sidebar: Formulario */}
-                <div className="lg:col-span-4">
-                    <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 p-6 sticky top-8">
-                        <h2 className="text-lg font-bold text-neutral-900 mb-6 flex items-center">
-                            <span className="w-1 h-6 bg-violet-500 rounded-full mr-3"></span>
-                            Nueva Suscripción
-                        </h2>
-                        <SubscriptionForm
-                            accounts={
-                                (accounts || []).map((account: any) => ({
-                                    id: account.id,
-                                    name: account.name,
-                                    banks: { name: account.banks?.name || '' }
-                                }))
-                            }
-                            categories={categories || []}
-                        />
-                    </div>
-                </div>
-
-                {/* Lista de suscripciones */}
-                <div className="lg:col-span-8">
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-neutral-900">Tus Suscripciones Activas</h2>
-                            <span className="text-sm font-medium text-violet-600 bg-violet-50 px-3 py-1 rounded-full border border-violet-100">
-                                {subscriptions.length} activas
-                            </span>
-                        </div>
-                        <SubscriptionList subscriptions={subscriptions} />
-                    </div>
-                </div>
-            </div>
-        </div>
+        <SubscriptionsView
+            subscriptions={subscriptions || []}
+            monthlyTotal={monthlyTotal}
+        />
     );
 }

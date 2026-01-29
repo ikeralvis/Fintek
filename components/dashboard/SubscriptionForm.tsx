@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, AlertCircle, Calendar, Tag, Wallet, FileText } from 'lucide-react';
+import { Plus, AlertCircle, Calendar, Tag, Wallet, FileText, Check } from 'lucide-react';
 import { createRecurringTransaction } from '@/lib/actions/recurring';
 
 type Account = {
     id: string;
     name: string;
-    banks: { name: string };
+    banks: { name: string; color?: string; logo_url?: string };
 };
 
 type Category = {
@@ -194,25 +194,34 @@ export default function SubscriptionForm({ accounts, categories }: Readonly<Prop
                         <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
                             <Wallet className="h-4 w-4 mr-2" /> Cuenta de Pago
                         </label>
-                        <div className="relative">
-                            <select
-                                id="accountId"
-                                name="accountId"
-                                value={formData.accountId}
-                                onChange={handleChange}
-                                required
-                                className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-violet-100 focus:border-violet-500 transition-all cursor-pointer hover:bg-neutral-100"
-                            >
-                                <option value="">Seleccionar...</option>
-                                {accounts.map((account) => (
-                                    <option key={account.id} value={account.id}>
-                                        {account.name} · {account.banks.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {accounts.map((account) => (
+                                <button
+                                    key={account.id}
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, accountId: account.id })}
+                                    className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden ${formData.accountId === account.id
+                                        ? 'border-violet-500 bg-violet-50'
+                                        : 'border-neutral-100 bg-white hover:border-neutral-200'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div
+                                            className="w-6 h-6 rounded-lg flex items-center justify-center shadow-sm text-[8px] font-bold text-white shrink-0 overflow-hidden"
+                                            style={{ backgroundColor: account.banks?.logo_url ? 'transparent' : (account.banks?.color || '#000') }}
+                                        >
+                                            {account.banks?.logo_url ? (
+                                                <img src={account.banks.logo_url} alt={account.banks.name} className="w-full h-full object-contain" />
+                                            ) : (
+                                                account.banks?.name?.substring(0, 1).toUpperCase() || '💰'
+                                            )}
+                                        </div>
+                                        {formData.accountId === account.id && <Check className="w-4 h-4 ml-auto text-violet-500" />}
+                                    </div>
+                                    <p className="text-xs font-bold text-neutral-900 truncate">{account.name}</p>
+                                    <p className="text-[10px] text-neutral-500">{account.banks.name}</p>
+                                </button>
+                            ))}
                         </div>
                     </div>
 

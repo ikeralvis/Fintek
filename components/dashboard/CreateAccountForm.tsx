@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X, AlertCircle, Building2, Wallet } from 'lucide-react';
-import { createAccount } from '@/lib/actions/accounts';
+import { Plus, X, Building2, Wallet, CreditCard, ChevronRight, Check } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 type Bank = {
   id: string;
   name: string;
+  color?: string;
 };
 
 type Props = {
@@ -16,187 +18,218 @@ type Props = {
 export default function CreateAccountForm({ banks }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    bankId: '',
-    name: '',
-    initialBalance: '',
-  });
+  const router = useRouter();
+  const supabase = createClient();
+
+  // Form State
+  const [name, setName] = useState('');
+  const [bankId, setBankId] = useState('');
+  const [type, setType] = useState<'checking' | 'savings' | 'investment_fund' | 'investment' | 'cryptocurrency' | 'other'>('checking');
+  const [initialBalance, setInitialBalance] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const selectedBank = banks.find(b => b.id === bankId);
+  const themeColor = selectedBank?.color || '#000000';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!formData.bankId) {
-      setError('Selecciona un banco');
-      return;
-    }
-
-    if (!formData.name.trim()) {
-      setError('El nombre de la cuenta es obligatorio');
-      return;
-    }
-
-    const balance = Number.parseFloat(formData.initialBalance);
-    if (Number.isNaN(balance)) {
-      setError('El saldo inicial debe ser un número válido');
-      return;
-    }
+    if (!name || !bankId || !initialBalance) return;
 
     setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
 
-    const result = await createAccount({
-      bankId: formData.bankId,
-      name: formData.name.trim(),
-      initialBalance: balance,
-    });
+      const { error } = await supabase.from('accounts').insert([{
+        user_id: user.id,
+        bank_id: bankId,
+        name,
+        type,
+        current_balance: parseFloat(initialBalance),
+        is_favorite: isFavorite
+      }]);
 
-    if (result.error) {
-      setError(result.error);
-      setLoading(false);
-    } else {
-      // Éxito - resetear formulario
-      setFormData({ bankId: '', name: '', initialBalance: '' });
+      if (error) throw error;
+
+      // Reset and close
+      setName('');
+      setBankId('');
+      setInitialBalance('');
+      setIsFavorite(false);
       setIsOpen(false);
+      router.refresh();
+    } catch (err) {
+      console.error('Error creating account:', err);
+      alert('Error al crear la cuenta');
+    } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
   };
 
   if (banks.length === 0) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center">
-        <Building2 className="h-12 w-12 text-blue-500 mx-auto mb-3" />
-        <h3 className="font-bold text-neutral-900 mb-2">No tienes bancos configurados</h3>
-        <p className="text-sm text-neutral-600 mb-4">
-          Antes de crear una cuenta, debes añadir al menos un banco.
+      <div className="bg-blue-50 border border-blue-200 rounded-3xl p-8 text-center">
+        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Building2 className="h-8 w-8 text-blue-600" />
+        </div>
+        <h3 className="font-bold text-neutral-900 text-lg mb-2">No tienes bancos configurados</h3>
+        <p className="text-sm text-neutral-600 mb-6 max-w-xs mx-auto">
+          Antes de crear una cuenta, necesitas configurar al menos una entidad bancaria.
         </p>
-
-        <a href="/dashboard/configuracion" className="inline-block bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors">
-          Ir a Configuración
-        </a>
+        <button
+          onClick={() => router.push('/dashboard/configuracion')}
+          className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+        >
+          Configurar Bancos
+        </button>
       </div>
     );
   }
 
   return (
-    <div>
-      {!isOpen ? (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="w-full bg-linear-to-r from-primary-600 to-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-        >
-          <Plus className="h-6 w-6" />
-          Nueva Cuenta
-        </button>
-      ) : (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-strong w-full max-w-lg overflow-hidden animate-slide-up">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
-              <h3 className="text-xl font-bold text-neutral-900">Nueva Cuenta</h3>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setError('');
-                  setFormData({ bankId: '', name: '', initialBalance: '' });
-                }}
-                className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
-              >
-                <X className="h-6 w-6 text-neutral-500" />
-              </button>
-            </div>
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="w-full bg-neutral-900 text-white py-4 px-6 rounded-3xl font-bold text-lg shadow-xl shadow-neutral-900/10 hover:shadow-2xl hover:bg-neutral-800 transition-all flex items-center justify-center gap-3 group active:scale-[0.98]"
+      >
+        <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center group-hover:bg-white/20 transition-colors">
+          <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
+        </div>
+        <span>Nueva Cuenta</span>
+      </button>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-8">
-              {error && (
-                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center space-x-3">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
-                  <p className="text-sm font-medium text-red-800">{error}</p>
-                </div>
-              )}
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-slide-up">
+          {/* Header */}
+          <div className="px-6 py-4 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10 border-b border-neutral-100">
+            <h2 className="text-xl font-bold text-neutral-900">Nueva Cuenta</h2>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-2.5 rounded-full bg-neutral-100 text-neutral-500 hover:bg-neutral-200 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
 
-              {/* 1. Saldo Inicial Gigante */}
+          <div className="flex-1 overflow-y-auto pb-32">
+            <form onSubmit={handleSubmit} className="px-6 py-8 max-w-lg mx-auto space-y-10">
+
               <div className="text-center">
-                <label htmlFor="initialBalance" className="block text-sm font-medium text-neutral-400 uppercase tracking-wider mb-2">Saldo Inicial</label>
-                <div className="relative inline-block w-full max-w-[300px] mx-auto">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-4xl font-bold text-blue-500">€</span>
+                <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-4">Saldo Inicial</p>
+                <div className="relative inline-flex items-center justify-center">
+                  <span className="text-4xl font-black text-neutral-300 mr-2">€</span>
                   <input
-                    id="initialBalance"
-                    name="initialBalance"
                     type="number"
                     step="0.01"
-                    value={formData.initialBalance}
-                    onChange={handleChange}
-                    required
                     placeholder="0.00"
-                    className="w-full bg-transparent text-center text-5xl sm:text-6xl font-black focus:outline-none placeholder-neutral-200 p-2 pl-12 text-neutral-900"
+                    value={initialBalance}
+                    onChange={(e) => setInitialBalance(e.target.value)}
+                    className="bg-transparent text-6xl font-black text-neutral-900 placeholder-neutral-200 focus:outline-none w-full text-center max-w-[300px]"
+                    autoFocus
                   />
                 </div>
               </div>
 
-              {/* 2. Grid de Campos */}
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
-                    <Building2 className="h-4 w-4 mr-2" /> Banco
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="bankId"
-                      name="bankId"
-                      value={formData.bankId}
-                      onChange={handleChange}
-                      required
-                      className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all cursor-pointer hover:bg-neutral-100"
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider ml-1">Nombre</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Cuenta Corriente"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-neutral-900 font-bold placeholder-neutral-300 focus:bg-white focus:ring-4 focus:ring-neutral-100 transition-all outline-none"
+                  required
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider ml-1 flex items-center gap-2">
+                  Banco
+                </label>
+                <div className="grid grid-cols-1 gap-3">
+                  {banks.map(bank => (
+                    <button
+                      key={bank.id}
+                      type="button"
+                      onClick={() => setBankId(bank.id)}
+                      className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${bankId === bank.id
+                        ? 'border-neutral-900 bg-neutral-50 shadow-sm'
+                        : 'border-neutral-100 hover:border-neutral-200'
+                        }`}
                     >
-                      <option value="">Selecciona un banco...</option>
-                      {banks.map((bank) => (
-                        <option key={bank.id} value={bank.id}>
-                          {bank.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
-                    <Wallet className="h-4 w-4 mr-2" /> Nombre de la Cuenta
-                  </label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    placeholder="Ej: Ahorros, Nómina..."
-                    className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder-neutral-400"
-                  />
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm"
+                          style={{ backgroundColor: bank.color || '#000' }}
+                        >
+                          <span className="font-bold text-[10px]">{bank.name.substring(0, 2).toUpperCase()}</span>
+                        </div>
+                        <span className="font-bold text-neutral-900">{bank.name}</span>
+                      </div>
+                      {bankId === bank.id && (
+                        <div className="w-5 h-5 bg-neutral-900 rounded-full flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Botón Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-4 rounded-2xl text-xl font-bold text-white shadow-lg transition-all flex items-center justify-center gap-3 ${loading ? 'bg-neutral-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 hover:shadow-xl active:scale-[0.98]'
-                  }`}
-              >
-                {loading ? 'Creando...' : 'Crear Cuenta'}
-              </button>
+              <div className="space-y-4">
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider ml-1 flex items-center gap-2">
+                  Tipo de Cuenta
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: 'checking', label: 'Corriente', icon: CreditCard },
+                    { id: 'savings', label: 'Ahorro', icon: Wallet },
+                    { id: 'investment_fund', label: 'Fondo Inversión', icon: CreditCard },
+                    { id: 'investment', label: 'Inversión', icon: CreditCard },
+                    { id: 'cryptocurrency', label: 'Criptomoneda', icon: CreditCard },
+                    { id: 'other', label: 'Otro', icon: CreditCard }
+                  ].map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setType(t.id as any)}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${type === t.id
+                        ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                        : 'border-neutral-100 bg-white text-neutral-600 hover:border-neutral-200'
+                        }`}
+                    >
+                      <t.icon className={`w-5 h-5 ${type === t.id ? 'text-white' : 'text-neutral-400'}`} />
+                      <span className="text-xs font-bold uppercase tracking-tighter">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* FAVORITE TOGGLE */}
+              <div className="flex items-center justify-between p-4 bg-white border border-neutral-100 rounded-2xl shadow-sm">
+                <span className="font-bold text-neutral-900 text-sm">Marcar como favorita</span>
+                <button
+                  type="button"
+                  onClick={() => setIsFavorite(!isFavorite)}
+                  className={`w-12 h-7 rounded-full transition-colors relative ${isFavorite ? 'bg-neutral-900' : 'bg-neutral-200'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all ${isFavorite ? 'left-6' : 'left-1'}`}></div>
+                </button>
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={loading || !name || !bankId || !initialBalance}
+                  className="w-full bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-200 py-4 rounded-[24px] font-bold text-lg shadow-xl shadow-neutral-900/10 transition-all active:scale-[0.98]"
+                >
+                  {loading ? 'Guardando...' : 'Crear Cuenta'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AlertCircle, Tag, Target } from 'lucide-react';
-import { createBudget } from '@/lib/actions/budgets';
+import { upsertBudget } from '@/lib/actions/budgets';
 
 type Category = {
     id: string;
@@ -38,11 +38,7 @@ export default function BudgetForm({ categories }: Readonly<Props>) {
 
         setLoading(true);
 
-        const data = new FormData();
-        data.append('category_id', formData.categoryId);
-        data.append('amount', formData.amount);
-
-        const result = await createBudget(data);
+        const result = await upsertBudget(formData.categoryId, amount);
 
         if (result.error) {
             setError(result.error);

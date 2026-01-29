@@ -6,6 +6,17 @@
     --foreground: 0 0% 10%;
   }
 
+  /* Tamaño de fuente base: más legible en móviles */
+  html {
+    font-size: 16px; /* Desktop default */
+  }
+
+  @media (max-width: 640px) {
+    html {
+      font-size: 18px; /* Slightly larger on small screens */
+    }
+  }
+
   * {
     border-color: border-neutral-200;
   }

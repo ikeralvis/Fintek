@@ -1,18 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, AlertCircle, ArrowUpCircle, ArrowDownCircle, Calendar, FileText, Wallet, Tag } from 'lucide-react';
-import { createTransaction } from '@/lib/actions/transactions';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { X, Check, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { createTransfer } from '@/lib/actions/transfers';
 
 type Account = {
   id: string;
   name: string;
-  banks: { name: string };
+  banks?: {
+    name: string;
+    color: string;
+    logo_url?: string;
+  };
+  current_balance: number;
 };
 
 type Category = {
   id: string;
   name: string;
+  icon?: string;
+  color?: string;
 };
 
 type Props = {
@@ -20,311 +29,388 @@ type Props = {
   categories: Category[];
 };
 
-export default function TransactionForm({ accounts, categories }: Readonly<Props>) {
-  const today = new Date().toISOString().split('T')[0];
-
+export default function TransactionForm({ accounts, categories }: Props) {
+  const router = useRouter();
+  const supabase = createClient();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const defaultForm = {
-    type: 'expense' as 'income' | 'expense',
-    accountId: '',
-    categoryId: '',
-    amount: '',
-    description: '',
-    transactionDate: today,
-  };
 
-  const [formData, setFormData] = useState(() => {
-    try {
-      if (globalThis.window === undefined) return defaultForm;
-      const saved = localStorage.getItem('transactionFormDraft');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return { ...defaultForm, ...parsed };
-      }
-    } catch (e) {
-      // Log parse errors and fall back to default
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Error parsing transactionFormDraft from localStorage:', e);
-      }
-    }
-    return defaultForm;
-  });
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [type, setType] = useState<'expense' | 'income' | 'transfer'>('expense');
+  const [accountId, setAccountId] = useState(accounts[0]?.id || '');
+  const [toAccountId, setToAccountId] = useState(''); // Para transferencias
+  const [categoryId, setCategoryId] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Save to localStorage on change
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      localStorage.setItem('transactionFormDraft', JSON.stringify(formData));
-    }, 500); // Debounce saves
-    return () => clearTimeout(handler);
-  }, [formData]);
+  // Collapsible states
+  const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
+  const [isToAccountsExpanded, setIsToAccountsExpanded] = useState(false);
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const selectedCategory = categories.find(c => c.id === categoryId);
+  const selectedAccount = accounts.find(a => a.id === accountId);
+  const selectedToAccount = accounts.find(a => a.id === toAccountId);
 
-    if (!formData.accountId) {
-      setError('Selecciona una cuenta');
-      return;
-    }
+  // Agrupar cuentas por banco
+  const groupedAccounts = accounts.reduce((acc: any, account) => {
+    const bankName = account.banks?.name || 'Otros';
+    if (!acc[bankName]) acc[bankName] = [];
+    acc[bankName].push(account);
+    return acc;
+  }, {});
 
-    if (!formData.categoryId) {
-      setError('Selecciona una categoría');
-      return;
-    }
-
-    const amount = Number.parseFloat(formData.amount);
-    if (Number.isNaN(amount) || amount <= 0) {
-      setError('El importe debe ser mayor a 0');
-      return;
-    }
+  const handleSubmit = async () => {
+    if (!amount || !accountId) return;
+    
+    if (type === 'transfer' && !toAccountId) return;
+    if ((type === 'expense' || type === 'income') && !categoryId) return;
 
     setLoading(true);
 
-    const result = await createTransaction({
-      type: formData.type,
-      accountId: formData.accountId,
-      categoryId: formData.categoryId,
-      amount,
-      description: formData.description.trim() || undefined,
-      transactionDate: formData.transactionDate,
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user');
 
-    if (result.error) {
-      setError(result.error);
-      setLoading(false);
-    } else {
-      // Clear draft on success
-      localStorage.removeItem('transactionFormDraft');
+      if (type === 'transfer') {
+        // Usar la acción de transferencia
+        const result = await createTransfer({
+          fromAccountId: accountId,
+          toAccountId,
+          amount: Number.parseFloat(amount),
+          description: description || 'Transferencia',
+          transactionDate: date
+        });
 
-      setFormData({
-        type: 'expense',
-        accountId: formData.accountId, // Keep account selected for convenience? Or reset? Logic said reset.
-        categoryId: '',
-        amount: '',
-        description: '',
-        transactionDate: today,
-      });
+        if (result.error) throw new Error(result.error);
+      } else {
+        // Transacción normal
+        const { error } = await supabase.from('transactions').insert([{
+          user_id: user.id,
+          account_id: accountId,
+          category_id: categoryId,
+          amount: Number.parseFloat(amount),
+          description,
+          type,
+          transaction_date: date
+        }]);
+
+        if (error) throw error;
+
+        // Update account balance
+        const newBalance = type === 'income'
+          ? selectedAccount!.current_balance + Number.parseFloat(amount)
+          : selectedAccount!.current_balance - Number.parseFloat(amount);
+
+        await supabase.from('accounts').update({ current_balance: newBalance }).eq('id', accountId);
+      }
+
+      const previousPath = sessionStorage.getItem('previousPath') || '/dashboard/transacciones';
+      sessionStorage.removeItem('previousPath');
+      router.push(previousPath);
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert('Error al guardar');
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleSelectAccount = (id: string) => {
+    setAccountId(id);
+    setIsAccountsExpanded(false);
   };
 
-  if (accounts.length === 0 || categories.length === 0) {
-    return (
-      <div className="bg-accent-50 border border-accent-200 rounded-2xl p-6">
-        <div className="flex items-start space-x-3">
-          <AlertCircle className="h-6 w-6 text-accent-600 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-neutral-900 mb-1 text-lg">Configuración incompleta</h3>
-            <p className="text-neutral-600 mb-4">
-              Para comenzar, necesitas configurar tus cuentas y categorías.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              {accounts.length === 0 && (
-                <a href="/dashboard/cuentas" className="bg-primary-600 text-white px-4 py-2 rounded-xl text-center font-medium hover:bg-primary-700 transition-colors">
-                  Crear Cuenta
-                </a>
-              )}
-              {categories.length === 0 && (
-                <a href="/dashboard/configuracion" className="bg-neutral-900 text-white px-4 py-2 rounded-xl text-center font-medium hover:bg-neutral-800 transition-colors">
-                  Añadir Categorías
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleSelectToAccount = (id: string) => {
+    setToAccountId(id);
+    setIsToAccountsExpanded(false);
+  };
+
+  const handleSelectCategory = (id: string) => {
+    setCategoryId(id);
+    setIsCategoriesExpanded(false);
+  };
 
   return (
-    <div className="bg-white/50 backdrop-blur-sm rounded-3xl p-1">
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {error && (
-          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center space-x-3 animate-fade-in">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <p className="text-sm font-medium text-red-800">{error}</p>
-          </div>
-        )}
-
-        {/* 1. Selector de Tipo (Segmented Control Grande) */}
-        <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-100/80 rounded-2xl">
+    <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-slide-up">
+      {/* Header */}
+      <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100">
+        <button
+          onClick={() => router.back()}
+          className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
+        >
+          <X className="w-5 h-5 text-neutral-900" />
+        </button>
+        <div className="flex bg-neutral-100 rounded-full p-0.5">
           <button
-            type="button"
-            onClick={() => setFormData({ ...formData, type: 'expense' })}
-            className={`flex items-center justify-center gap-2 py-4 rounded-xl text-lg font-bold transition-all duration-200 ${formData.type === 'expense'
-              ? 'bg-white text-accent-600 shadow-sm ring-1 ring-black/5'
-              : 'text-neutral-500 hover:bg-neutral-200/50'
-              }`}
+            onClick={() => setType('expense')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'expense' ? 'bg-white text-rose-500 shadow-sm' : 'text-neutral-500'}`}
           >
-            <ArrowDownCircle className={`h-6 w-6 ${formData.type === 'expense' ? 'text-accent-500' : 'text-neutral-400'}`} />
             Gasto
           </button>
           <button
-            type="button"
-            onClick={() => setFormData({ ...formData, type: 'income' })}
-            className={`flex items-center justify-center gap-2 py-4 rounded-xl text-lg font-bold transition-all duration-200 ${formData.type === 'income'
-              ? 'bg-white text-secondary-600 shadow-sm ring-1 ring-black/5'
-              : 'text-neutral-500 hover:bg-neutral-200/50'
-              }`}
+            onClick={() => setType('income')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'income' ? 'bg-white text-emerald-500 shadow-sm' : 'text-neutral-500'}`}
           >
-            <ArrowUpCircle className={`h-6 w-6 ${formData.type === 'income' ? 'text-secondary-500' : 'text-neutral-400'}`} />
             Ingreso
           </button>
-        </div>
-
-        {/* 2. Input de Cantidad Gigante */}
-        <div className="text-center">
-          <label htmlFor="amount" className="block text-sm font-medium text-neutral-400 uppercase tracking-wider mb-2">Importe</label>
-          <div className="relative inline-block max-w-[200px] sm:max-w-xs mx-auto">
-            <span className={`absolute left-0 top-1/2 -translate-y-1/2 text-4xl font-bold ${formData.type === 'expense' ? 'text-accent-500' : 'text-secondary-500'}`}>€</span>
-            <input
-              id="amount"
-              name="amount"
-              type="number"
-              step="0.01"
-              value={formData.amount}
-              onChange={handleChange}
-              required
-              placeholder="0.00"
-              className="w-full bg-transparent text-center text-6xl font-black focus:outline-none placeholder-neutral-200 p-2 text-neutral-900"
-            />
-          </div>
-        </div>
-
-        {/* 3. Grid de Campos (Cuenta y Categoría) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
-              <Wallet className="h-4 w-4 mr-2" /> Cuenta
-            </label>
-            <div className="relative">
-              <select
-                id="accountId"
-                name="accountId"
-                value={formData.accountId}
-                onChange={handleChange}
-                required
-                className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all cursor-pointer hover:bg-neutral-100"
-              >
-                <option value="">Seleccionar cuenta...</option>
-                {(() => {
-                  // Group accounts by bank
-                  const groupedAccounts = accounts.reduce((acc, account) => {
-                    const bankName = account.banks?.name || 'Otros';
-                    if (!acc[bankName]) acc[bankName] = [];
-                    acc[bankName].push(account);
-                    return acc;
-                  }, {} as Record<string, typeof accounts>);
-
-                  return Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => (
-                    <optgroup key={bankName} label={bankName}>
-                      {bankAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ));
-                })()}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
-              <Tag className="h-4 w-4 mr-2" /> Categoría
-            </label>
-            <div className="relative">
-              <select
-                id="categoryId"
-                name="categoryId"
-                value={formData.categoryId}
-                onChange={handleChange}
-                required
-                className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-lg font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all cursor-pointer hover:bg-neutral-100"
-              >
-                <option value="">Seleccionar categoría...</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-neutral-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. Fecha y Detalles */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
-              <Calendar className="h-4 w-4 mr-2" /> Fecha
-            </label>
-            <input
-              type="date"
-              name="transactionDate"
-              value={formData.transactionDate}
-              onChange={handleChange}
-              required
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-base font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="flex items-center text-sm font-medium text-neutral-500 ml-1">
-              <FileText className="h-4 w-4 mr-2" /> Nota (Opcional)
-            </label>
-            <input
-              type="text"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="¿En qué gastaste?"
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-5 py-4 text-base font-medium text-neutral-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 transition-all placeholder-neutral-400"
-            />
-          </div>
-        </div>
-
-        {/* 5. Botón de Acción Masivo */}
-        <div className="pt-4">
           <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-5 rounded-2xl text-xl font-bold text-white shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3 ${loading
-              ? 'bg-neutral-400 cursor-not-allowed'
-              : formData.type === 'expense'
-                ? 'bg-neutral-900 hover:bg-neutral-800'
-                : 'bg-primary-600 hover:bg-primary-500'
-              }`}
+            onClick={() => setType('transfer')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'transfer' ? 'bg-white text-blue-500 shadow-sm' : 'text-neutral-500'}`}
           >
-            {loading ? (
-              <span className="animate-pulse">Guardando...</span>
-            ) : (
-              <>
-                <Plus className="h-6 w-6" />
-                {formData.type === 'expense' ? 'Registrar Gasto' : 'Registrar Ingreso'}
-              </>
-            )}
+            Transferencia
           </button>
         </div>
+        <div className="w-9" /> {/* Spacer for balance */}
+      </div>
 
-      </form>
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-6 max-w-lg mx-auto space-y-5">
+
+          {/* AMOUNT INPUT - More compact */}
+          <div className="text-center py-2">
+            <div className="relative inline-flex items-center justify-center">
+              <span className={`text-2xl font-bold mr-1 ${type === 'expense' ? 'text-rose-300' : type === 'income' ? 'text-emerald-300' : 'text-blue-300'}`}>€</span>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className={`bg-transparent text-4xl font-black placeholder-neutral-200 focus:outline-none w-full text-center max-w-[200px] ${type === 'expense' ? 'text-rose-500' : type === 'income' ? 'text-emerald-500' : 'text-blue-500'}`}
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* DESCRIPTION & DATE - Compact inline */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Descripción"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2.5 text-sm text-neutral-900 font-medium placeholder-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200 outline-none"
+            />
+            <div className="relative">
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="bg-neutral-50 border border-neutral-100 rounded-xl pl-8 pr-2 py-2.5 text-sm text-neutral-900 font-medium outline-none w-[130px]"
+              />
+            </div>
+          </div>
+
+          {/* ACCOUNT SELECTOR - Collapsible GROUPED BY BANK */}
+          <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+            <button
+              onClick={() => setIsAccountsExpanded(!isAccountsExpanded)}
+              className="w-full p-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+            >
+              <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                {type === 'transfer' ? 'Desde' : 'Cuenta'}
+              </span>
+              <div className="flex items-center gap-2">
+                {selectedAccount && (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold text-white overflow-hidden"
+                      style={{ backgroundColor: selectedAccount.banks?.logo_url ? 'transparent' : (selectedAccount.banks?.color || '#000') }}
+                    >
+                      {selectedAccount.banks?.logo_url ? (
+                        <img src={selectedAccount.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                      ) : (
+                        selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-neutral-900">{selectedAccount.name}</span>
+                  </div>
+                )}
+                {isAccountsExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+              </div>
+            </button>
+
+            {isAccountsExpanded && (
+              <div className="border-t border-neutral-100 p-2 space-y-2 max-h-48 overflow-y-auto">
+                {Object.entries(groupedAccounts).map(([bankName, bankAccounts]: [string, any]) => (
+                  <div key={bankName}>
+                    <div className="px-2 py-1 text-xs font-bold text-neutral-400 uppercase tracking-wider">{bankName}</div>
+                    <div className="space-y-1">
+                      {bankAccounts.map((acc: Account) => (
+                        <button
+                          key={acc.id}
+                          onClick={() => handleSelectAccount(acc.id)}
+                          className={`w-full p-2.5 rounded-xl flex items-center gap-3 transition-all ${accountId === acc.id
+                              ? 'bg-neutral-900 text-white'
+                              : 'hover:bg-neutral-50'
+                            }`}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
+                            style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || '#000') }}
+                          >
+                            {acc.banks?.logo_url ? (
+                              <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                            ) : (
+                              acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                            )}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className={`text-sm font-bold truncate ${accountId === acc.id ? 'text-white' : 'text-neutral-900'}`}>{acc.name}</p>
+                            <p className={`text-xs ${accountId === acc.id ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                              {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
+                            </p>
+                          </div>
+                          {accountId === acc.id && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* TO ACCOUNT SELECTOR - Solo para transferencias */}
+          {type === 'transfer' && (
+            <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+              <button
+                onClick={() => setIsToAccountsExpanded(!isToAccountsExpanded)}
+                className="w-full p-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+              >
+                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Para</span>
+                <div className="flex items-center gap-2">
+                  {selectedToAccount && (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold text-white overflow-hidden"
+                        style={{ backgroundColor: selectedToAccount.banks?.logo_url ? 'transparent' : (selectedToAccount.banks?.color || '#000') }}
+                      >
+                        {selectedToAccount.banks?.logo_url ? (
+                          <img src={selectedToAccount.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          selectedToAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                        )}
+                      </div>
+                      <span className="text-sm font-bold text-neutral-900">{selectedToAccount.name}</span>
+                    </div>
+                  )}
+                  {isToAccountsExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                </div>
+              </button>
+
+              {isToAccountsExpanded && (
+                <div className="border-t border-neutral-100 p-2 space-y-2 max-h-48 overflow-y-auto">
+                  {Object.entries(groupedAccounts).map(([bankName, bankAccounts]: [string, any]) => (
+                    <div key={bankName}>
+                      <div className="px-2 py-1 text-xs font-bold text-neutral-400 uppercase tracking-wider">{bankName}</div>
+                      <div className="space-y-1">
+                        {bankAccounts
+                          .filter((acc: Account) => acc.id !== accountId) // No mostrar la misma cuenta
+                          .map((acc: Account) => (
+                            <button
+                              key={acc.id}
+                              onClick={() => handleSelectToAccount(acc.id)}
+                              className={`w-full p-2.5 rounded-xl flex items-center gap-3 transition-all ${toAccountId === acc.id
+                                  ? 'bg-neutral-900 text-white'
+                                  : 'hover:bg-neutral-50'
+                                }`}
+                            >
+                              <div
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
+                                style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || '#000') }}
+                              >
+                                {acc.banks?.logo_url ? (
+                                  <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                ) : (
+                                  acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                )}
+                              </div>
+                              <div className="flex-1 text-left min-w-0">
+                                <p className={`text-sm font-bold truncate ${toAccountId === acc.id ? 'text-white' : 'text-neutral-900'}`}>{acc.name}</p>
+                                <p className={`text-xs ${toAccountId === acc.id ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                                  {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
+                                </p>
+                              </div>
+                              {toAccountId === acc.id && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CATEGORIES - Collapsible with compact grid - Solo para expense/income */}
+          {type !== 'transfer' && (
+            <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+              <button
+                onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
+                className="w-full p-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+              >
+                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoría</span>
+                <div className="flex items-center gap-2">
+                  {selectedCategory && (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-sm"
+                        style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : '#f5f5f5' }}
+                      >
+                        {selectedCategory.icon || '💰'}
+                      </div>
+                      <span className="text-sm font-bold text-neutral-900">{selectedCategory.name}</span>
+                    </div>
+                  )}
+                  {isCategoriesExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                </div>
+              </button>
+
+              {isCategoriesExpanded && (
+                <div className="border-t border-neutral-100 p-2 max-h-56 overflow-y-auto">
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {categories.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => handleSelectCategory(cat.id)}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${categoryId === cat.id
+                            ? 'bg-neutral-900'
+                            : 'hover:bg-neutral-50'
+                          }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg ${categoryId === cat.id ? 'scale-105' : ''}`}
+                          style={{ backgroundColor: cat.color ? `${cat.color}20` : '#f5f5f5' }}
+                        >
+                          {cat.icon || '💰'}
+                        </div>
+                        <span className={`text-[9px] font-bold truncate w-full text-center ${categoryId === cat.id ? 'text-white' : 'text-neutral-600'}`}>
+                          {cat.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="p-4 border-t border-neutral-100 bg-white/90 backdrop-blur-sm pb-8">
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !amount || !accountId || (type !== 'transfer' && !categoryId) || (type === 'transfer' && !toAccountId)}
+          className="w-full bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-200 py-3.5 rounded-2xl font-bold text-base shadow-lg shadow-neutral-900/10 transition-all active:scale-[0.98]"
+        >
+          {loading ? 'Guardando...' : `Añadir ${type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : 'Transferencia'}`}
+        </button>
+      </div>
     </div>
   );
 }

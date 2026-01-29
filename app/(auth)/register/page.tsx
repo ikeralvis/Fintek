@@ -77,7 +77,7 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center space-x-2 mb-4">
-            <Wallet className="h-10 w-10 text-primary-600" />
+            <img src="/logo.png" alt="FinTek Logo" className="h-10 w-10" />
             <span className="text-3xl font-bold text-primary-900">FinTek</span>
           </Link>
           <h1 className="text-2xl font-bold text-neutral-900 mb-2">Crear Cuenta</h1>
@@ -193,9 +193,9 @@ export default function RegisterPage() {
                   id="terms"
                   type="checkbox"
                   required
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded mt-1"
+                  className="h-4 w-4 accent-primary-600 border-neutral-400 rounded mt-1 cursor-pointer transition-all"
                 />
-                <label htmlFor="terms" className="ml-2 block text-sm text-neutral-600">
+                <label htmlFor="terms" className="ml-2 block text-sm text-neutral-600 cursor-pointer">
                   Acepto los términos y condiciones y la política de privacidad
                 </label>
               </div>
