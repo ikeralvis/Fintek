@@ -95,7 +95,6 @@ export default function CreateAccountForm({ banks }: Props) {
         <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center group-hover:bg-white/20 transition-colors">
           <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
         </div>
-        <span>Nueva Cuenta</span>
       </button>
 
       {isOpen && (

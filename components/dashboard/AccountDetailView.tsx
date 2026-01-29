@@ -3,9 +3,9 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    ArrowLeft, Star, Pencil, Trash2,
+    ArrowLeft, Star, Trash2,
     ChevronLeft, ChevronRight,
-    ArrowDownRight, ArrowUpRight, Calendar
+    ArrowDownRight, ArrowUpRight, Calendar, Pencil, Database
 } from 'lucide-react';
 import { format, parseISO, isSameDay, isSameMonth, subMonths, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -13,7 +13,6 @@ import { createClient } from '@/lib/supabase/client';
 import { cancelAccount } from '@/lib/actions/accounts';
 import EditTransactionModal from './EditTransactionModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
-import { Database } from 'lucide-react';
 
 type Category = {
     id: string;
@@ -32,6 +31,9 @@ type Transaction = {
     account_id: string;
     categories?: Category;
     category?: string;
+    isIncomingTransfer?: boolean;
+    original_account_id?: string;
+    related_account_id?: string;
 };
 
 type Account = {
@@ -164,120 +166,120 @@ export default function AccountDetailView({ account, initialTransactions, catego
     }, [filteredTransactions]);
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-40">
+        <div className="min-h-screen bg-neutral-50 pb-32">
             {/* Header */}
-            <div className="bg-white sticky top-0 z-20 px-4 py-3 flex items-center justify-between border-b border-neutral-100">
-                <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-neutral-100 transition-colors">
-                    <ArrowLeft className="w-5 h-5 text-neutral-700" />
-                </button>
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={() => setIsImportModalOpen(true)}
-                        className="p-2 rounded-xl hover:bg-neutral-100 text-neutral-600 transition-colors"
-                        title="Importar transacciones"
-                    >
-                        <Database className="w-5 h-5" />
+            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+                <div className="flex items-center justify-between">
+                    <button onClick={() => router.back()} className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
                     </button>
-                    <button
-                        onClick={toggleFavorite}
-                        className={`p-2 rounded-xl transition-colors ${isFavorite ? 'bg-amber-100 text-amber-600' : 'hover:bg-neutral-100 text-neutral-400'}`}
-                    >
-                        <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-500' : ''}`} />
-                    </button>
-                    <button
-                        onClick={handleCancelAccount}
-                        disabled={isDeleting}
-                        className="p-2 rounded-xl hover:bg-red-50 text-red-500 transition-colors"
-                        title="Cancelar cuenta"
-                    >
-                        <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="p-2 rounded-xl hover:bg-neutral-100 text-neutral-500 transition-colors"
+                        >
+                            <Database className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={toggleFavorite}
+                            className={`p-2 rounded-xl transition-colors ${isFavorite ? 'text-amber-500' : 'text-neutral-400 hover:bg-neutral-100'}`}
+                        >
+                            <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-500' : ''}`} />
+                        </button>
+                        <button
+                            onClick={handleCancelAccount}
+                            disabled={isDeleting}
+                            className="p-2 rounded-xl hover:bg-rose-50 text-rose-500 transition-colors"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 pt-5 max-w-2xl">
-                {/* Account Card with Bank Branding */}
+            <div className="px-5 space-y-5">
+                {/* Account Card */}
                 <div
-                    className="relative overflow-hidden rounded-3xl p-6 mb-5 text-white shadow-2xl"
-                    style={{ background: `linear-gradient(135deg, ${themeColor} 0%, ${themeColor}dd 100%)` }}
+                    className="relative overflow-hidden rounded-2xl p-5 text-white"
+                    style={{ backgroundColor: themeColor }}
                 >
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                    <div className="relative z-10 flex items-center gap-5">
-                        {/* Bank Logo */}
-                        <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center overflow-hidden shrink-0 border border-white/10">
-                            {account.banks?.logo_url ? (
-                                <img src={account.banks.logo_url} alt={account.banks.name} className="w-12 h-12 object-contain" />
-                            ) : (
-                                <span className="text-2xl font-black text-white/90">
-                                    {account.banks?.name?.substring(0, 2).toUpperCase() || '€'}
-                                </span>
-                            )}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center overflow-hidden">
+                                {account.banks?.logo_url ? (
+                                    <img src={account.banks.logo_url} alt="" className="w-10 h-10 object-contain" />
+                                ) : (
+                                    <span className="text-lg font-bold">{account.banks?.name?.substring(0, 2).toUpperCase() || '€'}</span>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-white/70 text-xs font-medium">{account.banks?.name || 'Cuenta'}</p>
+                                <p className="font-semibold">{account.name}</p>
+                            </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold tracking-wider uppercase opacity-70 mb-1">
-                                {account.banks?.name || 'Cuenta Personal'}
-                            </p>
-                            <h2 className="text-3xl font-black tracking-tight">
-                                {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(account.current_balance)}
-                            </h2>
-                        </div>
+                        <p className="text-3xl font-bold">
+                            {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(account.current_balance)}
+                        </p>
                     </div>
                 </div>
 
                 {/* Date Controls */}
-                <div className="bg-white rounded-2xl p-3 shadow-sm border border-neutral-100 mb-5 flex items-center justify-between">
+                <div className="flex items-center justify-between bg-white rounded-xl p-2 border border-neutral-100">
                     {!showAllDates && (
-                        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 rounded-xl text-neutral-600">
-                            <ChevronLeft className="w-5 h-5" />
+                        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg">
+                            <ChevronLeft className="w-4 h-4 text-neutral-600" />
                         </button>
                     )}
                     <button
                         onClick={() => setShowAllDates(!showAllDates)}
-                        className="flex-1 text-center hover:bg-neutral-50 rounded-xl py-2 transition-colors mx-2"
+                        className="flex-1 text-center py-2 hover:bg-neutral-50 rounded-lg transition-colors"
                     >
-                        <h3 className="text-sm font-bold text-neutral-900 capitalize flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                             <Calendar className="w-4 h-4 text-neutral-400" />
-                            {showAllDates ? 'Todo el Historial' : format(currentMonth, 'MMMM yyyy', { locale: es })}
-                        </h3>
-                        <p className="text-xs text-neutral-400">
-                            {showAllDates ? 'Toca para filtrar por mes' : 'Toca para ver todo'}
-                        </p>
+                            <span className="text-sm font-medium text-neutral-700 capitalize">
+                                {showAllDates ? 'Todo el historial' : format(currentMonth, 'MMMM yyyy', { locale: es })}
+                            </span>
+                        </div>
                     </button>
                     {!showAllDates && (
-                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 rounded-xl text-neutral-600">
-                            <ChevronRight className="w-5 h-5" />
+                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg">
+                            <ChevronRight className="w-4 h-4 text-neutral-600" />
                         </button>
                     )}
                 </div>
 
                 {/* Stats Summary */}
                 {!showAllDates && (
-                    <div className="grid grid-cols-3 gap-3 mb-5">
-                        <div className="bg-emerald-50 rounded-2xl p-4 text-center border border-emerald-100">
-                            <p className="text-xs text-emerald-600 font-bold uppercase">Ingresos</p>
-                            <p className="text-lg font-black text-emerald-700">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}</p>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+                            <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
+                            <p className="text-base font-bold text-emerald-700">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}€</p>
                         </div>
-                        <div className="bg-rose-50 rounded-2xl p-4 text-center border border-rose-100">
-                            <p className="text-xs text-rose-600 font-bold uppercase">Gastos</p>
-                            <p className="text-lg font-black text-rose-700">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthExpense)}</p>
+                        <div className="bg-rose-50 rounded-xl p-3 text-center border border-rose-100">
+                            <p className="text-[10px] text-rose-600 font-semibold uppercase">Gastos</p>
+                            <p className="text-base font-bold text-rose-700">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthExpense)}€</p>
                         </div>
-                        <div className="bg-neutral-100 rounded-2xl p-4 text-center">
-                            <p className="text-xs text-neutral-600 font-bold uppercase">Balance</p>
-                            <p className={`text-lg font-black ${monthIncome - monthExpense >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {monthIncome - monthExpense >= 0 ? '+' : ''}{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome - monthExpense)}
+                        <div className="bg-neutral-100 rounded-xl p-3 text-center">
+                            <p className="text-[10px] text-neutral-500 font-semibold uppercase">Balance</p>
+                            <p className={`text-base font-bold ${monthIncome - monthExpense >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {monthIncome - monthExpense >= 0 ? '+' : ''}{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome - monthExpense)}€
                             </p>
                         </div>
                     </div>
                 )}
 
                 {/* Filters */}
-                <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide">
+                <div className="flex gap-2">
                     {(['all', 'income', 'expense'] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => setFilterType(t)}
-                            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${filterType === t ? 'bg-neutral-900 text-white shadow-lg' : 'bg-white border border-neutral-200 text-neutral-500'
-                                }`}
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                filterType === t 
+                                    ? 'bg-neutral-900 text-white' 
+                                    : 'bg-white border border-neutral-200 text-neutral-500'
+                            }`}
                         >
                             {t === 'all' ? 'Todos' : t === 'income' ? 'Ingresos' : 'Gastos'}
                         </button>
@@ -285,66 +287,86 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 </div>
 
                 {/* Transaction List */}
-                <div className="space-y-6 pb-32">
+                <div className="space-y-5">
                     {Object.keys(groupedTransactions).length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-neutral-200">
-                            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🕵️</div>
-                            <h3 className="text-neutral-900 font-bold mb-2">Sin movimientos</h3>
-                            <p className="text-neutral-400 text-sm px-8">No hay transacciones en este período.</p>
+                        <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
+                            <p className="text-neutral-400 text-sm">Sin movimientos en este período</p>
                             {!showAllDates && (
-                                <button onClick={() => setShowAllDates(true)} className="mt-4 px-6 py-2.5 bg-neutral-900 text-white rounded-xl text-sm font-bold">
-                                    Ver Todo
+                                <button onClick={() => setShowAllDates(true)} className="mt-3 px-4 py-2 bg-neutral-900 text-white rounded-xl text-sm font-medium">
+                                    Ver todo
                                 </button>
                             )}
                         </div>
                     ) : (
                         Object.entries(groupedTransactions).sort((a, b) => b[0].localeCompare(a[0])).map(([date, txs]) => (
                             <div key={date}>
-                                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3 ml-1">
+                                <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2 ml-1">
                                     {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM', { locale: es })}
                                 </h4>
-                                <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden divide-y divide-neutral-100">
+                                <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
                                     {txs.map(t => {
                                         const categoryName = t.categories?.name || t.category || 'General';
-                                        const hasDescription = t.description && t.description !== categoryName;
                                         const icon = t.categories?.icon;
+                                        
+                                        // Transferencias: entrantes = ingreso, salientes = gasto
+                                        const isTransfer = t.type === 'transfer';
+                                        const isIncoming = t.isIncomingTransfer;
+                                        
+                                        // Determinar si es ingreso para mostrar el signo correcto
+                                        const showAsIncome = t.type === 'income' || isIncoming;
 
                                         return (
-                                            <div key={t.id} className="px-4 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors group">
+                                            <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
                                                 <div
-                                                    className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm text-2xl"
-                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}20` : '#f5f5f5' }}
+                                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#f0f9ff' : '#f5f5f5') }}
                                                 >
-                                                    {icon || (t.type === 'expense' ? <ArrowDownRight className="w-5 h-5 text-rose-500" /> : <ArrowUpRight className="w-5 h-5 text-emerald-500" />)}
+                                                    {icon || (
+                                                        isTransfer 
+                                                            ? (isIncoming 
+                                                                ? <ArrowDownRight className="w-4 h-4 text-blue-500" /> 
+                                                                : <ArrowUpRight className="w-4 h-4 text-blue-500" />)
+                                                            : (t.type === 'expense' 
+                                                                ? <ArrowDownRight className="w-4 h-4 text-rose-500" /> 
+                                                                : <ArrowUpRight className="w-4 h-4 text-emerald-500" />)
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <p className="font-bold text-neutral-900 truncate pr-2 text-base">{categoryName}</p>
-                                                        <p className={`font-bold whitespace-nowrap text-lg ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
-                                                            {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
-                                                        </p>
+                                                    <p className="font-medium text-neutral-900 text-sm truncate">
+                                                        {isTransfer ? (isIncoming ? 'Transferencia recibida' : 'Transferencia enviada') : categoryName}
+                                                    </p>
+                                                    {t.description && (
+                                                        <p className="text-xs text-neutral-400 truncate">{t.description}</p>
+                                                    )}
+                                                </div>
+                                                <p className={`font-semibold text-sm ${
+                                                    isTransfer 
+                                                        ? 'text-blue-600' 
+                                                        : (showAsIncome ? 'text-emerald-600' : 'text-neutral-900')
+                                                }`}>
+                                                    {showAsIncome ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
+                                                </p>
+                                                {!isTransfer && (
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => setEditingTransaction(t)}
+                                                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"
+                                                        >
+                                                            <Pencil className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteTransaction(t)}
+                                                            disabled={deletingId === t.id}
+                                                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                                                        >
+                                                            {deletingId === t.id ? (
+                                                                <div className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            )}
+                                                        </button>
                                                     </div>
-                                                    {hasDescription && <p className="text-sm text-neutral-500 truncate">{t.description}</p>}
-                                                </div>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => setEditingTransaction(t)}
-                                                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteTransaction(t)}
-                                                        disabled={deletingId === t.id}
-                                                        className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors"
-                                                    >
-                                                        {deletingId === t.id ? (
-                                                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="w-4 h-4" />
-                                                        )}
-                                                    </button>
-                                                </div>
+                                                )}
                                             </div>
                                         );
                                     })}

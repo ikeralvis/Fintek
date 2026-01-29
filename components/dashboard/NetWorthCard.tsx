@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 type Props = {
     totalBalance: number;
@@ -11,43 +11,32 @@ export default function NetWorthCard({ totalBalance, monthlyIncome = 0, monthlyE
     const isPositive = netChange >= 0;
 
     return (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 p-8 text-white shadow-2xl">
-            {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-emerald-500/10 to-cyan-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
-
+        <div className="relative overflow-hidden rounded-2xl bg-neutral-900 p-6 text-white">
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+            
             <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-                            <Sparkles className="w-4 h-4 text-amber-400" />
-                        </div>
-                        <span className="text-sm font-medium text-white/60">Patrimonio Neto</span>
-                    </div>
-                </div>
-
-                <h1 className="text-5xl font-black tracking-tight mb-6">
+                <p className="text-xs text-neutral-400 font-medium uppercase tracking-wide mb-1">Balance Total</p>
+                <h1 className="text-4xl font-bold tracking-tight mb-4">
                     {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalBalance)}
                 </h1>
 
-                <div className="flex items-center gap-6">
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${isPositive ? 'bg-emerald-500/20' : 'bg-rose-500/20'}`}>
-                        {isPositive ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
-                        <span className={`text-sm font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {isPositive ? '+' : ''}{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(netChange)}
-                        </span>
-                        <span className="text-white/40 text-sm">este mes</span>
+                <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                        {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                        <span>{isPositive ? '+' : ''}{new Intl.NumberFormat('es-ES').format(netChange)}€</span>
                     </div>
+                    <span className="text-neutral-500 text-sm">este mes</span>
+                </div>
 
-                    <div className="flex gap-4 text-sm">
-                        <div>
-                            <span className="text-white/40">Ingresos</span>
-                            <p className="font-bold text-emerald-400">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthlyIncome)}€</p>
-                        </div>
-                        <div>
-                            <span className="text-white/40">Gastos</span>
-                            <p className="font-bold text-rose-400">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthlyExpense)}€</p>
-                        </div>
+                <div className="flex gap-6 mt-4 pt-4 border-t border-white/10">
+                    <div>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-medium">Ingresos</p>
+                        <p className="text-lg font-semibold text-emerald-400">+{new Intl.NumberFormat('es-ES').format(monthlyIncome)}€</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-medium">Gastos</p>
+                        <p className="text-lg font-semibold text-rose-400">-{new Intl.NumberFormat('es-ES').format(monthlyExpense)}€</p>
                     </div>
                 </div>
             </div>

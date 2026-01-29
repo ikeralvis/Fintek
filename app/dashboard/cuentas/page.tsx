@@ -1,50 +1,42 @@
 import { createClient } from '@/lib/supabase/server';
-import { ArrowLeft, Filter, Wallet, CreditCard } from 'lucide-react';
+import { ArrowLeft, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
-import CreateAccountForm from '@/components/dashboard/CreateAccountForm';
+import CreateAccountButton from '@/components/dashboard/CreateAccountButton';
 
-// Server Component - No 'use client'
 export default async function AccountsPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return null;
 
-    // 1. Fetch Accounts + Banks (only active accounts)
+    // Fetch Accounts + Banks
     const { data: accountsData } = await supabase
         .from('accounts')
-        .select(`
-            *,
-            banks (name, color, logo_url)
-        `)
+        .select(`*, banks (name, color, logo_url)`)
         .eq('user_id', user.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
     const accounts = accountsData || [];
 
-    // 2. Fetch Banks List for the create form
+    // Fetch Banks for the create form
     const { data: banksList } = await supabase
         .from('banks')
         .select('*')
         .eq('user_id', user.id)
         .order('name');
 
-    // 3. Fetch Income/Expense stats for ALL accounts in one efficient query 
-    // instead of N+1 requests. Exclude transfers from stats.
-    const now = new Date();
-    const firstDayOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
-
+    // Fetch yearly stats
+    const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
     const { data: transactions } = await supabase
         .from('transactions')
         .select('account_id, type, amount')
         .eq('user_id', user.id)
-        .not('type', 'eq', 'transfer') // Exclude transfers from stats
+        .not('type', 'eq', 'transfer')
         .gte('transaction_date', firstDayOfYear);
 
-    // Calculate aggregated stats in memory
+    // Calculate stats
     const statsByAccount: Record<string, { income: number; expense: number }> = {};
-
     (transactions || []).forEach(t => {
         if (!statsByAccount[t.account_id]) {
             statsByAccount[t.account_id] = { income: 0, expense: 0 };
@@ -53,141 +45,137 @@ export default async function AccountsPage() {
         else if (t.type === 'expense') statsByAccount[t.account_id].expense += t.amount;
     });
 
-    // Merge data
     const enhancedAccounts = accounts.map(acc => ({
         ...acc,
         yearlyIncome: statsByAccount[acc.id]?.income || 0,
         yearlyExpense: statsByAccount[acc.id]?.expense || 0,
-        // Ensure bank data is accessible consistently
         bankName: acc.banks?.name || 'Otros',
-        bankColor: acc.banks?.color || '#000000'
+        bankColor: acc.banks?.color || '#6B7280'
     }));
 
     // Group by Bank
-    const groupedAccounts = enhancedAccounts.reduce((groups: any, account) => {
+    const groupedAccounts = enhancedAccounts.reduce((groups: Record<string, typeof enhancedAccounts>, account) => {
         const bankName = account.bankName;
         if (!groups[bankName]) groups[bankName] = [];
         groups[bankName].push(account);
         return groups;
     }, {});
 
-
     const totalBalance = enhancedAccounts.reduce((sum, acc) => sum + acc.current_balance, 0);
 
-    return (
-        <div className="container mx-auto px-4 pb-24 pt-6 max-w-2xl bg-neutral-50 min-h-screen">
+    const formatCurrency = (amount: number) => 
+        new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
 
+    const formatNumber = (amount: number) => 
+        new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(amount);
+
+    return (
+        <div className="min-h-screen bg-neutral-50 pb-32">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8 sticky top-0 z-10 bg-neutral-50/80 backdrop-blur-md py-4 -mx-4 px-4">
-                <Link href="/dashboard" className="p-2 rounded-full hover:bg-neutral-200 transition-colors">
-                    <ArrowLeft className="w-6 h-6 text-neutral-900" />
-                </Link>
-                <h1 className="text-xl font-bold text-neutral-900">Mis Cuentas</h1>
-                <div className="flex items-center gap-2">
-                    <button className="p-2 rounded-full hover:bg-neutral-200 transition-colors">
-                        <Filter className="w-6 h-6 text-neutral-900" />
-                    </button>
-                    {/* The + button requested in header can be implemented by a client component wrapper or keeping it simple for now */}
+            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+                <div className="flex items-center justify-between">
+                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
+                    </Link>
+                    <h1 className="text-lg font-semibold text-neutral-900">Mis Cuentas</h1>
+                    <CreateAccountButton banks={banksList || []} />
                 </div>
             </div>
 
-            {/* Total Balance Card */}
-            <div className="bg-neutral-900 rounded-[32px] p-8 mb-8 text-center text-white shadow-xl shadow-neutral-900/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                <div className="relative z-10">
-                    <p className="text-sm font-medium text-neutral-400 mb-2 uppercase tracking-wider">Balance Total</p>
-                    <h2 className="text-[40px] leading-tight font-black tracking-tight mb-2">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalBalance)}
-                    </h2>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-medium text-neutral-300">
-                        <span>{enhancedAccounts.length} Cuentas activas</span>
+            <div className="px-5 space-y-5">
+                {/* Balance Card */}
+                <div className="bg-neutral-900 rounded-2xl p-5 text-white relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+                    <div className="relative">
+                        <p className="text-xs text-neutral-400 font-medium uppercase tracking-wide mb-1">Balance Total</p>
+                        <p className="text-3xl font-bold tracking-tight">{formatCurrency(totalBalance)}</p>
+                        <p className="text-xs text-neutral-500 mt-2">{enhancedAccounts.length} cuenta{enhancedAccounts.length !== 1 ? 's' : ''} activa{enhancedAccounts.length !== 1 ? 's' : ''}</p>
                     </div>
                 </div>
-            </div>
 
-            {/* Create Account Wrapper */}
-            <div className="mb-8">
-                <CreateAccountForm banks={banksList || []} />
-            </div>
-
-            {/* Grouped Accounts List */}
-            <div className="space-y-8">
-                {Object.entries(groupedAccounts).map(([bankName, bankAccounts]: [string, any]) => {
-                    const bankColor = bankAccounts[0].bankColor;
-
-                    return (
+                {/* Accounts List */}
+                <div className="space-y-5">
+                    {Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => (
                         <div key={bankName}>
-                            <h3 className="text-lg font-bold text-neutral-900 mb-4 px-2 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: bankColor }}></span>
-                                {bankName}
-                            </h3>
-                            <div className="space-y-4">
-                                {bankAccounts.map((acc: any) => (
-                                    <div key={acc.id} className="relative bg-white rounded-3xl p-5 shadow-sm border border-neutral-100 overflow-hidden group hover:shadow-md transition-shadow">
+                            {/* Bank Header */}
+                            <div className="flex items-center gap-2 mb-2 ml-1">
+                                <div 
+                                    className="w-2 h-2 rounded-full" 
+                                    style={{ backgroundColor: bankAccounts[0].bankColor }} 
+                                />
+                                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">{bankName}</span>
+                            </div>
 
-                                        {/* Link covering the entire card to Detail Page */}
-                                        <Link href={`/dashboard/cuentas/${acc.id}`} className="absolute inset-0 z-10" aria-label={`Ver detalles de ${acc.name}`}></Link>
-
-                                        <div className="relative z-0">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div
-                                                        className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm overflow-hidden"
-                                                        style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : bankColor }}
-                                                    >
-                                                        {acc.banks?.logo_url ? (
-                                                            <img src={acc.banks.logo_url} alt={acc.banks.name} className="w-full h-full object-contain" />
-                                                        ) : (
-                                                            acc.type === 'cash' ? <Wallet className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <h4 className="font-bold text-neutral-900 text-lg">{acc.name}</h4>
-                                                            {/* Favorite Star (Visual placeholder until interactive) */}
-                                                            {acc.is_favorite && <span className="text-amber-400 text-xs">★</span>}
-                                                        </div>
-                                                        <p className="text-sm text-neutral-400 capitalize">{acc.type === 'wallet' ? 'Efectivo' : 'Cuenta Bancaria'}</p>
-                                                    </div>
+                            {/* Account Cards */}
+                            <div className="space-y-2">
+                                {bankAccounts.map((acc) => (
+                                    <Link
+                                        key={acc.id}
+                                        href={`/dashboard/cuentas/${acc.id}`}
+                                        className="block bg-white rounded-xl p-4 border border-neutral-100 hover:border-neutral-200 transition-all"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                {/* Icon */}
+                                                <div
+                                                    className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
+                                                    style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : acc.bankColor }}
+                                                >
+                                                    {acc.banks?.logo_url ? (
+                                                        <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                                    ) : (
+                                                        <span className="text-white text-xs font-bold">
+                                                            {acc.bankName.substring(0, 2).toUpperCase()}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-xl font-bold text-neutral-900">
-                                                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Stats Row */}
-                                            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-neutral-50">
+                                                {/* Name & Type */}
                                                 <div>
-                                                    <p className="text-xs text-neutral-400 mb-1">Ingresos (Año)</p>
-                                                    <p className="text-sm font-bold text-green-600">
-                                                        +{new Intl.NumberFormat('es-ES', { style: 'decimal', minimumFractionDigits: 0 }).format(acc.yearlyIncome || 0)}€
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-xs text-neutral-400 mb-1">Gastos (Año)</p>
-                                                    <p className="text-sm font-bold text-red-500">
-                                                        -{new Intl.NumberFormat('es-ES', { style: 'decimal', minimumFractionDigits: 0 }).format(acc.yearlyExpense || 0)}€
+                                                    <div className="flex items-center gap-1.5">
+                                                        <h3 className="font-semibold text-neutral-900">{acc.name}</h3>
+                                                        {acc.is_favorite && <span className="text-amber-400 text-xs">★</span>}
+                                                    </div>
+                                                    <p className="text-xs text-neutral-400 capitalize">
+                                                        {acc.type === 'checking' ? 'Corriente' : 
+                                                         acc.type === 'savings' ? 'Ahorro' : 
+                                                         acc.type === 'investment' ? 'Inversión' : acc.type}
                                                     </p>
                                                 </div>
                                             </div>
+                                            {/* Balance */}
+                                            <p className="font-bold text-neutral-900">{formatCurrency(acc.current_balance)}</p>
                                         </div>
 
-                                        {/* Colored accent line at bottom */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-1 opacity-20" style={{ backgroundColor: bankColor }}></div>
-                                    </div>
+                                        {/* Stats */}
+                                        {(acc.yearlyIncome > 0 || acc.yearlyExpense > 0) && (
+                                            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-neutral-50">
+                                                <div className="flex items-center gap-1.5 text-xs">
+                                                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <span className="text-emerald-600 font-medium">+{formatNumber(acc.yearlyIncome)}€</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs">
+                                                    <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                                                    <span className="text-red-500 font-medium">-{formatNumber(acc.yearlyExpense)}€</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </Link>
                                 ))}
                             </div>
                         </div>
-                    );
-                })}
+                    ))}
 
-                {enhancedAccounts.length === 0 && (
-                    <div className="text-center py-12">
-                        <p className="text-neutral-400">No tienes cuentas registradas.</p>
-                    </div>
-                )}
+                    {/* Empty State */}
+                    {enhancedAccounts.length === 0 && (
+                        <div className="text-center py-16">
+                            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Wallet className="w-8 h-8 text-neutral-400" />
+                            </div>
+                            <p className="text-neutral-500 font-medium mb-1">No tienes cuentas</p>
+                            <p className="text-sm text-neutral-400">Pulsa + para crear tu primera cuenta</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -2,14 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Trash2, Pencil, X, ArrowDownRight, ArrowUpRight, Database } from 'lucide-react';
 import { format, parseISO, isSameDay, isSameMonth, isSameWeek, isSameYear, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import EditTransactionModal from './EditTransactionModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
-import { Database } from 'lucide-react';
 
 type Category = {
     id: string;
@@ -145,169 +143,162 @@ export default function TransactionsView({ initialTransactions, accounts, catego
     }, [filteredTransactions]);
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-40">
+        <div className="min-h-screen bg-neutral-50 pb-32">
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-neutral-100 px-4 h-14 flex items-center justify-between">
-                <h1 className="text-lg font-bold text-neutral-900">Transacciones</h1>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setIsImportModalOpen(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 text-neutral-900 rounded-xl text-sm font-bold hover:bg-neutral-200 transition-colors"
-                    >
-                        <Database className="w-4 h-4" />
-                        <span className="hidden sm:inline">Importar</span>
-                    </button>
-                    <button onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-xl">
-                        <Search className="w-5 h-5" />
-                    </button>
+            <div className="sticky top-0 z-30 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+                <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-bold text-neutral-900">Transacciones</h1>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="p-2 text-neutral-500 hover:bg-neutral-100 rounded-xl transition-colors"
+                            title="Importar"
+                        >
+                            <Database className="w-5 h-5" />
+                        </button>
+                        <button 
+                            onClick={() => setIsSearchOpen(!isSearchOpen)} 
+                            className={`p-2 rounded-xl transition-colors ${isSearchOpen ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                        >
+                            {isSearchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            {isSearchOpen && (
-                <div className="bg-white px-4 pb-4 pt-2 border-b border-neutral-100">
+                {/* Search bar */}
+                {isSearchOpen && (
                     <input
                         type="text"
                         placeholder="Buscar transacciones..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-neutral-100 rounded-xl px-4 py-3 outline-none font-medium text-neutral-900 placeholder-neutral-400"
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 outline-none text-sm font-medium text-neutral-900 placeholder-neutral-400 mb-4 focus:border-neutral-300"
                         autoFocus
                     />
-                </div>
-            )}
+                )}
 
-            <div className="container mx-auto px-4 max-w-2xl pt-5 space-y-6">
+                {/* Period selector and filters */}
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                    <div className="relative shrink-0">
+                        <select
+                            value={period}
+                            onChange={(e) => setPeriod(e.target.value as 'month' | 'week' | 'year')}
+                            className="appearance-none bg-neutral-900 text-white rounded-xl pl-3 pr-8 py-2 text-sm font-medium focus:outline-none"
+                        >
+                            <option value="month">Mes</option>
+                            <option value="week">Semana</option>
+                            <option value="year">Año</option>
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+                    </div>
+
+                    {period === 'month' && (
+                        <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-xl px-1 py-1">
+                            <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-neutral-100 rounded-lg">
+                                <ChevronLeft className="w-4 h-4 text-neutral-600" />
+                            </button>
+                            <span className="text-sm font-medium text-neutral-700 min-w-[80px] text-center capitalize">
+                                {format(currentDate, 'MMM yyyy', { locale: es })}
+                            </span>
+                            <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-1.5 hover:bg-neutral-100 rounded-lg">
+                                <ChevronRight className="w-4 h-4 text-neutral-600" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex gap-1 ml-auto shrink-0">
+                        {(['all', 'income', 'expense'] as const).map(t => (
+                            <button
+                                key={t}
+                                onClick={() => setTypeFilter(t)}
+                                className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                                    typeFilter === t 
+                                        ? 'bg-neutral-900 text-white' 
+                                        : 'bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-300'
+                                }`}
+                            >
+                                {t === 'all' ? 'Todo' : t === 'income' ? 'Ingreso' : 'Gasto'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-5 space-y-6">
                 {/* Summary Card */}
-                <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-3xl p-6 text-white shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
-
-                    <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <select
-                                    value={period}
-                                    onChange={(e) => setPeriod(e.target.value as 'month' | 'week' | 'year')}
-                                    className="appearance-none bg-white/10 border border-white/20 rounded-xl pl-4 pr-9 py-2 text-sm font-semibold text-white focus:outline-none"
-                                >
-                                    <option value="month" className="text-black">Mensual</option>
-                                    <option value="week" className="text-black">Semana</option>
-                                    <option value="year" className="text-black">Año</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
-                            </div>
-                            {period === 'month' && (
-                                <div className="flex items-center gap-1">
-                                    <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-white/10">
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <span className="text-sm font-semibold text-white/80 min-w-[80px] text-center capitalize">
-                                        {format(currentDate, 'MMM yyyy', { locale: es })}
-                                    </span>
-                                    <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-white/10">
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )}
+                <div className="bg-neutral-900 rounded-2xl p-5 text-white">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <p className="text-xs text-neutral-400 uppercase tracking-wide font-medium">Balance del período</p>
+                            <p className="text-3xl font-bold">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalIncome - totalExpense)}</p>
                         </div>
                     </div>
-
-                    <div className="relative z-10">
-                        <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-1">Balance Neto</p>
-                        <p className="text-4xl font-black mb-4">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalIncome - totalExpense)}</p>
-
-                        <div className="flex gap-6">
-                            <div>
-                                <p className="text-[10px] text-white/50 font-bold uppercase">Ingresos</p>
-                                <p className="text-lg font-bold text-emerald-400">+{new Intl.NumberFormat('es-ES').format(totalIncome)}€</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-white/50 font-bold uppercase">Gastos</p>
-                                <p className="text-lg font-bold text-rose-400">-{new Intl.NumberFormat('es-ES').format(totalExpense)}€</p>
-                            </div>
+                    <div className="flex gap-6">
+                        <div>
+                            <p className="text-[10px] text-neutral-500 uppercase">Ingresos</p>
+                            <p className="text-lg font-semibold text-emerald-400">+{new Intl.NumberFormat('es-ES').format(totalIncome)}€</p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-neutral-500 uppercase">Gastos</p>
+                            <p className="text-lg font-semibold text-rose-400">-{new Intl.NumberFormat('es-ES').format(totalExpense)}€</p>
                         </div>
                     </div>
-
-                    <div className="w-32 h-20 opacity-20 absolute right-4 bottom-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
-                                <Area type="monotone" dataKey="value" stroke="#fff" fill="#fff" strokeWidth={2} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Filters */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                    {(['all', 'income', 'expense'] as const).map(t => (
-                        <button key={t} onClick={() => setTypeFilter(t)} className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${typeFilter === t ? 'bg-neutral-900 text-white shadow-lg' : 'bg-white border border-neutral-200 text-neutral-500'}`}>
-                            {t === 'all' ? 'Todos' : t === 'income' ? 'Ingresos' : 'Gastos'}
-                        </button>
-                    ))}
                 </div>
 
                 {/* Transaction List */}
-                <div className="space-y-6 pb-20">
+                <div className="space-y-5">
                     {Object.keys(groupedTransactions).length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-neutral-200">
-                            <p className="text-neutral-400 font-medium">No hay transacciones</p>
+                        <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
+                            <p className="text-neutral-400 text-sm">No hay transacciones</p>
                         </div>
                     ) : (
                         Object.keys(groupedTransactions).sort((a, b) => b.localeCompare(a)).map(date => (
                             <div key={date}>
-                                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3 ml-1">
+                                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2 ml-1">
                                     {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM yyyy', { locale: es })}
                                 </h3>
-                                <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden divide-y divide-neutral-100">
+                                <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
                                     {groupedTransactions[date].map(t => {
                                         const categoryName = t.categories?.name || t.category || 'General';
-                                        const hasDescription = t.description && t.description !== categoryName;
 
                                         return (
-                                            <div key={t.id} className="px-4 py-4 flex items-center gap-4 hover:bg-neutral-50 transition-colors group">
+                                            <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
                                                 {/* Category Icon */}
                                                 <div
-                                                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-sm"
-                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}20` : '#f5f5f5' }}
+                                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : '#f5f5f5' }}
                                                 >
-                                                    {t.categories?.icon || (t.type === 'income' ? '💰' : '💸')}
+                                                    {t.categories?.icon || (t.type === 'income' ? <ArrowUpRight className="w-4 h-4 text-emerald-500" /> : <ArrowDownRight className="w-4 h-4 text-rose-500" />)}
                                                 </div>
 
-                                                {/* Details & Info */}
+                                                {/* Details */}
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="font-bold text-neutral-900 truncate text-base leading-tight mb-1">{categoryName}</h4>
-                                                    <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-                                                        {hasDescription && <span className="truncate max-w-[100px] sm:max-w-[200px]">{t.description}</span>}
-                                                        {hasDescription && <span className="text-neutral-300">·</span>}
-                                                        <span className="text-neutral-400 truncate">{t.accounts?.name}</span>
-                                                    </div>
+                                                    <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
+                                                    <p className="text-xs text-neutral-400 truncate">{t.accounts?.name}</p>
                                                 </div>
 
                                                 {/* Amount */}
-                                                <div className="text-right">
-                                                    <span className={`font-bold whitespace-nowrap text-lg ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
-                                                        {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
-                                                    </span>
-                                                </div>
+                                                <p className={`font-semibold text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                                                    {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
+                                                </p>
 
-                                                {/* Actions */}
-                                                <div className="flex items-center gap-1.5 ml-2">
+                                                {/* Actions - Siempre visibles */}
+                                                <div className="flex items-center gap-1">
                                                     <button
                                                         onClick={() => setEditingTransaction(t)}
-                                                        className="p-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 rounded-xl transition-colors"
-                                                        title="Editar"
+                                                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                                                     >
-                                                        <Pencil className="w-3.5 h-3.5" />
+                                                        <Pencil className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteTransaction(t)}
                                                         disabled={deletingId === t.id}
-                                                        className="p-2 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 rounded-xl transition-colors disabled:opacity-50"
-                                                        title="Eliminar"
+                                                        className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
                                                     >
                                                         {deletingId === t.id ? (
-                                                            <div className="w-3.5 h-3.5 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                                                            <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
                                                         ) : (
-                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                            <Trash2 className="w-4 h-4" />
                                                         )}
                                                     </button>
                                                 </div>

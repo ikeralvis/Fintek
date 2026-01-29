@@ -104,27 +104,8 @@ export default function DashboardNav({ userName, userEmail }: Props) {
         </div>
       </nav>
 
-      {/* Mobile Header - Simplified (No Hamburger) */}
-      <nav className="md:hidden bg-white/80 backdrop-blur-md sticky top-0 z-50 px-4 py-3 border-b border-neutral-100 transition-all">
-        <div className="flex items-center justify-between relative">
-
-          {/* Brand/Logo (Left) */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-neutral-900 rounded-xl flex items-center justify-center">
-              <Wallet className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-bold text-lg tracking-tight text-neutral-900">FinTek</span>
-          </div>
-
-          {/* Notifications (Right) */}
-          <div className="flex items-center gap-3">
-            <button className="p-2.5 bg-white rounded-xl shadow-sm border border-neutral-100/50 relative active:scale-95 transition-transform">
-              <Bell className="h-5 w-5 text-neutral-700" />
-              <span className="absolute top-2 right-2.5 h-1.5 w-1.5 bg-rose-500 rounded-full border border-white"></span>
-            </button>
-          </div>
-        </div>
-      </nav>
+      {/* Mobile Header - HIDDEN - Clean app without top header */}
+      {/* Header removed for cleaner mobile experience */}
     </>
   );
 }

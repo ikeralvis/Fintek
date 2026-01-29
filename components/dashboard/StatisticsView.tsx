@@ -2,147 +2,165 @@
 
 import { useState, useMemo, useRef } from 'react';
 import {
-    LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+    AreaChart, Area, PieChart, Pie, Cell,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, Legend, ReferenceLine
+    ResponsiveContainer
 } from 'recharts';
 import {
-    format, subMonths, startOfMonth,
-    parseISO, startOfYear, eachMonthOfInterval, isValid
+    format, subMonths, startOfMonth, endOfMonth,
+    parseISO, startOfYear, eachMonthOfInterval, isValid, isWithinInterval
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-    TrendingUp, TrendingDown, Target, Zap,
-    ChevronDown, Download, PieChart as PieChartIcon,
-    Share2
+    TrendingUp, Wallet, ArrowLeft,
+    Download,
+    BarChart3, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import Link from 'next/link';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 const COLORS = [
     '#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6',
-    '#ec4899', '#06b6d4', '#14b8a6', '#f97316'
+    '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#84cc16'
 ];
 
+type PeriodType = 'month' | 'year' | 'all';
+
 export default function StatisticsView({ initialTransactions, accounts, categories }: any) {
-    // Default to 'all' to ensure users always see their data, even if older than 12 months
-    const [period, setPeriod] = useState('all');
+    const [periodType, setPeriodType] = useState<PeriodType>('all');
+    const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
     const [exporting, setExporting] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
+    // Calculate available months from transactions
+    const availableMonths = useMemo(() => {
+        const months = new Set<string>();
+        initialTransactions.forEach((t: any) => {
+            const d = parseISO(t.transaction_date);
+            if (isValid(d)) months.add(format(d, 'yyyy-MM'));
+        });
+        return Array.from(months).sort((a, b) => b.localeCompare(a));
+    }, [initialTransactions]);
+
     const stats = useMemo(() => {
-        // 1. Period filtering
         const now = new Date();
         let startDate: Date;
-        
-        if (period === 'year') {
+        let endDate: Date = now;
+
+        if (periodType === 'month') {
+            const [year, month] = selectedMonth.split('-').map(Number);
+            startDate = startOfMonth(new Date(year, month - 1));
+            endDate = endOfMonth(new Date(year, month - 1));
+        } else if (periodType === 'year') {
             startDate = startOfYear(now);
-        } else if (period === '12m') {
-            startDate = subMonths(now, 12);
         } else {
-            // 'all' - no date restriction, use earliest possible date
             startDate = new Date(1970, 0, 1);
         }
 
-        // Check filter logic
+        // Filter transactions
         const filteredTxs = initialTransactions.filter((t: any) => {
             const d = parseISO(t.transaction_date);
             if (!isValid(d)) return false;
-            return d >= startDate && d <= now;
+            if (!isWithinInterval(d, { start: startDate, end: endDate })) return false;
+            return true;
         });
 
-        // 2. Net Worth Evolution (Cumulative)
-        const monthlyData: Record<string, { month: string, balance: number, income: number, expense: number }> = {};
+        // Monthly breakdown
+        const monthlyData: Record<string, { month: string; monthKey: string; income: number; expense: number; balance: number }> = {};
         
-        // Calculate date range for months array
-        let monthStartDate = startDate;
-        if (period === 'all' && filteredTxs.length > 0) {
-            // For 'all', use the earliest transaction date
-            const earliestTx = filteredTxs.reduce((min: Date, t: any) => {
-                const d = parseISO(t.transaction_date);
-                return d < min ? d : min;
-            }, new Date());
-            monthStartDate = startOfMonth(earliestTx);
-        }
-        
-        const months = eachMonthOfInterval({ start: monthStartDate, end: now });
-
-        months.forEach(m => {
-            const key = format(m, 'MMM yyyy', { locale: es });
-            monthlyData[key] = { month: key, balance: 0, income: 0, expense: 0 };
+        const monthsRange = eachMonthOfInterval({ start: startDate, end: endDate });
+        monthsRange.forEach(m => {
+            const key = format(m, 'yyyy-MM');
+            const label = format(m, 'MMM', { locale: es });
+            monthlyData[key] = { month: label, monthKey: key, income: 0, expense: 0, balance: 0 };
         });
 
         filteredTxs.forEach((t: any) => {
             const d = parseISO(t.transaction_date);
-            const m = format(d, 'MMM yyyy', { locale: es });
-            if (monthlyData[m]) {
-                if (t.type === 'income') {
-                    monthlyData[m].income += t.amount;
-                } else {
-                    monthlyData[m].expense += t.amount;
-                }
+            const key = format(d, 'yyyy-MM');
+            if (monthlyData[key]) {
+                if (t.type === 'income') monthlyData[key].income += t.amount;
+                else if (t.type === 'expense') monthlyData[key].expense += t.amount;
             }
         });
 
-        // Calculate cumulative net worth based on monthly delta
-        let runningTotal = 0;
-        const netWorthData = Object.values(monthlyData).map((d: any) => {
-            runningTotal += (d.income - d.expense);
-            return { ...d, netWorth: runningTotal };
+        // Calculate balance for each month
+        Object.values(monthlyData).forEach(m => {
+            m.balance = m.income - m.expense;
         });
 
-        // 3. Category Distribution (Expenses)
-        const categoryStats: Record<string, number> = {};
-        filteredTxs.filter((t: any) => t.type === 'expense').forEach((t: any) => {
-            const name = t.categories?.name || t.category || 'Varios';
-            categoryStats[name] = (categoryStats[name] || 0) + t.amount;
-        });
+        // Category breakdown
+        const categoryStats: Record<string, { name: string; icon: string; color: string; income: number; expense: number; count: number }> = {};
+        
+        filteredTxs.forEach((t: any) => {
+            const catId = t.category_id || 'uncategorized';
+            const catName = t.categories?.name || 'Sin categoría';
+            const catIcon = t.categories?.icon || 'tag';
+            const catColor = t.categories?.color || '#6B7280';
 
-        const pieData = Object.entries(categoryStats)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value);
-
-        // 4. Trends by Category (Top 5)
-        const top5Names = pieData.slice(0, 5).map(d => d.name);
-        const categoryTrends: any[] = Object.values(monthlyData).map(m => {
-            const d: any = { month: m.month };
-            top5Names.forEach(name => {
-                d[name] = 0;
-            });
-            return d;
-        });
-
-        filteredTxs.filter((t: any) => t.type === 'expense').forEach((t: any) => {
-            const name = t.categories?.name || t.category || 'Varios';
-            if (top5Names.includes(name)) {
-                const mKey = format(parseISO(t.transaction_date), 'MMM yyyy', { locale: es });
-                const found = categoryTrends.find(item => item.month === mKey);
-                if (found) found[name] += t.amount;
+            if (!categoryStats[catId]) {
+                categoryStats[catId] = { name: catName, icon: catIcon, color: catColor, income: 0, expense: 0, count: 0 };
             }
+
+            if (t.type === 'income') categoryStats[catId].income += t.amount;
+            else if (t.type === 'expense') categoryStats[catId].expense += t.amount;
+            categoryStats[catId].count++;
         });
 
-        // 5. KPIs
+        const categoryArray = Object.entries(categoryStats)
+            .map(([id, data]) => ({ id, ...data, total: data.income + data.expense }))
+            .sort((a, b) => b.total - a.total);
+
+        // Totals
         const totalIncome = filteredTxs.filter((t: any) => t.type === 'income').reduce((acc: number, t: any) => acc + t.amount, 0);
         const totalExpense = filteredTxs.filter((t: any) => t.type === 'expense').reduce((acc: number, t: any) => acc + t.amount, 0);
+        const balance = totalIncome - totalExpense;
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
-        const dailyAvg = months.length > 0 ? totalExpense / (months.length * 30) : 0;
-        const topCategory = pieData[0]?.name || 'N/A';
 
-        const bestMonthTotal = Object.values(monthlyData).reduce((best: any, curr: any) => {
-            const saved = curr.income - curr.expense;
-            return saved > (best.saved || -Infinity) ? { month: curr.month, saved } : best;
-        }, { month: 'N/A', saved: -Infinity });
+        // Comparison with previous period
+        let prevStartDate: Date;
+        let prevEndDate: Date;
+        
+        if (periodType === 'month') {
+            const [year, month] = selectedMonth.split('-').map(Number);
+            prevStartDate = startOfMonth(subMonths(new Date(year, month - 1), 1));
+            prevEndDate = endOfMonth(subMonths(new Date(year, month - 1), 1));
+        } else if (periodType === 'year') {
+            prevStartDate = startOfYear(subMonths(now, 12));
+            prevEndDate = endOfMonth(subMonths(now, 1));
+        } else {
+            prevStartDate = new Date(1970, 0, 1);
+            prevEndDate = subMonths(now, 12);
+        }
+
+        const prevTxs = initialTransactions.filter((t: any) => {
+            const d = parseISO(t.transaction_date);
+            return isValid(d) && isWithinInterval(d, { start: prevStartDate, end: prevEndDate });
+        });
+
+        const prevIncome = prevTxs.filter((t: any) => t.type === 'income').reduce((acc: number, t: any) => acc + t.amount, 0);
+        const prevExpense = prevTxs.filter((t: any) => t.type === 'expense').reduce((acc: number, t: any) => acc + t.amount, 0);
+
+        const incomeChange = prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0;
+        const expenseChange = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : 0;
+
+        // Pie data for expenses
+        const pieData = categoryArray
+            .filter(c => c.expense > 0)
+            .map(c => ({ name: c.name, value: c.expense, color: c.color }));
 
         return {
-            netWorthData,
+            monthlyData: Object.values(monthlyData),
+            categoryArray,
             pieData,
-            barData: Object.values(monthlyData),
-            categoryTrends,
-            top5Names,
-            kpis: { totalIncome, totalExpense, savingsRate, dailyAvg, topCategory, bestMonth: bestMonthTotal.month },
-            hasData: filteredTxs.length > 0
+            totals: { income: totalIncome, expense: totalExpense, balance, savingsRate },
+            comparison: { incomeChange, expenseChange, prevIncome, prevExpense },
+            hasData: filteredTxs.length > 0,
+            txCount: filteredTxs.length
         };
-    }, [initialTransactions, period]);
+    }, [initialTransactions, periodType, selectedMonth]);
 
     const handleExportPDF = async () => {
         if (!reportRef.current) return;
@@ -153,27 +171,26 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Reporte_Financiero_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+            pdf.save(`Estadisticas_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
         } catch (err) {
-            console.error("PDF Fail", err);
-            alert("Error al generar PDF");
+            console.error("PDF Error", err);
         } finally {
             setExporting(false);
         }
     };
 
-    // Only show Empty State if really empty (and even then, maybe show dashboard)
+    const formatCompact = (n: number) => new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+
     if (!initialTransactions || initialTransactions.length === 0) {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-8 text-center">
-                <PieChartIcon className="w-16 h-16 text-neutral-300 mb-4" />
-                <h2 className="text-xl font-bold text-neutral-900">Sin datos todavía</h2>
-                <p className="text-neutral-500 max-w-md mb-6">Tus estadísticas aparecerán aquí cuando añadas tus primeros ingresos o gastos.</p>
-                <a href="/dashboard/transacciones/nueva" className="px-6 py-3 bg-neutral-900 text-white rounded-full text-sm font-bold shadow-lg hover:bg-neutral-800 transition-colors">
-                    Añadir primera transacción
-                </a>
+                <BarChart3 className="w-16 h-16 text-neutral-300 mb-4" />
+                <h2 className="text-xl font-bold text-neutral-900 mb-2">Sin datos todavía</h2>
+                <p className="text-neutral-500 max-w-md mb-6">Añade transacciones para ver tus estadísticas detalladas.</p>
+                <Link href="/dashboard/transacciones/nueva" className="px-6 py-3 bg-neutral-900 text-white rounded-2xl text-sm font-bold">
+                    Añadir transacción
+                </Link>
             </div>
         );
     }
@@ -181,186 +198,229 @@ export default function StatisticsView({ initialTransactions, accounts, categori
     return (
         <div className="min-h-screen bg-neutral-50 pb-32">
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-neutral-100 mb-8">
-                <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-5xl">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <PieChartIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <h1 className="text-xl font-bold text-neutral-900 hidden sm:block">Reporte Financiero</h1>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
-                            <select
-                                value={period}
-                                onChange={(e) => setPeriod(e.target.value)}
-                                className="appearance-none bg-neutral-100 border-none rounded-2xl px-4 py-2 text-xs font-bold text-neutral-600 focus:ring-2 focus:ring-neutral-200 pr-10"
-                            >
-                                <option value="year">Este Año</option>
-                                <option value="12m">Últimos 12 meses</option>
-                                <option value="all">Histórico Completo</option>
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
-                        </div>
-                        <button
-                            onClick={handleExportPDF}
-                            disabled={exporting}
-                            className="p-2 bg-neutral-900 rounded-xl text-white hover:bg-neutral-800 transition-colors flex items-center gap-2"
-                        >
-                            {exporting ? <Share2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        </button>
-                    </div>
+            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+                <div className="flex items-center justify-between">
+                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
+                    </Link>
+                    <h1 className="text-lg font-semibold text-neutral-900">Estadísticas</h1>
+                    <button onClick={handleExportPDF} disabled={exporting} className="p-2 rounded-xl hover:bg-neutral-100">
+                        <Download className="w-5 h-5 text-neutral-600" />
+                    </button>
                 </div>
             </div>
 
-            {/* REPORT CONTENT */}
-            <div ref={reportRef} className="container mx-auto px-6 max-w-5xl space-y-8 bg-neutral-50">
+            <div ref={reportRef} className="px-5 space-y-5 max-w-2xl mx-auto">
+                {/* Period Selector */}
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                    <button
+                        onClick={() => setPeriodType('month')}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                            periodType === 'month' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-600'
+                        }`}
+                    >
+                        Mensual
+                    </button>
+                    <button
+                        onClick={() => setPeriodType('year')}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                            periodType === 'year' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-600'
+                        }`}
+                    >
+                        Este Año
+                    </button>
+                    <button
+                        onClick={() => setPeriodType('all')}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                            periodType === 'all' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-600'
+                        }`}
+                    >
+                        Histórico
+                    </button>
 
-                {/* KPI CARDS */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <KPICard title="Tasa de Ahorro" value={`${stats.kpis.savingsRate.toFixed(1)}%`} icon={<Target className="text-indigo-500" />} />
-                    <KPICard title="Gasto Medio/Día" value={`${new Intl.NumberFormat('es-ES').format(stats.kpis.dailyAvg)}€`} icon={<Zap className="text-amber-500" />} />
-                    <KPICard title="Top Categoría" value={stats.kpis.topCategory} icon={<TrendingDown className="text-rose-500" />} isText />
-                    <KPICard title="Mejor Mes" value={stats.kpis.bestMonth} icon={<TrendingUp className="text-emerald-500" />} isText />
+                    {periodType === 'month' && (
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="px-3 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-medium"
+                        >
+                            {availableMonths.map(m => (
+                                <option key={m} value={m}>
+                                    {format(parseISO(`${m}-01`), 'MMMM yyyy', { locale: es })}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
-                {/* 1. Evolution */}
-                <ChartCard title="Evolución Patrimonial" subtitle="Crecimiento neto acumulado">
-                    <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={stats.netWorthData}>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                            <span className="text-xs font-semibold text-emerald-600 uppercase">Ingresos</span>
+                        </div>
+                        <p className="text-2xl font-bold text-emerald-700">{formatCompact(stats.totals.income)}€</p>
+                        {stats.comparison.incomeChange !== 0 && (
+                            <p className={`text-xs font-medium mt-1 ${stats.comparison.incomeChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {stats.comparison.incomeChange >= 0 ? '+' : ''}{stats.comparison.incomeChange.toFixed(0)}% vs anterior
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="bg-rose-50 rounded-2xl p-4 border border-rose-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <ArrowDownRight className="w-4 h-4 text-rose-600" />
+                            <span className="text-xs font-semibold text-rose-600 uppercase">Gastos</span>
+                        </div>
+                        <p className="text-2xl font-bold text-rose-700">{formatCompact(stats.totals.expense)}€</p>
+                        {stats.comparison.expenseChange !== 0 && (
+                            <p className={`text-xs font-medium mt-1 ${stats.comparison.expenseChange <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {stats.comparison.expenseChange >= 0 ? '+' : ''}{stats.comparison.expenseChange.toFixed(0)}% vs anterior
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Wallet className="w-4 h-4 text-neutral-500" />
+                            <span className="text-xs font-semibold text-neutral-500 uppercase">Balance</span>
+                        </div>
+                        <p className={`text-2xl font-bold ${stats.totals.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {stats.totals.balance >= 0 ? '+' : ''}{formatCompact(stats.totals.balance)}€
+                        </p>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="w-4 h-4 text-neutral-500" />
+                            <span className="text-xs font-semibold text-neutral-500 uppercase">Ahorro</span>
+                        </div>
+                        <p className={`text-2xl font-bold ${stats.totals.savingsRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {stats.totals.savingsRate.toFixed(0)}%
+                        </p>
+                    </div>
+                </div>
+
+                {/* Income vs Expense Chart */}
+                <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                    <h3 className="text-sm font-bold text-neutral-900 mb-4">Ingresos vs Gastos</h3>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                formatter={(val: number) => [`${formatCompact(val)}€`, '']}
+                            />
+                            <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Expense Distribution */}
+                {stats.pieData.length > 0 && (
+                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Distribución de Gastos</h3>
+                        <div className="flex items-center gap-4">
+                            <div className="w-32 h-32 relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={stats.pieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={35}
+                                            outerRadius={50}
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                        >
+                                            {stats.pieData.map((entry: any, i: number) => (
+                                                <Cell key={entry.name} fill={entry.color || COLORS[i % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="flex-1 space-y-2 max-h-32 overflow-y-auto">
+                                {stats.pieData.slice(0, 6).map((item: any, i: number) => (
+                                    <div key={item.name} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
+                                            <span className="font-medium text-neutral-700 truncate max-w-[100px]">{item.name}</span>
+                                        </div>
+                                        <span className="font-bold text-neutral-900">{formatCompact(item.value)}€</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Top Categories */}
+                <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                    <h3 className="text-sm font-bold text-neutral-900 mb-4">Top Categorías</h3>
+                    <div className="space-y-3">
+                        {stats.categoryArray.slice(0, 8).map((cat: any, i: number) => {
+                            const maxValue = stats.categoryArray[0]?.total || 1;
+                            const percentage = (cat.total / maxValue) * 100;
+                            
+                            return (
+                                <div key={cat.id} className="flex items-center gap-3">
+                                    <div 
+                                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                        style={{ backgroundColor: `${cat.color}20` }}
+                                    >
+                                        <CategoryIcon name={cat.icon} className="w-4 h-4" style={{ color: cat.color }} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-sm font-medium text-neutral-900 truncate">{cat.name}</span>
+                                            <span className="text-sm font-bold text-neutral-900">{formatCompact(cat.total)}€</span>
+                                        </div>
+                                        <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full rounded-full transition-all"
+                                                style={{ width: `${percentage}%`, backgroundColor: cat.color }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Monthly Balance Evolution */}
+                <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                    <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance</h3>
+                    <ResponsiveContainer width="100%" height={180}>
+                        <AreaChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                             <defs>
-                                <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
+                                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
                                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                             <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                             <Tooltip
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                                formatter={(val: number) => [`${val.toFixed(2)}€`, 'Patrimonio']}
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                formatter={(val: number) => [`${formatCompact(val)}€`, 'Balance']}
                             />
-                            <Area type="monotone" dataKey="netWorth" stroke="#6366f1" fillOpacity={1} fill="url(#colorNetWorth)" strokeWidth={3} />
+                            <Area type="monotone" dataKey="balance" stroke="#6366f1" fillOpacity={1} fill="url(#colorBalance)" strokeWidth={2} />
                         </AreaChart>
                     </ResponsiveContainer>
-                </ChartCard>
-
-                {/* 2. Expenses Distribution */}
-                <ChartCard title="Distribución de Gastos" subtitle="Porcentaje por categoría">
-                    <div className="flex flex-col md:flex-row items-center gap-4">
-                        <div className="w-full h-[300px] relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={stats.pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={100}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {stats.pieData.map((entry: any) => (
-                                            <Cell key={entry.name} fill={COLORS[stats.pieData.findIndex((e: any) => e.name === entry.name) % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                                        formatter={(val: number) => [`${val.toFixed(2)}€`, '']}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-
-                            {/* Center Label */}
-                            <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                                <span className="text-xs font-bold text-neutral-400 uppercase">Total Gastado</span>
-                                <span className="text-2xl font-black text-neutral-900">{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(stats.kpis.totalExpense)}€</span>
-                            </div>
-                        </div>
-
-                        <div className="w-full md:w-1/2 grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2">
-                            {stats.pieData.map((item: any, i: number) => (
-                                <div key={item.name} className="flex items-center justify-between text-xs p-2 rounded-lg hover:bg-neutral-50 transition-colors">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                                        <span className="font-bold text-neutral-600 truncate">{item.name}</span>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <span className="font-black text-neutral-900 block">{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(item.value)}€</span>
-                                        <span className="text-[10px] text-neutral-400 font-medium">
-                                            {((item.value / stats.kpis.totalExpense) * 100).toFixed(1)}%
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </ChartCard>
-
-                {/* 3. Income vs Expense */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <ChartCard title="Ingresos vs Gastos" subtitle="Balance mensual">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={stats.barData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                                    formatter={(val: number) => [`${val.toFixed(0)}€`, '']}
-                                />
-                                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                                <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-                                <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={20} />
-                                <ReferenceLine y={0} stroke="#000" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </ChartCard>
-
-                    {/* 4. Trends */}
-                    <ChartCard title="Tendencias Top 5" subtitle="Evolución de gasto">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={stats.categoryTrends}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}
-                                />
-                                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
-                                {stats.top5Names.map((name: string, i: number) => (
-                                    <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
-                                ))}
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </ChartCard>
                 </div>
 
+                {/* Transaction Count */}
+                <div className="text-center py-4 text-xs text-neutral-400">
+                    {stats.txCount} transacciones en este período
+                </div>
             </div>
-        </div>
-    );
-}
-
-function ChartCard({ title, subtitle, children }: any) {
-    return (
-        <div className="bg-white rounded-4xl border border-neutral-100 p-8 shadow-sm print:break-inside-avoid">
-            <div className="mb-6">
-                <h3 className="text-lg font-bold text-neutral-900">{title}</h3>
-                <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">{subtitle}</p>
-            </div>
-            {children}
-        </div>
-    );
-}
-
-function KPICard({ title, value, icon, isText = false }: any) {
-    return (
-        <div className="bg-white rounded-3xl p-6 border border-neutral-100 shadow-sm flex flex-col justify-between print:break-inside-avoid">
-            <div className="flex items-center gap-2 mb-3">
-                {icon}
-                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none">{title}</span>
-            </div>
-            <p className={`font-black text-neutral-900 ${isText ? 'text-sm truncate' : 'text-xl'}`} title={isText ? value : undefined}>{value}</p>
         </div>
     );
 }

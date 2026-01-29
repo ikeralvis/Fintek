@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { X, Check, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { createTransfer } from '@/lib/actions/transfers';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 type Account = {
   id: string;
@@ -167,17 +168,17 @@ export default function TransactionForm({ accounts, categories }: Props) {
       <div className="flex-1 overflow-y-auto">
         <div className="px-4 py-6 max-w-lg mx-auto space-y-5">
 
-          {/* AMOUNT INPUT - More compact */}
-          <div className="text-center py-2">
+          {/* AMOUNT INPUT - More prominent */}
+          <div className="text-center py-4">
             <div className="relative inline-flex items-center justify-center">
-              <span className={`text-2xl font-bold mr-1 ${type === 'expense' ? 'text-rose-300' : type === 'income' ? 'text-emerald-300' : 'text-blue-300'}`}>€</span>
+              <span className={`text-3xl font-bold mr-1 ${type === 'expense' ? 'text-rose-300' : type === 'income' ? 'text-emerald-300' : 'text-blue-300'}`}>€</span>
               <input
                 type="number"
                 step="0.01"
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className={`bg-transparent text-4xl font-black placeholder-neutral-200 focus:outline-none w-full text-center max-w-[200px] ${type === 'expense' ? 'text-rose-500' : type === 'income' ? 'text-emerald-500' : 'text-blue-500'}`}
+                className={`bg-transparent text-5xl font-black placeholder-neutral-200 focus:outline-none w-full text-center max-w-[240px] ${type === 'expense' ? 'text-rose-500' : type === 'income' ? 'text-emerald-500' : 'text-blue-500'}`}
                 autoFocus
               />
             </div>
@@ -350,17 +351,21 @@ export default function TransactionForm({ accounts, categories }: Props) {
             <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
               <button
                 onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
-                className="w-full p-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+                className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors"
               >
                 <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoría</span>
                 <div className="flex items-center gap-2">
                   {selectedCategory && (
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-sm"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center"
                         style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : '#f5f5f5' }}
                       >
-                        {selectedCategory.icon || '💰'}
+                        <CategoryIcon 
+                          name={selectedCategory.icon} 
+                          className="w-4 h-4" 
+                          style={{ color: selectedCategory.color || '#666' }} 
+                        />
                       </div>
                       <span className="text-sm font-bold text-neutral-900">{selectedCategory.name}</span>
                     </div>
@@ -370,24 +375,28 @@ export default function TransactionForm({ accounts, categories }: Props) {
               </button>
 
               {isCategoriesExpanded && (
-                <div className="border-t border-neutral-100 p-2 max-h-56 overflow-y-auto">
-                  <div className="grid grid-cols-5 gap-1.5">
+                <div className="border-t border-neutral-100 p-3 max-h-72 overflow-y-auto">
+                  <div className="grid grid-cols-4 gap-2">
                     {categories.map(cat => (
                       <button
                         key={cat.id}
                         onClick={() => handleSelectCategory(cat.id)}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${categoryId === cat.id
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${categoryId === cat.id
                             ? 'bg-neutral-900'
-                            : 'hover:bg-neutral-50'
+                            : 'hover:bg-neutral-50 bg-neutral-50/50'
                           }`}
                       >
                         <div
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg ${categoryId === cat.id ? 'scale-105' : ''}`}
-                          style={{ backgroundColor: cat.color ? `${cat.color}20` : '#f5f5f5' }}
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${categoryId === cat.id ? 'scale-105' : ''}`}
+                          style={{ backgroundColor: cat.color ? `${cat.color}25` : '#f0f0f0' }}
                         >
-                          {cat.icon || '💰'}
+                          <CategoryIcon 
+                            name={cat.icon} 
+                            className="w-6 h-6" 
+                            style={{ color: cat.color || '#666' }} 
+                          />
                         </div>
-                        <span className={`text-[9px] font-bold truncate w-full text-center ${categoryId === cat.id ? 'text-white' : 'text-neutral-600'}`}>
+                        <span className={`text-[10px] font-semibold truncate w-full text-center leading-tight ${categoryId === cat.id ? 'text-white' : 'text-neutral-700'}`}>
                           {cat.name}
                         </span>
                       </button>

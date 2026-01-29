@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import Link from 'next/link';
 
 type Transaction = {
     id: string;
@@ -10,64 +11,58 @@ type Transaction = {
     type: string;
     description: string;
     transaction_date: string;
-    category?: string; // Expecting string here for simple list
-    categories?: { name: string, icon?: string, color?: string }; // Or object if coming from join
+    category?: string;
+    categories?: { name: string, icon?: string, color?: string };
 };
 
 export default function RecentTransactionsList({ transactions }: { transactions: Transaction[] }) {
     if (transactions.length === 0) {
         return (
-            <div className="mt-8">
-                <h3 className="text-lg font-bold text-neutral-900 mb-4">Recientes</h3>
-                <div className="bg-white rounded-3xl p-8 text-center border border-neutral-100 shadow-sm">
-                    <div className="w-12 h-12 bg-neutral-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <span className="text-2xl">🍃</span>
-                    </div>
-                    <p className="text-neutral-500 font-medium">Aún no hay movimientos</p>
+            <div>
+                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">Recientes</h3>
+                <div className="bg-white rounded-xl p-8 text-center border border-neutral-100">
+                    <p className="text-neutral-400 text-sm">Aún no hay movimientos</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="mt-8 mb-24">
-            <div className="flex items-center justify-between mb-4 px-1">
-                <h3 className="text-lg font-bold text-neutral-900">Recientes</h3>
-                <a href="/dashboard/transacciones" className="text-sm font-bold text-blue-600 hover:text-blue-700">Ver todo</a>
+        <div>
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Recientes</h3>
+                <Link href="/dashboard/transacciones" className="text-xs font-semibold text-neutral-400 flex items-center gap-0.5 hover:text-neutral-600">
+                    Ver todo <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
             </div>
 
-            <div className="bg-white rounded-[32px] border border-neutral-100 shadow-sm overflow-hidden divide-y divide-neutral-50">
+            <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
                 {transactions.map((t) => {
                     const categoryName = t.categories?.name || t.category || 'General';
-                    const hasDescription = t.description && t.description !== categoryName;
 
                     return (
-                        <div key={t.id} className="p-5 flex items-center gap-4 hover:bg-neutral-50 transition-colors">
+                        <div key={t.id} className="px-4 py-3 flex items-center gap-3">
                             <div
-                                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border border-neutral-100 shadow-sm`}
-                                style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (t.type === 'expense' ? '#fff1f2' : '#ecfdf5') }}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : '#f5f5f5' }}
                             >
-                                {t.categories?.icon ? <span className="text-xl">{t.categories.icon}</span> : (
-                                    t.type === 'expense'
-                                        ? <ArrowDownRight className="w-5 h-5 text-rose-500" />
-                                        : <ArrowUpRight className="w-5 h-5 text-emerald-500" />
+                                {t.categories?.icon ? (
+                                    <span className="text-lg">{t.categories.icon}</span>
+                                ) : t.type === 'expense' ? (
+                                    <ArrowDownRight className="w-4 h-4 text-rose-500" />
+                                ) : (
+                                    <ArrowUpRight className="w-4 h-4 text-emerald-500" />
                                 )}
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-center mb-0.5">
-                                    <p className="font-bold text-neutral-900 truncate pr-2 text-sm">{categoryName}</p>
-                                    <p className={`font-bold whitespace-nowrap text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
-                                        {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
-                                    </p>
-                                </div>
-                                <div className="flex justify-between items-center text-xs">
-                                    <div className="flex flex-col">
-                                        {hasDescription && <span className="text-neutral-500 truncate lowercase max-w-[150px]">{t.description}</span>}
-                                        <span className="text-neutral-300 font-medium mt-0.5 capitalize">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}</span>
-                                    </div>
-                                </div>
+                                <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
+                                <p className="text-xs text-neutral-400">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}</p>
                             </div>
+
+                            <p className={`font-semibold text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                                {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
+                            </p>
                         </div>
                     );
                 })}

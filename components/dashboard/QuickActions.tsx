@@ -2,47 +2,25 @@ import Link from 'next/link';
 import { Sparkles, PieChart, Calendar, Target } from 'lucide-react';
 
 export default function QuickActions() {
+    const actions = [
+        { href: '/dashboard/analisis', icon: Sparkles, label: 'IA', color: 'text-amber-500' },
+        { href: '/dashboard/estadisticas', icon: PieChart, label: 'Stats', color: 'text-indigo-500' },
+        { href: '/dashboard/suscripciones', icon: Calendar, label: 'Subs', color: 'text-rose-500' },
+        { href: '/dashboard/presupuestos', icon: Target, label: 'Budget', color: 'text-emerald-500' },
+    ];
+
     return (
-        <div className="flex items-center justify-between gap-3 mb-8 overflow-x-auto pb-2 scrollbar-hide px-1">
-            <Link
-                href="/dashboard/analisis"
-                className="flex flex-col items-center gap-2 min-w-[75px] group"
-            >
-                <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center group-hover:scale-105 transition-all group-active:scale-95">
-                    <Sparkles className="w-6 h-6 text-amber-500" />
-                </div>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">IA</span>
-            </Link>
-
-            <Link
-                href="/dashboard/estadisticas"
-                className="flex flex-col items-center gap-2 min-w-[75px] group"
-            >
-                <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center group-hover:scale-105 transition-all group-active:scale-95">
-                    <PieChart className="w-6 h-6 text-indigo-500" />
-                </div>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">Estadísticas</span>
-            </Link>
-
-            <Link
-                href="/dashboard/suscripciones"
-                className="flex flex-col items-center gap-2 min-w-[75px] group"
-            >
-                <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center group-hover:scale-105 transition-all group-active:scale-95">
-                    <Calendar className="w-6 h-6 text-rose-500" />
-                </div>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">Suscripción</span>
-            </Link>
-
-            <Link
-                href="/dashboard/presupuestos"
-                className="flex flex-col items-center gap-2 min-w-[75px] group"
-            >
-                <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center group-hover:scale-105 transition-all group-active:scale-95">
-                    <Target className="w-6 h-6 text-emerald-500" />
-                </div>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-tighter">Presupuestos</span>
-            </Link>
+        <div className="flex items-center justify-between gap-2">
+            {actions.map((action) => (
+                <Link
+                    key={action.href}
+                    href={action.href}
+                    className="flex-1 flex flex-col items-center gap-1.5 py-3 bg-white rounded-xl border border-neutral-100 hover:border-neutral-200 hover:shadow-sm transition-all active:scale-95"
+                >
+                    <action.icon className={`w-5 h-5 ${action.color}`} />
+                    <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">{action.label}</span>
+                </Link>
+            ))}
         </div>
     );
 }

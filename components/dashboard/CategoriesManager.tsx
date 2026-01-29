@@ -316,7 +316,7 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
                       </div>
                       <span className="font-bold text-neutral-900">{category.name}</span>
                     </div>
-                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="flex gap-1.5">
                       <button
                         onClick={() => startEditing(category)}
                         className="p-2 text-blue-700 bg-blue-100 border border-blue-200 hover:bg-blue-200 rounded-xl shadow-sm transition-colors"

@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-// Removed QuickSummary from duplicate
 import NetWorthCard from '@/components/dashboard/NetWorthCard';
 import QuickActions from '@/components/dashboard/QuickActions';
 import AccountList from '@/components/dashboard/AccountList';
@@ -55,7 +54,6 @@ export default async function DashboardPage() {
   });
 
   const totalBalance = accountsData.reduce((sum: number, acc: any) => sum + acc.current_balance, 0);
-  // Exclude transfers from income/expense calculations
   const monthlyIncome = transactions
     .filter((t: any) => t.type === 'income')
     .reduce((sum: number, t: any) => sum + t.amount, 0);
@@ -64,46 +62,42 @@ export default async function DashboardPage() {
     .filter((t: any) => t.type === 'expense')
     .reduce((sum: number, t: any) => sum + t.amount, 0);
 
-  // Find Wallet Account for Widget
   const walletAccount = accountsData.find((a: any) => a.type === 'wallet');
-
-  // Filter accounts for the list (Exclude wallet if we already show the widget to avoid duplication)
-  // Or user wants "Favorite Accounts" list. If Wallet is favorite, it might appear in AccountList too.
-  // The user said: "En el dashboard ahora esta ducplcado sale 3 veces lo de mi cartera."
-  // It appears in: 1. AccountList, 2. WalletWidget, 3. Probably QuickActions or Duplicate Widget code?
-  // Let's ensure AccountList filters out type='wallet' OR we tell AccountList not to render it.
   const bankAccounts = accountsData.filter((a: any) => a.type !== 'wallet');
 
+  // Get user's first name for greeting
+  const firstName = user.user_metadata?.name?.split(' ')[0] || 'Usuario';
+
   return (
-    <div className="container mx-auto px-4 pt-6 pb-40 max-w-lg md:max-w-4xl lg:max-w-6xl">
-      {/* 1. Balance Global */}
-      <NetWorthCard totalBalance={totalBalance} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} />
+    <div className="min-h-screen bg-neutral-50 pb-32">
+      {/* Hero Section */}
+      <div className="px-5 pt-8 pb-6">
+        <p className="text-sm text-neutral-400 font-medium">Hola,</p>
+        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">{firstName} 👋</h1>
+      </div>
 
-      {/* 2. Botones de Acción */}
-      <div className="mt-6">
+      <div className="px-5 space-y-6">
+        {/* Balance Card */}
+        <NetWorthCard totalBalance={totalBalance} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} />
+
+        {/* Quick Actions */}
         <QuickActions />
-      </div>
 
-      {/* 3. Cuentas Favoritas (Excluding Wallet to avoid dupes) */}
-      <div className="mt-8">
+        {/* Accounts */}
         <AccountList accounts={bankAccounts} />
-      </div>
 
-      {/* 4. Mi Cartera */}
-      {walletAccount && (
-        <div className="mt-8">
-          <h3 className="text-lg font-bold text-neutral-900 mb-4 px-2">Mi Cartera</h3>
-          <WalletWidget walletAccount={walletAccount} />
-        </div>
-      )}
+        {/* Wallet Widget */}
+        {walletAccount && (
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">Mi Cartera</h3>
+            <WalletWidget walletAccount={walletAccount} />
+          </div>
+        )}
 
-      {/* 5. Predicción IA */}
-      <div className="mt-8">
+        {/* AI Prediction */}
         <PredictionCard />
-      </div>
 
-      {/* 6. Transacciones Recientes */}
-      <div className="mt-8">
+        {/* Recent Transactions */}
         <RecentTransactionsList transactions={recentTransactions} />
       </div>
     </div>

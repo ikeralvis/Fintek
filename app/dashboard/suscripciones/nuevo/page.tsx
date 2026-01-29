@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import AddSubscriptionWizard from '@/components/dashboard/AddSubscriptionWizard';
+import SimpleSubscriptionForm from '@/components/dashboard/SimpleSubscriptionForm';
 
 export default async function NuevaSuscripcionPage() {
     const supabase = await createClient();
@@ -8,15 +8,5 @@ export default async function NuevaSuscripcionPage() {
 
     if (!user) redirect('/login');
 
-    const [accountsRes, categoriesRes] = await Promise.all([
-        supabase.from('accounts').select('id, name, current_balance, banks(name)').eq('user_id', user.id),
-        supabase.from('categories').select('id, name').eq('user_id', user.id)
-    ]);
-
-    return (
-        <AddSubscriptionWizard
-            accounts={accountsRes.data || []}
-            categories={categoriesRes.data || []}
-        />
-    );
+    return <SimpleSubscriptionForm />;
 }

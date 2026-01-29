@@ -1,6 +1,7 @@
 'use client';
 
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 export default function SmartCategoryCard({ data, delay = 0 }: { data: any, delay?: number }) {
     const { name, icon, color, prediction, average, current, trend, insight } = data;
@@ -20,9 +21,9 @@ export default function SmartCategoryCard({ data, delay = 0 }: { data: any, dela
                 <div className="flex items-center gap-3">
                     <div
                         className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-sm border border-neutral-50"
-                        style={{ backgroundColor: `${color}15`, color: color }}
+                        style={{ backgroundColor: `${color}15` }}
                     >
-                        {icon}
+                        <CategoryIcon name={icon} className="w-6 h-6" style={{ color }} />
                     </div>
                     <div>
                         <h3 className="font-bold text-neutral-900">{name}</h3>

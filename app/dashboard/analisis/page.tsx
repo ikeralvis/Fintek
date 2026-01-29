@@ -1,6 +1,7 @@
 import { getSpendingAnalysis } from '@/lib/actions/analysis';
-import { Activity, Brain, TrendingUp, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Brain, AlertTriangle, ArrowLeft, Info } from 'lucide-react';
 import SmartCategoryCard from '@/components/analysis/SmartCategoryCard';
+import Link from 'next/link';
 
 export default async function AnalysisPage() {
     const { data, error } = await getSpendingAnalysis();
@@ -16,106 +17,98 @@ export default async function AnalysisPage() {
         );
     }
 
-    const { categories, totalPrediction, monthName } = data;
-    // Calculate a dummy confidence interval around +/- 5-8% 
-    // (Real implementation would use variance, but simplifying for UI demo)
-    const confidenceRange = Math.round(totalPrediction * 0.05);
+    const { categories, totalPrediction, confidenceInterval, monthName, insights, methodology } = data;
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-4xl pb-32">
+        <div className="min-h-screen bg-neutral-50 pb-32">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-2xl font-black text-neutral-900 tracking-tight flex items-center gap-2">
-                        <Brain className="w-8 h-8 text-amber-500 animate-pulse-slow" />
-                        Predicción Inteligente
-                    </h1>
-                    <p className="text-sm font-bold text-neutral-400 mt-1 ml-10">
-                        Motor de IA financera v2.0
-                    </p>
+            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+                <div className="flex items-center justify-between">
+                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
+                    </Link>
+                    <h1 className="text-lg font-semibold text-neutral-900">Predicción Inteligente</h1>
+                    <div className="w-9" />
                 </div>
-                <button className="p-2 bg-neutral-100 rounded-full text-neutral-400 hover:bg-neutral-200 transition-colors">
-                    <Activity className="w-5 h-5" />
-                </button>
             </div>
 
-            {/* Main Prediction Card - Yellow/Orange Gradient */}
-            <div className="relative overflow-hidden rounded-[40px] p-8 mb-10 shadow-2xl shadow-amber-500/20 group">
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-400 to-orange-500"></div>
-
-                {/* Glassmorphism Details */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:bg-white/30 transition-all duration-700"></div>
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/3 pointer-events-none"></div>
-
-                <div className="relative z-10 text-white">
-                    <div className="flex items-center gap-2 mb-2 opacity-90">
-                        <div className="bg-white/20 backdrop-blur-md p-1.5 rounded-lg">
-                            <Brain className="w-4 h-4 text-white" />
+            <div className="px-5 space-y-6 max-w-2xl mx-auto">
+                {/* Main Prediction Card */}
+                <div className="relative overflow-hidden rounded-3xl p-6 shadow-xl">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-400 to-orange-500"></div>
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-white/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                    
+                    <div className="relative z-10 text-white">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="bg-white/20 backdrop-blur-md p-1.5 rounded-lg">
+                                <Brain className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-xs font-bold uppercase tracking-wider opacity-90">Predicción {monthName}</span>
                         </div>
-                        <span className="text-xs font-black uppercase tracking-widest">Predicción {monthName}</span>
-                    </div>
 
-                    <div className="flex items-baseline gap-2 mb-1">
-                        <h2 className="text-6xl font-black tracking-tighter">
+                        <h2 className="text-4xl font-black tracking-tight mb-2">
                             {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalPrediction)}
                         </h2>
-                    </div>
 
-                    <div className="flex items-center gap-3 opacity-80">
-                        <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold">
-                            ±{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(confidenceRange)} margen
-                        </span>
-                        <span className="text-xs font-bold">Basado en tus últimos 6 meses</span>
+                        {confidenceInterval && (
+                            <div className="flex flex-wrap items-center gap-2 text-xs opacity-80">
+                                <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full font-semibold">
+                                    Rango: {new Intl.NumberFormat('es-ES').format(confidenceInterval.low)}€ - {new Intl.NumberFormat('es-ES').format(confidenceInterval.high)}€
+                                </span>
+                                <span className="font-medium">Basado en 12 meses</span>
+                            </div>
+                        )}
                     </div>
+                </div>
+
+                {/* Methodology Badge */}
+                {methodology && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl text-xs">
+                        <Info className="w-4 h-4 text-blue-500" />
+                        <span className="text-blue-700 font-medium">{methodology}</span>
+                    </div>
+                )}
+
+                {/* Dynamic Insights */}
+                {insights && insights.length > 0 && (
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wide px-1">Insights Personalizados</h3>
+                        <div className="space-y-2">
+                            {insights.map((insight: string, idx: number) => (
+                                <div 
+                                    key={`insight-${idx}`}
+                                    className="bg-white rounded-2xl p-4 border border-neutral-100 shadow-sm"
+                                >
+                                    <p className="text-sm text-neutral-700 font-medium leading-relaxed">{insight}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Category Breakdown */}
+                <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wide px-1">Desglose por Categoría</h3>
+                    
+                    {categories.length === 0 ? (
+                        <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-neutral-200">
+                            <Brain className="w-12 h-12 text-neutral-200 mx-auto mb-3" />
+                            <p className="text-neutral-400 font-medium">No hay suficientes datos para predecir.</p>
+                            <p className="text-neutral-300 text-sm mt-1">Añade más transacciones para ver predicciones.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {categories.map((cat: any, index: number) => (
+                                <SmartCategoryCard
+                                    key={cat.categoryId}
+                                    data={cat}
+                                    delay={index * 50}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
-
-            {/* Smart Insights */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                <div className="bg-white rounded-[32px] p-6 border border-neutral-100 shadow-sm hover:border-amber-200 transition-colors group cursor-default">
-                    <div className="w-10 h-10 bg-amber-50 rounded-2xl flex items-center justify-center mb-4 text-amber-500 group-hover:scale-110 transition-transform">
-                        <Lightbulb className="w-5 h-5" strokeWidth={2.5} />
-                    </div>
-                    <h3 className="font-bold text-neutral-900 mb-2">Consejo de Ahorro</h3>
-                    <p className="text-sm font-medium text-neutral-500 leading-relaxed">
-                        Tus gastos en <strong>Ocio</strong> aumentan un 15% cada fin de semana. Prueba a establecer un "Día sin Gasto" para compensar.
-                    </p>
-                </div>
-
-                <div className="bg-white rounded-[32px] p-6 border border-neutral-100 shadow-sm hover:border-emerald-200 transition-colors group cursor-default">
-                    <div className="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4 text-emerald-500 group-hover:scale-110 transition-transform">
-                        <TrendingUp className="w-5 h-5" strokeWidth={2.5} />
-                    </div>
-                    <h3 className="font-bold text-neutral-900 mb-2">Tendencia Positiva</h3>
-                    <p className="text-sm font-medium text-neutral-500 leading-relaxed">
-                        Estás un <strong>8% por debajo</strong> de tu presupuesto habitual en Alimentación. ¡Sigue así!
-                    </p>
-                </div>
-            </div>
-
-            {/* Breakdown Title */}
-            <div className="flex items-center gap-3 mb-6 px-2">
-                <div className="h-px bg-neutral-200 flex-1"></div>
-                <span className="text-xs font-black text-neutral-400 uppercase tracking-widest">Desglose por Categoría</span>
-                <div className="h-px bg-neutral-200 flex-1"></div>
-            </div>
-
-            {/* Categories Grid */}
-            {categories.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-[32px] border border-dashed border-neutral-200">
-                    <p className="text-neutral-400 font-bold">No hay suficientes datos para predecir categorías individuales.</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {categories.map((cat: any, index: number) => (
-                        <SmartCategoryCard
-                            key={cat.categoryId}
-                            data={cat}
-                            delay={index * 100} // Stagger animation
-                        />
-                    ))}
-                </div>
-            )}
         </div>
     );
 }
