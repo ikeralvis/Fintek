@@ -210,17 +210,9 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                 transaction_date: p.date
             }));
 
+            // El trigger de la BD actualiza el balance automáticamente
             const { error } = await supabase.from('transactions').insert(toInsert);
             if (error) throw error;
-
-            // Update account balance
-            const totalChange = previews.reduce((sum, p) => sum + (p.type === 'income' ? p.amount : -p.amount), 0);
-            const { data: account } = await supabase.from('accounts').select('current_balance').eq('id', selectedAccountId).single();
-            if (account) {
-                await supabase.from('accounts').update({
-                    current_balance: account.current_balance + totalChange
-                }).eq('id', selectedAccountId);
-            }
 
             onImportSuccess();
             onClose();

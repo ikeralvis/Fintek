@@ -49,6 +49,7 @@ export default function WalletView({ account, initialTransactions }: Props) {
         setDeletingId(tx.id);
         try {
             // Delete transaction
+            // El trigger de la BD actualiza el balance automáticamente
             const { error: delError } = await supabase
                 .from('transactions')
                 .delete()
@@ -56,19 +57,7 @@ export default function WalletView({ account, initialTransactions }: Props) {
             
             if (delError) throw delError;
 
-            // Reverse the balance change
-            const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
-            const newBalance = currentBalance + balanceChange;
-
-            const { error: accError } = await supabase
-                .from('accounts')
-                .update({ current_balance: newBalance })
-                .eq('id', account.id);
-
-            if (accError) throw accError;
-
             // Update local state
-            setCurrentBalance(newBalance);
             setTransactions(transactions.filter(t => t.id !== tx.id));
             router.refresh();
         } catch (err) {

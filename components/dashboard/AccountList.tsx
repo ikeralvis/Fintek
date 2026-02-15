@@ -33,6 +33,7 @@ export default function AccountList({ accounts }: { accounts: Account[] }) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+            // El trigger de la BD actualiza el balance automáticamente
             await supabase.from('transactions').insert([{
                 user_id: user.id,
                 account_id: accId,
@@ -41,7 +42,6 @@ export default function AccountList({ accounts }: { accounts: Account[] }) {
                 description: 'Añadir Efectivo',
                 transaction_date: new Date().toISOString()
             }]);
-            await supabase.from('accounts').update({ current_balance: currentBalance + amount }).eq('id', accId);
             router.refresh();
         } catch (err) {
             console.error(err);

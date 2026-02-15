@@ -30,11 +30,7 @@ export default function WalletWidget({ walletAccount }: { walletAccount: any }) 
                 transaction_date: new Date().toISOString()
             }]);
 
-            // Update Balance
-            await supabase.from('accounts').update({
-                current_balance: walletAccount.current_balance + amount
-            }).eq('id', walletAccount.id);
-
+            // El trigger de la BD actualiza el balance automáticamente
             router.refresh();
         } catch (err) {
             console.error(err);

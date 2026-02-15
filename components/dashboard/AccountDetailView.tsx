@@ -110,12 +110,8 @@ export default function AccountDetailView({ account, initialTransactions, catego
         if (!confirm('¿Eliminar esta transacción?')) return;
         setDeletingId(tx.id);
         try {
+            // El trigger de la BD actualiza el balance automáticamente
             await supabase.from('transactions').delete().eq('id', tx.id);
-            const { data: acc } = await supabase.from('accounts').select('current_balance').eq('id', tx.account_id).single();
-            if (acc) {
-                const newBalance = tx.type === 'income' ? acc.current_balance - tx.amount : acc.current_balance + tx.amount;
-                await supabase.from('accounts').update({ current_balance: newBalance }).eq('id', tx.account_id);
-            }
             router.refresh();
         } catch {
             alert('Error al eliminar');
