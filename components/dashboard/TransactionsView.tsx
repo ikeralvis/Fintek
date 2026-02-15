@@ -17,6 +17,17 @@ type Category = {
     color?: string;
 };
 
+type Account = {
+    id: string;
+    name: string;
+    current_balance: number;
+    banks?: {
+        name: string;
+        color: string;
+        logo_url?: string;
+    };
+};
+
 type Transaction = {
     id: string;
     amount: number;
@@ -32,7 +43,7 @@ type Transaction = {
 
 type Props = {
     initialTransactions: Transaction[];
-    accounts: { id: string; name: string }[];
+    accounts: Account[];
     categories: Category[];
 };
 
