@@ -13,6 +13,7 @@ export default async function NewTransactionPage() {
             .from('accounts')
             .select('id, name, current_balance, banks(name, color, logo_url)')
             .eq('user_id', user.id)
+            .eq('is_active', true)
             .order('is_favorite', { ascending: false }),
 
         supabase

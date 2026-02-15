@@ -170,3 +170,52 @@ export async function processRecurringTransaction(id: string) {
         return { error: err.message };
     }
 }
+
+export async function updateRecurringTransaction(
+    id: string,
+    formData: {
+        type: 'income' | 'expense';
+        accountId: string;
+        categoryId: string;
+        amount: number;
+        description?: string;
+        frequency: 'monthly' | 'weekly' | 'yearly';
+        startDate: string;
+    }
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'No autenticado' };
+
+    // Validate input with Zod
+    const validation = RecurringTransactionSchema.safeParse(formData);
+    if (!validation.success) {
+        return { error: 'Datos inválidos: ' + validation.error.issues.map(e => e.message).join(', ') };
+    }
+
+    try {
+        const { error } = await supabase
+            .from('recurring_transactions')
+            .update({
+                type: formData.type,
+                account_id: formData.accountId,
+                category_id: formData.categoryId,
+                amount: formData.amount,
+                description: formData.description,
+                frequency: formData.frequency,
+                next_run_date: formData.startDate,
+            })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        revalidatePath('/dashboard/suscripciones');
+        revalidatePath('/dashboard/configuracion');
+        return { error: null };
+    } catch (err: any) {
+        console.error('Error updating recurring transaction:', err);
+        return { error: err.message };
+    }
+}

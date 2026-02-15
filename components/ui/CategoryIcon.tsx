@@ -230,18 +230,16 @@ export default function CategoryIcon({ name, className = 'w-5 h-5', fallback, st
     if (name) {
         const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
         if (emojiRegex.test(name)) {
-            return <span className="text-lg">{name}</span>;
+            return <span style={style}>{name}</span>;
         }
     }
 
     // Check if we have a Lucide icon for this code
     if (name && iconMap[name]) {
         const Icon = iconMap[name];
-        // Ensure color is applied to stroke
-        const strokeColor = style?.color as string || 'currentColor';
-        return <Icon className={className} style={style} stroke={strokeColor} />;
+        return <Icon className={className} style={style} />;
     }
 
     // Fallback to emoji or default
-    return <span className="text-lg">{fallback || name || '💰'}</span>;
+    return <span style={style}>{fallback || name || '💰'}</span>;
 }

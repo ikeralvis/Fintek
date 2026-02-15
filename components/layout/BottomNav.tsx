@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     Home, List, Plus, Wallet, Menu, X, Calendar,
-    Target, Sparkles, PieChart, Settings, Download,
-    HelpCircle, LogOut, ChevronRight, User, CreditCard
+    Target, Sparkles, PieChart, Settings, LogOut, CreditCard, TrendingUp
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,6 +21,7 @@ export default function BottomNav() {
     // Menu items for "More" drawer - Only items not in main nav
     const menuItems = [
         { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
+        { name: 'Inversiones', href: '/dashboard/inversiones', icon: TrendingUp },
         { name: 'Predicción IA', href: '/dashboard/analisis', icon: Sparkles },
         { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: PieChart },
         { name: 'Suscripciones', href: '/dashboard/suscripciones', icon: Calendar },

@@ -34,9 +34,15 @@ export async function GET(request: Request) {
     for (const sub of dueSubs) {
         try {
             // A. Create Transaction
+            const accountId = sub.account_id || (await getDefaultAccountId(supabase, sub.user_id));
+            
+            if (!accountId) {
+                throw new Error('No account available for subscription');
+            }
+
             const { error: txError } = await supabase.from('transactions').insert({
                 user_id: sub.user_id,
-                account_id: sub.account_id || (await getDefaultAccountId(supabase, sub.user_id)), // Fallback if no account linked
+                account_id: accountId,
                 amount: sub.amount,
                 type: 'expense',
                 description: `${sub.name} - Pago Recurrente 🔄`,
@@ -46,7 +52,24 @@ export async function GET(request: Request) {
 
             if (txError) throw txError;
 
-            // B. Calculate Next Payment Date
+            // B. Update Account Balance
+            const { data: account, error: accountError } = await supabase
+                .from('accounts')
+                .select('current_balance')
+                .eq('id', accountId)
+                .single();
+
+            if (accountError) throw accountError;
+
+            const newBalance = account.current_balance - sub.amount;
+            const { error: balanceError } = await supabase
+                .from('accounts')
+                .update({ current_balance: newBalance })
+                .eq('id', accountId);
+
+            if (balanceError) throw balanceError;
+
+            // C. Calculate Next Payment Date
             const currentNext = parseISO(sub.next_payment_date);
             let newNextDate = currentNext;
 
@@ -55,7 +78,7 @@ export async function GET(request: Request) {
             if (sub.billing_cycle === 'weekly') newNextDate = addWeeks(currentNext, 1);
             if (sub.billing_cycle === 'bi-weekly') newNextDate = addWeeks(currentNext, 2);
 
-            // C. Update Subscription
+            // D. Update Subscription
             const { error: updateError } = await supabase
                 .from('subscriptions')
                 .update({ next_payment_date: format(newNextDate, 'yyyy-MM-dd') })

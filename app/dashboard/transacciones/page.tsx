@@ -15,12 +15,21 @@ export default async function TransactionsPage() {
       .order('transaction_date', { ascending: false })
       .limit(1000),
 
-    supabase.from('accounts').select('id, name').eq('user_id', user.id),
+    supabase
+      .from('accounts')
+      .select('id, name, current_balance, banks(name, color, logo_url)')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('is_favorite', { ascending: false }),
     supabase.from('categories').select('*').eq('user_id', user.id)
   ]);
 
   const rawTransactions = txRes.data || [];
-  const accounts = accRes.data || [];
+  // Map accounts para que banks sea un objeto (no array)
+  const accounts = (accRes.data || []).map((acc: any) => ({
+    ...acc,
+    banks: Array.isArray(acc.banks) ? acc.banks[0] : acc.banks
+  }));
   const categories = catRes.data || [];
 
   const accountsMap = accounts.reduce((acc: any, a: any) => ({ ...acc, [a.id]: { id: a.id, name: a.name } }), {});

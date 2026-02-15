@@ -15,7 +15,8 @@ import {
   PieChart,
   Target,
   Calendar,
-  Sparkles
+  Sparkles,
+  TrendingUp as InvestmentIcon
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,6 +31,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
   { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-5 w-5" /> },
   { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-5 w-5" /> },
+  { name: 'Inversiones', href: '/dashboard/inversiones', icon: <InvestmentIcon className="h-5 w-5" /> },
   { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: <PieChart className="h-5 w-5" /> }, // Consolidated
   { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <Target className="h-5 w-5" /> },
   { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-5 w-5" /> },

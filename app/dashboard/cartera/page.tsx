@@ -17,6 +17,7 @@ export default async function CarteraPage() {
         .from('accounts')
         .select('*, banks(id, name, color)')
         .eq('user_id', user.id)
+        .eq('is_active', true)
         .eq('type', 'wallet'); // This fails if column 'type' missing
 
     // Handle Schema Mismatch (Missing 'type' column)

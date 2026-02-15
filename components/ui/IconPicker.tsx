@@ -47,25 +47,25 @@ export default function IconPicker({ value, onChange, onClose }: Props) {
                 </div>
 
                 {/* Icons Grid */}
-                <div className="p-3 overflow-y-auto max-h-[50vh]">
-                    <div className="grid grid-cols-5 gap-2">
+                <div className="p-4 overflow-y-auto max-h-[60vh]">
+                    <div className="grid grid-cols-4 gap-3">
                         {filteredIcons.map(name => (
                             <button
                                 key={name}
                                 onClick={() => onChange(name)}
-                                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all ${value === name
+                                className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${value === name
                                         ? 'bg-neutral-900 text-white'
                                         : 'hover:bg-neutral-50 text-neutral-600'
                                     }`}
                             >
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${value === name ? 'bg-white/10' : 'bg-neutral-100'
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${value === name ? 'bg-white/10' : 'bg-neutral-100'
                                     }`}>
                                     <CategoryIcon
                                         name={name}
-                                        className={`w-5 h-5 ${value === name ? 'text-white' : 'text-neutral-600'}`}
+                                        className={`w-7 h-7 ${value === name ? 'text-white' : 'text-neutral-600'}`}
                                     />
                                 </div>
-                                <span className={`text-[8px] font-bold truncate w-full text-center ${value === name ? 'text-white' : 'text-neutral-500'
+                                <span className={`text-[10px] font-bold truncate w-full text-center leading-tight ${value === name ? 'text-white' : 'text-neutral-500'
                                     }`}>
                                     {iconLabels[name] || name}
                                 </span>

@@ -84,7 +84,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
         if (result.error) throw new Error(result.error);
       } else {
-        // Transacción normal
+        // Transacción normal (el trigger de la BD actualiza automáticamente el saldo)
         const { error } = await supabase.from('transactions').insert([{
           user_id: user.id,
           account_id: accountId,
@@ -96,13 +96,6 @@ export default function TransactionForm({ accounts, categories }: Props) {
         }]);
 
         if (error) throw error;
-
-        // Update account balance
-        const newBalance = type === 'income'
-          ? selectedAccount!.current_balance + Number.parseFloat(amount)
-          : selectedAccount!.current_balance - Number.parseFloat(amount);
-
-        await supabase.from('accounts').update({ current_balance: newBalance }).eq('id', accountId);
       }
 
       const previousPath = sessionStorage.getItem('previousPath') || '/dashboard/transacciones';

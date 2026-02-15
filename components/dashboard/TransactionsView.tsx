@@ -2,12 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Trash2, Pencil, X, ArrowDownRight, ArrowUpRight, Database } from 'lucide-react';
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Trash2, Pencil, X, Database } from 'lucide-react';
 import { format, parseISO, isSameDay, isSameMonth, isSameWeek, isSameYear, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
 import EditTransactionModal from './EditTransactionModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 type Category = {
     id: string;
@@ -54,28 +55,9 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
         setDeletingId(tx.id);
         try {
+            // Eliminar transacción (el trigger de la BD actualiza automáticamente los saldos)
             const { error: delError } = await supabase.from('transactions').delete().eq('id', tx.id);
             if (delError) throw delError;
-
-            // For transfers, update both accounts
-            if (tx.type === 'transfer') {
-                // For transfers, we need to get the related account and revert both
-                const { data: txData } = await supabase
-                    .from('transactions')
-                    .select('related_account_id')
-                    .eq('id', tx.id)
-                    .single();
-
-                // Since we already deleted it, we just need to revert the balances
-                // This is handled in the server transfer action
-            } else {
-                // For income/expense, revert single account
-                const { data: account } = await supabase.from('accounts').select('current_balance').eq('id', tx.account_id).single();
-                if (account) {
-                    const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
-                    await supabase.from('accounts').update({ current_balance: account.current_balance + balanceChange }).eq('id', tx.account_id);
-                }
-            }
 
             setTransactions(transactions.filter(t => t.id !== tx.id));
             router.refresh();
@@ -265,10 +247,14 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                             <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
                                                 {/* Category Icon */}
                                                 <div
-                                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                     style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : '#f5f5f5' }}
                                                 >
-                                                    {t.categories?.icon || (t.type === 'income' ? <ArrowUpRight className="w-4 h-4 text-emerald-500" /> : <ArrowDownRight className="w-4 h-4 text-rose-500" />)}
+                                                    <CategoryIcon 
+                                                        name={t.categories?.icon || (t.type === 'income' ? 'up' : 'down')} 
+                                                        className="w-5 h-5" 
+                                                        style={{ color: t.categories?.color || (t.type === 'income' ? '#10b981' : '#f43f5e') }} 
+                                                    />
                                                 </div>
 
                                                 {/* Details */}

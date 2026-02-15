@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { X, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 type Category = {
     id: string;
@@ -15,6 +16,12 @@ type Category = {
 type Account = {
     id: string;
     name: string;
+    banks?: {
+        name: string;
+        color: string;
+        logo_url?: string;
+    };
+    current_balance: number;
 };
 
 type Transaction = {
@@ -54,17 +61,22 @@ export default function EditTransactionModal({ transaction, categories, accounts
     const selectedCategory = categories.find(c => c.id === categoryId);
     const selectedAccount = accounts.find(a => a.id === accountId);
 
+    // Agrupar cuentas por banco
+    const groupedAccounts = accounts.reduce((acc: any, account) => {
+        const bankName = account.banks?.name || 'Otros';
+        if (!acc[bankName]) acc[bankName] = [];
+        acc[bankName].push(account);
+        return acc;
+    }, {});
+
     const handleSubmit = async () => {
         if (!amount || !accountId || !categoryId) return;
         setLoading(true);
 
         try {
-            const originalAmount = transaction.amount;
-            const originalType = transaction.type;
-            const originalAccountId = transaction.account_id;
             const newAmount = Number.parseFloat(amount);
 
-            // Update transaction
+            // Update transaction (el trigger de la BD actualiza automáticamente los saldos)
             const { error } = await supabase
                 .from('transactions')
                 .update({
@@ -78,58 +90,6 @@ export default function EditTransactionModal({ transaction, categories, accounts
                 .eq('id', transaction.id);
 
             if (error) throw error;
-
-            // Adjust account balances
-            // If account changed, we need to revert old account and apply to new
-            if (originalAccountId !== accountId) {
-                // Revert original account
-                const { data: oldAccount } = await supabase
-                    .from('accounts')
-                    .select('current_balance')
-                    .eq('id', originalAccountId)
-                    .single();
-
-                if (oldAccount) {
-                    const oldRevert = originalType === 'income'
-                        ? oldAccount.current_balance - originalAmount
-                        : oldAccount.current_balance + originalAmount;
-                    await supabase.from('accounts').update({ current_balance: oldRevert }).eq('id', originalAccountId);
-                }
-
-                // Apply to new account
-                const { data: newAccount } = await supabase
-                    .from('accounts')
-                    .select('current_balance')
-                    .eq('id', accountId)
-                    .single();
-
-                if (newAccount) {
-                    const newApply = type === 'income'
-                        ? newAccount.current_balance + newAmount
-                        : newAccount.current_balance - newAmount;
-                    await supabase.from('accounts').update({ current_balance: newApply }).eq('id', accountId);
-                }
-            } else {
-                // Same account - adjust difference
-                const { data: account } = await supabase
-                    .from('accounts')
-                    .select('current_balance')
-                    .eq('id', accountId)
-                    .single();
-
-                if (account) {
-                    // First revert the original
-                    let balance = account.current_balance;
-                    if (originalType === 'income') balance -= originalAmount;
-                    else balance += originalAmount;
-
-                    // Then apply new
-                    if (type === 'income') balance += newAmount;
-                    else balance -= newAmount;
-
-                    await supabase.from('accounts').update({ current_balance: balance }).eq('id', accountId);
-                }
-            }
 
             onSaved();
             router.refresh();
@@ -214,22 +174,59 @@ export default function EditTransactionModal({ transaction, categories, accounts
                         >
                             <span className="text-xs font-bold text-neutral-400 uppercase">Cuenta</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-neutral-900">{selectedAccount?.name || 'Seleccionar'}</span>
+                                {selectedAccount && (
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold text-white overflow-hidden"
+                                            style={{ backgroundColor: selectedAccount.banks?.logo_url ? 'transparent' : (selectedAccount.banks?.color || '#000') }}
+                                        >
+                                            {selectedAccount.banks?.logo_url ? (
+                                                <img src={selectedAccount.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                            ) : (
+                                                selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                            )}
+                                        </div>
+                                        <span className="text-sm font-bold text-neutral-900">{selectedAccount.name}</span>
+                                    </div>
+                                )}
                                 {isAccountsExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
                             </div>
                         </button>
                         {isAccountsExpanded && (
-                            <div className="border-t border-neutral-100 p-1.5 space-y-0.5 max-h-32 overflow-y-auto">
-                                {accounts.map(acc => (
-                                    <button
-                                        key={acc.id}
-                                        onClick={() => { setAccountId(acc.id); setIsAccountsExpanded(false); }}
-                                        className={`w-full p-2 rounded-lg text-left text-sm font-medium transition-all flex items-center justify-between ${accountId === acc.id ? 'bg-neutral-900 text-white' : 'hover:bg-neutral-100 text-neutral-900'
-                                            }`}
-                                    >
-                                        {acc.name}
-                                        {accountId === acc.id && <Check className="w-4 h-4" />}
-                                    </button>
+                            <div className="border-t border-neutral-100 p-2 space-y-2 max-h-48 overflow-y-auto">
+                                {Object.entries(groupedAccounts).map(([bankName, bankAccounts]: [string, any]) => (
+                                    <div key={bankName}>
+                                        <div className="px-2 py-1 text-xs font-bold text-neutral-400 uppercase tracking-wider">{bankName}</div>
+                                        <div className="space-y-1">
+                                            {bankAccounts.map((acc: Account) => (
+                                                <button
+                                                    key={acc.id}
+                                                    onClick={() => { setAccountId(acc.id); setIsAccountsExpanded(false); }}
+                                                    className={`w-full p-2.5 rounded-xl flex items-center gap-3 transition-all ${accountId === acc.id
+                                                            ? 'bg-neutral-900 text-white'
+                                                            : 'hover:bg-neutral-50'
+                                                        }`}
+                                                >
+                                                    <div
+                                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
+                                                        style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || '#000') }}
+                                                    >
+                                                        {acc.banks?.logo_url ? (
+                                                            <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                                        ) : (
+                                                            acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 text-left min-w-0">
+                                                        <p className={`text-sm font-bold truncate ${accountId === acc.id ? 'text-white' : 'text-neutral-900'}`}>{acc.name}</p>
+                                                        <p className={`text-xs ${accountId === acc.id ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                                                            {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
+                                                        </p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -244,8 +241,17 @@ export default function EditTransactionModal({ transaction, categories, accounts
                             <span className="text-xs font-bold text-neutral-400 uppercase">Categoría</span>
                             <div className="flex items-center gap-2">
                                 {selectedCategory && (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-base">{selectedCategory.icon || '💰'}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-8 h-8 rounded-xl flex items-center justify-center"
+                                            style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : '#f5f5f5' }}
+                                        >
+                                            <CategoryIcon 
+                                                name={selectedCategory.icon} 
+                                                className="w-4 h-4" 
+                                                style={{ color: selectedCategory.color || '#666' }} 
+                                            />
+                                        </div>
                                         <span className="text-sm font-bold text-neutral-900">{selectedCategory.name}</span>
                                     </div>
                                 )}
@@ -253,17 +259,28 @@ export default function EditTransactionModal({ transaction, categories, accounts
                             </div>
                         </button>
                         {isCategoriesExpanded && (
-                            <div className="border-t border-neutral-100 p-1.5 max-h-40 overflow-y-auto">
-                                <div className="grid grid-cols-4 gap-1">
+                            <div className="border-t border-neutral-100 p-3 max-h-72 overflow-y-auto">
+                                <div className="grid grid-cols-4 gap-2">
                                     {categories.map(cat => (
                                         <button
                                             key={cat.id}
                                             onClick={() => { setCategoryId(cat.id); setIsCategoriesExpanded(false); }}
-                                            className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg transition-all ${categoryId === cat.id ? 'bg-neutral-900' : 'hover:bg-neutral-100'
+                                            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${categoryId === cat.id
+                                                    ? 'bg-neutral-900'
+                                                    : 'hover:bg-neutral-50 bg-neutral-50/50'
                                                 }`}
                                         >
-                                            <span className="text-lg">{cat.icon || '💰'}</span>
-                                            <span className={`text-[8px] font-bold truncate w-full text-center ${categoryId === cat.id ? 'text-white' : 'text-neutral-600'}`}>
+                                            <div
+                                                className={`w-12 h-12 rounded-xl flex items-center justify-center ${categoryId === cat.id ? 'scale-105' : ''}`}
+                                                style={{ backgroundColor: cat.color ? `${cat.color}25` : '#f0f0f0' }}
+                                            >
+                                                <CategoryIcon 
+                                                    name={cat.icon} 
+                                                    className="w-6 h-6" 
+                                                    style={{ color: cat.color || '#666' }} 
+                                                />
+                                            </div>
+                                            <span className={`text-[10px] font-semibold truncate w-full text-center leading-tight ${categoryId === cat.id ? 'text-white' : 'text-neutral-700'}`}>
                                                 {cat.name}
                                             </span>
                                         </button>

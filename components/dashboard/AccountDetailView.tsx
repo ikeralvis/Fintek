@@ -382,7 +382,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 <EditTransactionModal
                     transaction={editingTransaction}
                     categories={categories}
-                    accounts={[{ id: account.id, name: account.name }]}
+                    accounts={[{ id: account.id, name: account.name, current_balance: account.current_balance }]}
                     onClose={() => setEditingTransaction(null)}
                     onSaved={handleEditSaved}
                 />

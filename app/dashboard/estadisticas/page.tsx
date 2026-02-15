@@ -20,7 +20,8 @@ export default async function EstadisticasPage() {
         supabase
             .from('accounts')
             .select('*, banks(id, name, color)')
-            .eq('user_id', user.id),
+            .eq('user_id', user.id)
+            .eq('is_active', true),
 
         supabase
             .from('categories')

@@ -21,6 +21,7 @@ export default async function DashboardPage() {
       .from('accounts')
       .select('*, banks(id, name, color, logo_url)')
       .eq('user_id', user.id)
+      .eq('is_active', true)
       .order('is_favorite', { ascending: false })
       .order('current_balance', { ascending: false }),
 

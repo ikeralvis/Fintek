@@ -10,6 +10,7 @@ import { format, parseISO, isSameMonth, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { deleteSubscription, updateSubscription } from '@/lib/actions/subscriptions';
 import SubscriptionCalendar from './SubscriptionCalendar';
+import RecurringTransactionsList from './RecurringTransactionsList';
 
 const SERVICE_LOGOS: Record<string, string> = {
     'netflix': 'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg',
@@ -55,8 +56,15 @@ function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
 }
 
-export default function SubscriptionsViewNew({ subscriptions, monthlyTotal }: any) {
+export default function SubscriptionsViewNew({ 
+    subscriptions, 
+    monthlyTotal,
+    recurringTransactions = [],
+    accounts = [],
+    categories = []
+}: any) {
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+    const [activeTab, setActiveTab] = useState<'subscriptions' | 'recurring'>('subscriptions');
     const [menuOpen, setMenuOpen] = useState<string | null>(null);
 
     const activeSubscriptions = subscriptions.filter((s: any) => s.status === 'active');
@@ -89,52 +97,104 @@ export default function SubscriptionsViewNew({ subscriptions, monthlyTotal }: an
         return <SubscriptionCalendar subscriptions={subscriptions} onClose={() => setViewMode('list')} />;
     }
 
+    // Show recurring transactions tab
+    if (activeTab === 'recurring') {
+        return (
+            <div className="min-h-screen bg-neutral-50 pb-32">
+                {/* Header with Tabs */}
+                <div className="bg-white px-4 pt-6 pb-4 border-b border-neutral-100 sticky top-0 z-40">
+                    <h1 className="text-xl font-bold text-neutral-900 mb-4">Pagos Automáticos</h1>
+                    
+                    {/* Tabs */}
+                    <div className="flex gap-2 bg-neutral-100 rounded-xl p-1">
+                        <button
+                            onClick={() => setActiveTab('subscriptions')}
+                            className="flex-1 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all text-neutral-600 truncate"
+                        >
+                            Suscripciones
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('recurring')}
+                            className="flex-1 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white text-neutral-900 shadow-sm truncate"
+                        >
+                            Transacciones
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="px-4 pt-6">
+                    <RecurringTransactionsList 
+                        recurringTransactions={recurringTransactions}
+                        accounts={accounts}
+                        categories={categories}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-neutral-50 pb-32">
             {/* Header */}
-            <div className="bg-white px-5 pt-6 pb-8 border-b border-neutral-100">
-                <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-xl font-bold text-neutral-900">Suscripciones</h1>
+            <div className="bg-white px-4 pt-6 pb-4 border-b border-neutral-100 sticky top-0 z-40">
+                <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-bold text-neutral-900">Pagos Automáticos</h1>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setViewMode('calendar')}
-                            className="p-2.5 rounded-xl hover:bg-neutral-100 transition-colors border border-neutral-200"
+                            className="p-2 sm:p-2.5 rounded-xl hover:bg-neutral-100 transition-colors border border-neutral-200"
                         >
-                            <CalendarDays className="w-5 h-5 text-neutral-600" />
+                            <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-600" />
                         </button>
                         <Link
                             href="/dashboard/suscripciones/nuevo"
-                            className="p-2.5 bg-neutral-900 rounded-xl text-white hover:bg-neutral-800 transition-colors shadow-lg"
+                            className="p-2 sm:p-2.5 bg-neutral-900 rounded-xl text-white hover:bg-neutral-800 transition-colors shadow-lg"
                         >
-                            <Plus className="w-5 h-5" strokeWidth={2.5} />
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
                         </Link>
                     </div>
                 </div>
 
+                {/* Tabs */}
+                <div className="flex gap-2 bg-neutral-100 rounded-xl p-1">
+                    <button
+                        onClick={() => setActiveTab('subscriptions')}
+                        className="flex-1 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white text-neutral-900 shadow-sm truncate"
+                    >
+                        Suscripciones
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('recurring')}
+                        className="flex-1 py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all text-neutral-600 truncate"
+                    >
+                        Transacciones
+                    </button>
+                </div>
+            </div>
+
+            <div className="px-4 pt-6">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-4 text-white">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Calendar className="w-4 h-4 opacity-70" />
-                            <span className="text-xs font-medium opacity-70">Este mes</span>
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-3 sm:p-4 text-white">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 opacity-70" />
+                            <span className="text-[10px] sm:text-xs font-medium opacity-70">Este mes</span>
                         </div>
-                        <p className="text-2xl font-black">
+                        <p className="text-xl sm:text-2xl font-black">
                             {thisMonthTotal.toFixed(2)}€
                         </p>
                     </div>
-                    <div className="bg-white border border-neutral-200 rounded-2xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <TrendingUp className="w-4 h-4 text-neutral-400" />
-                            <span className="text-xs font-medium text-neutral-400">Media mensual</span>
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-3 sm:p-4">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                            <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-neutral-400" />
+                            <span className="text-[10px] sm:text-xs font-medium text-neutral-400">Media mensual</span>
                         </div>
-                        <p className="text-2xl font-black text-neutral-900">
+                        <p className="text-xl sm:text-2xl font-black text-neutral-900">
                             {monthlyTotal.toFixed(2)}€
                         </p>
                     </div>
                 </div>
-            </div>
 
-            <div className="px-5 py-6 space-y-6">
                 {/* Active Subscriptions */}
                 {sortedSubs.length > 0 ? (
                     <div className="space-y-3">
@@ -146,17 +206,17 @@ export default function SubscriptionsViewNew({ subscriptions, monthlyTotal }: an
                             return (
                                 <div
                                     key={sub.id}
-                                    className={`bg-white rounded-2xl p-4 border transition-all ${
+                                    className={`bg-white rounded-2xl p-3 sm:p-4 border transition-all ${
                                         isUpcoming ? 'border-amber-200 bg-amber-50/30' : 'border-neutral-100'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3">
                                         {/* Logo */}
-                                        <div className="w-12 h-12 rounded-xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center overflow-hidden">
+                                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
                                             {logo ? (
-                                                <img src={logo} alt={sub.name} className="w-8 h-8 object-contain" />
+                                                <img src={logo} alt={sub.name} className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
                                             ) : (
-                                                <span className="text-sm font-black text-neutral-400">
+                                                <span className="text-xs sm:text-sm font-black text-neutral-400">
                                                     {getInitials(sub.name)}
                                                 </span>
                                             )}
@@ -164,47 +224,47 @@ export default function SubscriptionsViewNew({ subscriptions, monthlyTotal }: an
 
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="font-bold text-neutral-900 truncate">{sub.name}</h3>
+                                            <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5">
+                                                <h3 className="font-bold text-sm sm:text-base text-neutral-900 truncate">{sub.name}</h3>
                                                 {isUpcoming && (
-                                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">
+                                                    <span className="px-1.5 sm:px-2 py-0.5 bg-amber-100 text-amber-700 text-[9px] sm:text-[10px] font-bold rounded-full shrink-0">
                                                         {daysUntil === 0 ? 'Hoy' : `${daysUntil}d`}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-neutral-500">
-                                                {format(parseISO(sub.next_payment_date), "d 'de' MMMM", { locale: es })} · {FREQUENCY_LABELS[sub.billing_cycle] || 'mes'}
+                                            <p className="text-[10px] sm:text-xs text-neutral-500 truncate">
+                                                {format(parseISO(sub.next_payment_date), "d 'de' MMM", { locale: es })} · {FREQUENCY_LABELS[sub.billing_cycle] || 'mes'}
                                             </p>
                                         </div>
 
                                         {/* Amount */}
-                                        <div className="text-right">
-                                            <p className="font-black text-neutral-900">{Number(sub.amount).toFixed(2)}€</p>
+                                        <div className="text-right shrink-0">
+                                            <p className="font-black text-sm sm:text-base text-neutral-900">{Number(sub.amount).toFixed(2)}€</p>
                                         </div>
 
                                         {/* Menu */}
-                                        <div className="relative">
+                                        <div className="relative shrink-0">
                                             <button
                                                 onClick={() => setMenuOpen(menuOpen === sub.id ? null : sub.id)}
-                                                className="p-2 rounded-lg hover:bg-neutral-100 transition-colors"
+                                                className="p-1.5 sm:p-2 rounded-lg hover:bg-neutral-100 transition-colors"
                                             >
                                                 <MoreVertical className="w-4 h-4 text-neutral-400" />
                                             </button>
                                             
                                             {menuOpen === sub.id && (
-                                                <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 z-10 min-w-[140px]">
+                                                <div className="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg py-1 z-10 min-w-[120px] sm:min-w-[140px]">
                                                     <button
                                                         onClick={() => handlePause(sub.id, sub.status)}
-                                                        className="w-full px-4 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                                                        className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm font-medium text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
                                                     >
-                                                        <Pause className="w-4 h-4" />
+                                                        <Pause className="w-3 h-3 sm:w-4 sm:h-4" />
                                                         Pausar
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(sub.id)}
-                                                        className="w-full px-4 py-2 text-left text-sm font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                                        className="w-full px-3 sm:px-4 py-2 text-left text-xs sm:text-sm font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                                                         Eliminar
                                                     </button>
                                                 </div>
@@ -217,12 +277,12 @@ export default function SubscriptionsViewNew({ subscriptions, monthlyTotal }: an
                     </div>
                 ) : (
                     <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-neutral-200">
-                        <Calendar className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
-                        <h3 className="font-bold text-neutral-900 mb-1">Sin suscripciones</h3>
-                        <p className="text-sm text-neutral-500 mb-4">Añade tus servicios de pago recurrente</p>
+                        <Calendar className="w-10 h-10 sm:w-12 sm:h-12 text-neutral-300 mx-auto mb-3" />
+                        <h3 className="font-bold text-sm sm:text-base text-neutral-900 mb-1">Sin suscripciones</h3>
+                        <p className="text-xs sm:text-sm text-neutral-500 mb-4 px-4">Añade tus servicios de pago recurrente</p>
                         <Link
                             href="/dashboard/suscripciones/nuevo"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-xl text-sm font-bold"
+                            className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs sm:text-sm font-bold"
                         >
                             <Plus className="w-4 h-4" />
                             Añadir suscripción
@@ -232,33 +292,34 @@ export default function SubscriptionsViewNew({ subscriptions, monthlyTotal }: an
 
                 {/* Paused Subscriptions */}
                 {pausedSubscriptions.length > 0 && (
-                    <div className="space-y-3">
-                        <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wide">Pausadas</h2>
+                    <div className="space-y-3 mt-6">
+                        <h2 className="text-xs sm:text-sm font-bold text-neutral-400 uppercase tracking-wide px-1">Pausadas</h2>
                         {pausedSubscriptions.map((sub: any) => {
                             const logo = getLogo(sub.name, sub.logo_url);
+                            
                             
                             return (
                                 <div
                                     key={sub.id}
-                                    className="bg-white rounded-2xl p-4 border border-neutral-100 opacity-60"
+                                    className="bg-white rounded-2xl p-3 sm:p-4 border border-neutral-100 opacity-60"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-neutral-100 flex items-center justify-center overflow-hidden">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
                                             {logo ? (
-                                                <img src={logo} alt={sub.name} className="w-8 h-8 object-contain grayscale" />
+                                                <img src={logo} alt={sub.name} className="w-6 h-6 sm:w-8 sm:h-8 object-contain grayscale" />
                                             ) : (
-                                                <span className="text-sm font-black text-neutral-400">
+                                                <span className="text-xs sm:text-sm font-black text-neutral-400">
                                                     {getInitials(sub.name)}
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex-1">
-                                            <h3 className="font-bold text-neutral-700">{sub.name}</h3>
-                                            <p className="text-xs text-neutral-400">Pausada</p>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-sm sm:text-base text-neutral-700 truncate">{sub.name}</h3>
+                                            <p className="text-[10px] sm:text-xs text-neutral-400">Pausada</p>
                                         </div>
                                         <button
                                             onClick={() => handlePause(sub.id, sub.status)}
-                                            className="p-2 rounded-lg hover:bg-neutral-100 transition-colors"
+                                            className="p-1.5 sm:p-2 rounded-lg hover:bg-neutral-100 transition-colors shrink-0"
                                         >
                                             <Play className="w-4 h-4 text-emerald-600" />
                                         </button>

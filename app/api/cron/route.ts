@@ -49,6 +49,29 @@ export async function GET(_request: Request) {
                 continue;
             }
 
+            // Update account balance
+            const { data: account, error: accountError } = await supabase
+                .from('accounts')
+                .select('current_balance')
+                .eq('id', rt.account_id)
+                .single();
+
+            if (accountError) {
+                console.error(`Failed to get account ${rt.account_id}:`, accountError);
+            } else {
+                const balanceChange = rt.type === 'income' ? rt.amount : -rt.amount;
+                const newBalance = account.current_balance + balanceChange;
+                
+                const { error: balanceError } = await supabase
+                    .from('accounts')
+                    .update({ current_balance: newBalance })
+                    .eq('id', rt.account_id);
+
+                if (balanceError) {
+                    console.error(`Failed to update balance for ${rt.account_id}:`, balanceError);
+                }
+            }
+
             // Calculate next run date
             const currentRunDate = new Date(rt.next_run_date);
             const nextDate = new Date(currentRunDate);
