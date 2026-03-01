@@ -11,6 +11,7 @@ import { format, parseISO, isSameDay, isSameMonth, subMonths, addMonths, isValid
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
 import { cancelAccount } from '@/lib/actions/accounts';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import EditTransactionModal from './EditTransactionModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
 
@@ -314,18 +315,14 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                         return (
                                             <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
                                                 <div
-                                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                     style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#f0f9ff' : '#f5f5f5') }}
                                                 >
-                                                    {icon || (
-                                                        isTransfer 
-                                                            ? (isIncoming 
-                                                                ? <ArrowDownRight className="w-4 h-4 text-blue-500" /> 
-                                                                : <ArrowUpRight className="w-4 h-4 text-blue-500" />)
-                                                            : (t.type === 'expense' 
-                                                                ? <ArrowDownRight className="w-4 h-4 text-rose-500" /> 
-                                                                : <ArrowUpRight className="w-4 h-4 text-emerald-500" />)
-                                                    )}
+                                                    <CategoryIcon 
+                                                        name={icon || (isTransfer ? (isIncoming ? 'down' : 'up') : (t.type === 'expense' ? 'down' : 'up'))} 
+                                                        className="w-5 h-5"
+                                                        style={{ color: t.categories?.color || (isTransfer ? '#3b82f6' : (t.type === 'expense' ? '#f43f5e' : '#10b981')) }}
+                                                    />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-medium text-neutral-900 text-sm truncate">
@@ -346,14 +343,14 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             onClick={() => setEditingTransaction(t)}
-                                                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg"
+                                                            className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                                                         >
                                                             <Pencil className="w-3.5 h-3.5" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteTransaction(t)}
                                                             disabled={deletingId === t.id}
-                                                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                                                            className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
                                                         >
                                                             {deletingId === t.id ? (
                                                                 <div className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />

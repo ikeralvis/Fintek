@@ -17,32 +17,50 @@ export default async function proxy(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value)
-          )
-          response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // Validar que value sea un string antes de establecerlo
+              if (typeof value === 'string') {
+                request.cookies.set(name, value)
+              }
+            })
+            response = NextResponse.next({ request })
+            cookiesToSet.forEach(({ name, value, options }) => {
+              if (typeof value === 'string') {
+                response.cookies.set(name, value, options)
+              }
+            })
+          } catch (error) {
+            console.error('Error setting cookies:', error)
+          }
         },
       },
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const { data } = await supabase.auth.getUser()
+    
+    // Validar que data sea un objeto (no un string u otro tipo)
+    const user = (data && typeof data === 'object' && 'user' in data) ? data.user : null
 
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
+    if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
 
-  if (
-    user &&
-    (request.nextUrl.pathname === '/login' ||
-      request.nextUrl.pathname === '/register')
-  ) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (
+      user &&
+      (request.nextUrl.pathname === '/login' ||
+        request.nextUrl.pathname === '/register')
+    ) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  } catch (error) {
+    console.error('Error in proxy middleware:', error)
+    // Si hay error con la sesión, redirigir a login
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
   }
 
   return response
