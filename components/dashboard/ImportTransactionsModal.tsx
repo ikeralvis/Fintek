@@ -121,9 +121,9 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
 
     const parseAmount = (val: any) => {
         if (typeof val === 'number') return val;
-        if (typeof val !== 'string') return 0;
+        if (!val || typeof val !== 'string') return 0;
         // Handle Spanish format: 1.234,56 -> 1234.56
-        const clean = val.replaceAll('.', '').replace(',', '.');
+        const clean = val.toString().replaceAll('.', '').replace(',', '.');
         return Number.parseFloat(clean) || 0;
     };
 
@@ -154,35 +154,44 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                 .limit(500);
 
             const descMap = new Map();
-            existingTx?.forEach(t => descMap.set(t.description.toLowerCase(), t.category_id));
-
-            const newPreviews: TransactionPreview[] = rawData.map(row => {
-                const dateIdx = headers.indexOf(mapping.date);
-                const descIdx = headers.indexOf(mapping.description);
-                const amountIdx = headers.indexOf(mapping.amount);
-
-                const amount = parseAmount(row[amountIdx]);
-                const description = row[descIdx] || 'Sin descripción';
-                const date = parseDate(row[dateIdx]);
-
-                // Simple auto-categorizer
-                let categoryId = 'deef3632-4d0f-48d6-96a2-e6e2f1dbb0b6'; // Default General
-                for (const [desc, cat] of descMap.entries()) {
-                    if (description.toLowerCase().includes(desc) || desc.includes(description.toLowerCase())) {
-                        categoryId = cat;
-                        break;
-                    }
+            existingTx?.forEach(t => {
+                if (t.description) {
+                    descMap.set(t.description.toLowerCase(), t.category_id);
                 }
+            });
 
-                return {
-                    date,
-                    description,
-                    amount: Math.abs(amount),
-                    type: (amount >= 0 ? 'income' : 'expense') as 'income' | 'expense',
-                    category_id: categoryId,
-                    status: 'valid' as const
-                };
-            }).filter(p => !isNaN(p.amount) && p.amount !== 0);
+            const newPreviews: TransactionPreview[] = rawData
+                .filter((row): row is any[] => Array.isArray(row) && row.length > 0)
+                .map(row => {
+                    const dateIdx = headers.indexOf(mapping.date);
+                    const descIdx = headers.indexOf(mapping.description);
+                    const amountIdx = headers.indexOf(mapping.amount);
+
+                    const amount = parseAmount(amountIdx >= 0 ? row[amountIdx] : null);
+                    const description = (descIdx >= 0 ? row[descIdx] : null) || 'Sin descripción';
+                    const date = parseDate(dateIdx >= 0 ? row[dateIdx] : null);
+
+                    // Simple auto-categorizer
+                    let categoryId = 'deef3632-4d0f-48d6-96a2-e6e2f1dbb0b6'; // Default General
+                    if (description && description.trim()) {
+                        for (const [desc, cat] of descMap.entries()) {
+                            if (description.toLowerCase().includes(desc) || desc.includes(description.toLowerCase())) {
+                                categoryId = cat;
+                                break;
+                            }
+                        }
+                    }
+
+                    return {
+                        date,
+                        description,
+                        amount: Math.abs(amount),
+                        type: (amount >= 0 ? 'income' : 'expense') as 'income' | 'expense',
+                        category_id: categoryId,
+                        status: 'valid' as const
+                    };
+                })
+                .filter(p => !isNaN(p.amount) && p.amount !== 0);
 
             setPreviews(newPreviews);
             setStep(3);
@@ -295,8 +304,9 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Fecha</label>
+                                        <label htmlFor="mapping-date" className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Fecha</label>
                                         <select
+                                            id="mapping-date"
                                             value={mapping.date}
                                             onChange={(e) => setMapping({ ...mapping, date: e.target.value })}
                                             className="w-full p-3 bg-neutral-100 border-none rounded-xl font-bold"
@@ -306,8 +316,9 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Concepto / Descripción</label>
+                                        <label htmlFor="mapping-description" className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Concepto / Descripción</label>
                                         <select
+                                            id="mapping-description"
                                             value={mapping.description}
                                             onChange={(e) => setMapping({ ...mapping, description: e.target.value })}
                                             className="w-full p-3 bg-neutral-100 border-none rounded-xl font-bold"
@@ -317,8 +328,9 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Importe</label>
+                                        <label htmlFor="mapping-amount" className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Importe</label>
                                         <select
+                                            id="mapping-amount"
                                             value={mapping.amount}
                                             onChange={(e) => setMapping({ ...mapping, amount: e.target.value })}
                                             className="w-full p-3 bg-neutral-100 border-none rounded-xl font-bold"
@@ -340,9 +352,11 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                             </thead>
                                             <tbody>
                                                 {rawData.slice(0, 3).map((row, ri) => (
-                                                    <tr key={ri}>
-                                                        {row.map((cell: any, ci: number) => <td key={ci} className="p-1 truncate max-w-[100px]">{cell?.toString()}</td>)}
-                                                    </tr>
+                                                    Array.isArray(row) && (
+                                                        <tr key={ri}>
+                                                            {row.map((cell: any, ci: number) => <td key={ci} className="p-1 truncate max-w-[100px]">{cell != null ? String(cell) : ''}</td>)}
+                                                        </tr>
+                                                    )
                                                 ))}
                                             </tbody>
                                         </table>
@@ -369,8 +383,10 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                             </div>
 
                             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {previews.map((p, i) => (
-                                    <div key={i} className="bg-neutral-50 rounded-2xl p-4 flex items-center gap-4 group hover:bg-white hover:shadow-md transition-all border border-transparent hover:border-neutral-100">
+                                {previews.map((p) => {
+                                    const pIndex = previews.findIndex(item => item.description === p.description && item.date === p.date && item.amount === p.amount);
+                                    return (
+                                    <div key={`${p.description}-${p.date}-${p.amount}`} className="bg-neutral-50 rounded-2xl p-4 flex items-center gap-4 group hover:bg-white hover:shadow-md transition-all border border-transparent hover:border-neutral-100">
                                         <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center shrink-0">
                                             <CategoryIcon
                                                 name={categories.find(c => c.id === p.category_id)?.icon}
@@ -392,7 +408,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                                     value={p.category_id}
                                                     onChange={(e) => {
                                                         const newPreviews = [...previews];
-                                                        newPreviews[i].category_id = e.target.value;
+                                                        newPreviews[pIndex].category_id = e.target.value;
                                                         setPreviews(newPreviews);
                                                     }}
                                                     className="bg-transparent border-none p-0 h-4 focus:ring-0 cursor-pointer hover:text-neutral-600"
@@ -402,13 +418,14 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => setPreviews(previews.filter((_, idx) => idx !== i))}
+                                            onClick={() => setPreviews(previews.filter((_, idx) => idx !== pIndex))}
                                             className="p-2 text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             <div className="bg-neutral-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl">

@@ -182,7 +182,7 @@ export default function SubscriptionCalendar({ subscriptions, onClose }: any) {
                                         <div className="flex items-center gap-3">
                                             {/* Small fallback logo */}
                                             <div className="w-10 h-10 bg-neutral-50 rounded-lg flex items-center justify-center p-1">
-                                                {sub.logo_url ? <img src={sub.logo_url} className="w-full h-full object-contain" /> : <div className="w-full h-full bg-indigo-100 rounded-md"></div>}
+                                                {sub.logo_url ? <img src={sub.logo_url} alt={sub.name} className="w-full h-full object-contain" /> : <div className="w-full h-full bg-indigo-100 rounded-md" title={sub.name}></div>}
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-neutral-900">{sub.name}</p>

@@ -312,7 +312,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                             <Tooltip
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                formatter={(val: number) => [`${formatCompact(val)}€`, '']}
+                                formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
                             />
                             <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
@@ -409,8 +409,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                             <Tooltip
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                formatter={(val: number) => [`${formatCompact(val)}€`, 'Balance']}
-                            />
+                                formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}                            />
                             <Area type="monotone" dataKey="balance" stroke="#6366f1" fillOpacity={1} fill="url(#colorBalance)" strokeWidth={2} />
                         </AreaChart>
                     </ResponsiveContainer>

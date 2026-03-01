@@ -190,8 +190,9 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
       {showForm && (
         <form onSubmit={handleAddBank} className="rounded-3xl border border-neutral-200 bg-white p-8 space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-neutral-900 mb-3">Banco</label>
+            <label htmlFor="bank-select" className="block text-sm font-semibold text-neutral-900 mb-3">Banco</label>
             <select
+              id="bank-select"
               value={selectedBank}
               onChange={(e) => {
                 const bank = e.target.value;
@@ -213,6 +214,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
               <option value="other">Otro banco</option>
             </select>
             <input
+              id="bank-name"
               type="text"
               value={newBankName}
               onChange={(e) => setNewBankName(e.target.value)}
@@ -223,8 +225,8 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-neutral-900 mb-3">Color</label>
-            <div className="mb-4 h-12 rounded-xl transition-all" style={{ backgroundColor: newBankColor }} />
+            <label htmlFor="color-picker" className="block text-sm font-semibold text-neutral-900 mb-3">Color</label>
+            <div id="color-picker" className="mb-4 h-12 rounded-xl transition-all" style={{ backgroundColor: newBankColor }} />
             <div className="grid grid-cols-4 gap-3">
               {BANK_COLORS.map((c) => (
                 <button
@@ -246,8 +248,9 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-neutral-900 mb-3">Logo (Opcional)</label>
+            <label htmlFor="logo-select" className="block text-sm font-semibold text-neutral-900 mb-3">Logo (Opcional)</label>
             <select
+              id="logo-select"
               value={newBankLogo}
               onChange={(e) => setNewBankLogo(e.target.value)}
               className="w-full px-4 py-3 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 font-medium focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 transition-all mb-2"
