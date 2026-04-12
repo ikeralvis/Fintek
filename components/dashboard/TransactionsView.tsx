@@ -31,11 +31,12 @@ type Account = {
 type Transaction = {
     id: string;
     amount: number;
-    type: string;
+    type: 'income' | 'expense' | 'transfer';
     description: string;
     transaction_date: string;
     category_id?: string;
     account_id: string;
+    related_account_id?: string | null;
     categories?: Category;
     category?: string;
     accounts?: { id?: string; name: string };
@@ -50,12 +51,11 @@ type Props = {
 export default function TransactionsView({ initialTransactions, accounts, categories }: Props) {
     const router = useRouter();
     const supabase = createClient();
-    // Filter out transfers by default - they don't count as income/expense
-    const [transactions, setTransactions] = useState(initialTransactions.filter(t => t.type !== 'transfer'));
+    const [transactions, setTransactions] = useState(initialTransactions);
     const [period, setPeriod] = useState<'month' | 'week' | 'year'>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [searchQuery, setSearchQuery] = useState('');
-    const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -108,10 +108,14 @@ export default function TransactionsView({ initialTransactions, accounts, catego
         const dailyStats: Record<string, number> = {};
 
         filteredTransactions.forEach(t => {
-            if (t.type === 'income') income += t.amount;
-            else expense += t.amount;
+            if (t.type === 'income') {
+                income += t.amount;
+            } else if (t.type === 'expense') {
+                expense += t.amount;
+            }
             const day = t.transaction_date.substring(0, 10);
-            dailyStats[day] = (dailyStats[day] || 0) + (t.type === 'income' ? t.amount : -t.amount);
+            const movement = t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0;
+            dailyStats[day] = (dailyStats[day] || 0) + movement;
         });
 
         let data = [];
@@ -200,7 +204,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                     )}
 
                     <div className="flex gap-1 ml-auto shrink-0">
-                        {(['all', 'income', 'expense'] as const).map(t => (
+                        {(['all', 'income', 'expense', 'transfer'] as const).map(t => (
                             <button
                                 key={t}
                                 onClick={() => setTypeFilter(t)}
@@ -210,7 +214,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                         : 'bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-300'
                                 }`}
                             >
-                                {t === 'all' ? 'Todo' : t === 'income' ? 'Ingreso' : 'Gasto'}
+                                {t === 'all' ? 'Todo' : t === 'income' ? 'Ingreso' : t === 'expense' ? 'Gasto' : 'Transferencia'}
                             </button>
                         ))}
                     </div>
@@ -252,53 +256,62 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                 </h3>
                                 <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
                                     {groupedTransactions[date].map(t => {
-                                        const categoryName = t.categories?.name || t.category || 'General';
+                                        const isTransfer = t.type === 'transfer';
+                                        const categoryName = t.categories?.name || t.category || (isTransfer ? 'Transferencia' : 'General');
+                                        const accountName = accounts.find(a => a.id === t.account_id)?.name || t.accounts?.name || 'Cuenta';
+                                        const destinationName = t.related_account_id
+                                            ? accounts.find(a => a.id === t.related_account_id)?.name || 'Cuenta destino'
+                                            : null;
 
                                         return (
                                             <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
                                                 {/* Category Icon */}
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : '#f5f5f5' }}
+                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#eff6ff' : '#f5f5f5') }}
                                                 >
                                                     <CategoryIcon 
-                                                        name={t.categories?.icon || (t.type === 'income' ? 'up' : 'down')} 
+                                                        name={t.categories?.icon || (isTransfer ? 'down' : (t.type === 'income' ? 'up' : 'down'))} 
                                                         className="w-5 h-5" 
-                                                        style={{ color: t.categories?.color || (t.type === 'income' ? '#10b981' : '#f43f5e') }} 
+                                                        style={{ color: t.categories?.color || (isTransfer ? '#2563eb' : (t.type === 'income' ? '#10b981' : '#f43f5e')) }} 
                                                     />
                                                 </div>
 
                                                 {/* Details */}
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
-                                                    <p className="text-xs text-neutral-400 truncate">{t.accounts?.name}</p>
+                                                    <p className="text-xs text-neutral-400 truncate">
+                                                        {isTransfer && destinationName ? `${accountName} -> ${destinationName}` : accountName}
+                                                    </p>
                                                 </div>
 
                                                 {/* Amount */}
-                                                <p className={`font-semibold text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                                                <p className={`font-semibold text-sm ${t.type === 'income' ? 'text-emerald-600' : t.type === 'transfer' ? 'text-blue-600' : 'text-neutral-900'}`}>
                                                     {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                                                 </p>
 
-                                                {/* Actions - Siempre visibles */}
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={() => setEditingTransaction(t)}
-                                                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteTransaction(t)}
-                                                        disabled={deletingId === t.id}
-                                                        className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
-                                                    >
-                                                        {deletingId === t.id ? (
-                                                            <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="w-4 h-4" />
-                                                        )}
-                                                    </button>
-                                                </div>
+                                                {/* Actions - no editar/eliminar transferencias aquí para evitar inconsistencias de balance */}
+                                                {!isTransfer && (
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => setEditingTransaction(t)}
+                                                            className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteTransaction(t)}
+                                                            disabled={deletingId === t.id}
+                                                            className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                                        >
+                                                            {deletingId === t.id ? (
+                                                                <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}

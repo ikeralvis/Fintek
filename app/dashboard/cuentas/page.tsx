@@ -30,25 +30,35 @@ export default async function AccountsPage() {
     const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
     const { data: transactions } = await supabase
         .from('transactions')
-        .select('account_id, type, amount')
+        .select('account_id, related_account_id, type, amount')
         .eq('user_id', user.id)
-        .not('type', 'eq', 'transfer')
         .gte('transaction_date', firstDayOfYear);
 
     // Calculate stats
-    const statsByAccount: Record<string, { income: number; expense: number }> = {};
+    const statsByAccount: Record<string, { income: number; expense: number; transferIn: number; transferOut: number }> = {};
     (transactions || []).forEach(t => {
         if (!statsByAccount[t.account_id]) {
-            statsByAccount[t.account_id] = { income: 0, expense: 0 };
+            statsByAccount[t.account_id] = { income: 0, expense: 0, transferIn: 0, transferOut: 0 };
         }
         if (t.type === 'income') statsByAccount[t.account_id].income += t.amount;
         else if (t.type === 'expense') statsByAccount[t.account_id].expense += t.amount;
+        else if (t.type === 'transfer') {
+            statsByAccount[t.account_id].transferOut += t.amount;
+            if (t.related_account_id) {
+                if (!statsByAccount[t.related_account_id]) {
+                    statsByAccount[t.related_account_id] = { income: 0, expense: 0, transferIn: 0, transferOut: 0 };
+                }
+                statsByAccount[t.related_account_id].transferIn += t.amount;
+            }
+        }
     });
 
     const enhancedAccounts = accounts.map(acc => ({
         ...acc,
         yearlyIncome: statsByAccount[acc.id]?.income || 0,
         yearlyExpense: statsByAccount[acc.id]?.expense || 0,
+        yearlyTransferIn: statsByAccount[acc.id]?.transferIn || 0,
+        yearlyTransferOut: statsByAccount[acc.id]?.transferOut || 0,
         bankName: acc.banks?.name || 'Otros',
         bankColor: acc.banks?.color || '#6B7280'
     }));
@@ -147,7 +157,7 @@ export default async function AccountsPage() {
                                         </div>
 
                                         {/* Stats */}
-                                        {(acc.yearlyIncome > 0 || acc.yearlyExpense > 0) && (
+                                        {(acc.yearlyIncome > 0 || acc.yearlyExpense > 0 || acc.yearlyTransferIn > 0 || acc.yearlyTransferOut > 0) && (
                                             <div className="flex items-center gap-4 mt-3 pt-3 border-t border-neutral-50">
                                                 <div className="flex items-center gap-1.5 text-xs">
                                                     <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
@@ -156,6 +166,12 @@ export default async function AccountsPage() {
                                                 <div className="flex items-center gap-1.5 text-xs">
                                                     <TrendingDown className="w-3.5 h-3.5 text-red-400" />
                                                     <span className="text-red-500 font-medium">-{formatNumber(acc.yearlyExpense)}€</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs">
+                                                    <span className="text-blue-500 font-medium">T +{formatNumber(acc.yearlyTransferIn)}€</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs">
+                                                    <span className="text-blue-500 font-medium">T -{formatNumber(acc.yearlyTransferOut)}€</span>
                                                 </div>
                                             </div>
                                         )}

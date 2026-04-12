@@ -42,8 +42,8 @@ export default async function TransactionsPage() {
 
     return {
       ...t,
-      // Pass the category object directly. TransactionsView handles t.categories?.name
-      categories: cat || { name: 'General', icon: '💰', color: '#737373' },
+      // Keep null when no category so transfer entries can render a specific fallback label.
+      categories: cat || null,
       accounts: accountsMap[t.account_id] || { name: 'Cuenta' }
     };
   });

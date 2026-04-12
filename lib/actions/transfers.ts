@@ -7,6 +7,7 @@ import { z } from 'zod';
 const TransferSchema = z.object({
   fromAccountId: z.string().uuid(),
   toAccountId: z.string().uuid(),
+  categoryId: z.string().uuid().optional(),
   amount: z.number().positive(),
   description: z.string().optional(),
   transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
@@ -15,6 +16,7 @@ const TransferSchema = z.object({
 export async function createTransfer(formData: {
   fromAccountId: string;
   toAccountId: string;
+  categoryId?: string;
   amount: number;
   description?: string;
   transactionDate: string;
@@ -82,7 +84,7 @@ export async function createTransfer(formData: {
           amount: formData.amount,
           description: formData.description || 'Transferencia',
           transaction_date: formData.transactionDate,
-          category_id: null,
+          category_id: formData.categoryId || null,
         },
       ])
       .select()

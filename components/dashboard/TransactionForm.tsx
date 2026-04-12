@@ -77,6 +77,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
         const result = await createTransfer({
           fromAccountId: accountId,
           toAccountId,
+          categoryId: categoryId || undefined,
           amount: Number.parseFloat(amount),
           description: description || 'Transferencia',
           transactionDate: date
@@ -339,9 +340,8 @@ export default function TransactionForm({ accounts, categories }: Props) {
             </div>
           )}
 
-          {/* CATEGORIES - Collapsible with compact grid - Solo para expense/income */}
-          {type !== 'transfer' && (
-            <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+          {/* CATEGORIES - Collapsible with compact grid */}
+          <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
               <button
                 onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
                 className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors"
@@ -397,8 +397,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                   </div>
                 </div>
               )}
-            </div>
-          )}
+          </div>
 
         </div>
       </div>

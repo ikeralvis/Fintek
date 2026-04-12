@@ -60,7 +60,7 @@ type Props = {
 export default function AccountDetailView({ account, initialTransactions, categories }: Props) {
     const router = useRouter();
     const supabase = createClient();
-    const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+    const [filterType, setFilterType] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
 
     const [currentMonth, setCurrentMonth] = useState(() => {
         if (initialTransactions && initialTransactions.length > 0) {
@@ -143,13 +143,22 @@ export default function AccountDetailView({ account, initialTransactions, catego
         });
     }, [parsedTransactions, filterType, currentMonth, showAllDates]);
 
-    const { monthIncome, monthExpense } = useMemo(() => {
-        let inc = 0, exp = 0;
+    const { monthIncome, monthExpense, monthTransferIn, monthTransferOut } = useMemo(() => {
+        let inc = 0, exp = 0, transferIn = 0, transferOut = 0;
         filteredTransactions.forEach(t => {
-            if (t.type === 'income') inc += t.amount;
-            else exp += t.amount;
+            if (t.type === 'income') {
+                inc += t.amount;
+            } else if (t.type === 'expense') {
+                exp += t.amount;
+            } else if (t.type === 'transfer') {
+                if (t.isIncomingTransfer) {
+                    transferIn += t.amount;
+                } else {
+                    transferOut += t.amount;
+                }
+            }
         });
-        return { monthIncome: inc, monthExpense: exp };
+        return { monthIncome: inc, monthExpense: exp, monthTransferIn: transferIn, monthTransferOut: transferOut };
     }, [filteredTransactions]);
 
     const groupedTransactions = useMemo(() => {
@@ -248,7 +257,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
 
                 {/* Stats Summary */}
                 {!showAllDates && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                         <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
                             <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
                             <p className="text-base font-bold text-emerald-700">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}€</p>
@@ -263,12 +272,17 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                 {monthIncome - monthExpense >= 0 ? '+' : ''}{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome - monthExpense)}€
                             </p>
                         </div>
+                        <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+                            <p className="text-[10px] text-blue-600 font-semibold uppercase">Transferencias</p>
+                            <p className="text-xs font-bold text-blue-700">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferIn)}€</p>
+                            <p className="text-xs font-bold text-blue-700">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferOut)}€</p>
+                        </div>
                     </div>
                 )}
 
                 {/* Filters */}
                 <div className="flex gap-2">
-                    {(['all', 'income', 'expense'] as const).map(t => (
+                    {(['all', 'income', 'expense', 'transfer'] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => setFilterType(t)}
@@ -278,7 +292,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                     : 'bg-white border border-neutral-200 text-neutral-500'
                             }`}
                         >
-                            {t === 'all' ? 'Todos' : t === 'income' ? 'Ingresos' : 'Gastos'}
+                            {t === 'all' ? 'Todos' : t === 'income' ? 'Ingresos' : t === 'expense' ? 'Gastos' : 'Transferencias'}
                         </button>
                     ))}
                 </div>
@@ -302,7 +316,8 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                 </h4>
                                 <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
                                     {txs.map(t => {
-                                        const categoryName = t.categories?.name || t.category || 'General';
+                                        const rowKey = `${t.id}-${t.isIncomingTransfer ? 'in' : 'out'}`;
+                                        const categoryName = t.categories?.name || t.category || (t.type === 'transfer' ? 'Transferencia' : 'General');
                                         const icon = t.categories?.icon;
                                         
                                         // Transferencias: entrantes = ingreso, salientes = gasto
@@ -313,24 +328,24 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                         const showAsIncome = t.type === 'income' || isIncoming;
 
                                         return (
-                                            <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
+                                            <div key={rowKey} className="px-4 py-3 flex items-center gap-3 group">
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                     style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#f0f9ff' : '#f5f5f5') }}
                                                 >
                                                     <CategoryIcon 
-                                                        name={icon || (isTransfer ? (isIncoming ? 'down' : 'up') : (t.type === 'expense' ? 'down' : 'up'))} 
+                                                        name={icon || (isTransfer ? (isIncoming ? 'up' : 'down') : (t.type === 'expense' ? 'down' : 'up'))} 
                                                         className="w-5 h-5"
                                                         style={{ color: t.categories?.color || (isTransfer ? '#3b82f6' : (t.type === 'expense' ? '#f43f5e' : '#10b981')) }}
                                                     />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-medium text-neutral-900 text-sm truncate">
-                                                        {isTransfer ? (isIncoming ? 'Transferencia recibida' : 'Transferencia enviada') : categoryName}
+                                                        {categoryName}
                                                     </p>
-                                                    {t.description && (
-                                                        <p className="text-xs text-neutral-400 truncate">{t.description}</p>
-                                                    )}
+                                                    <p className="text-xs text-neutral-400 truncate">
+                                                        {isTransfer ? (isIncoming ? 'Transferencia recibida' : 'Transferencia enviada') : t.description || 'Sin descripción'}
+                                                    </p>
                                                 </div>
                                                 <p className={`font-semibold text-sm ${
                                                     isTransfer 

@@ -8,7 +8,7 @@ vi.mock('@/lib/actions/transactions', () => ({
 }));
 
 describe('TransactionForm Persistence', () => {
-    const mockAccounts = [{ id: '1', name: 'Bank 1', banks: { name: 'Test Bank' } }];
+    const mockAccounts = [{ id: '1', name: 'Bank 1', current_balance: 0, banks: { name: 'Test Bank', color: '#000000' } }];
     const mockCategories = [{ id: '1', name: 'Food' }];
 
     beforeEach(() => {
