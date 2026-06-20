@@ -6,19 +6,12 @@ import {
   LayoutDashboard,
   CreditCard,
   TrendingUp,
-  FileText,
   Settings,
   LogOut,
-  Wallet,
-  Activity,
-  Bell,
   PieChart,
   Target,
-  Calendar,
-  Sparkles,
   TrendingUp as InvestmentIcon
 } from 'lucide-react';
-import { useState } from 'react';
 
 type NavItem = {
   name: string;
@@ -26,15 +19,14 @@ type NavItem = {
   icon: React.ReactNode;
 };
 
-// Desktop Navigation Items
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
-  { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-5 w-5" /> },
-  { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-5 w-5" /> },
-  { name: 'Inversiones', href: '/dashboard/inversiones', icon: <InvestmentIcon className="h-5 w-5" /> },
-  { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: <PieChart className="h-5 w-5" /> }, // Consolidated
-  { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <Target className="h-5 w-5" /> },
-  { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-5 w-5" /> },
+  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+  { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-[18px] w-[18px]" /> },
+  { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-[18px] w-[18px]" /> },
+  { name: 'Inversiones', href: '/dashboard/inversiones', icon: <InvestmentIcon className="h-[18px] w-[18px]" /> },
+  { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: <PieChart className="h-[18px] w-[18px]" /> },
+  { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <Target className="h-[18px] w-[18px]" /> },
+  { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-[18px] w-[18px]" /> },
 ];
 
 type Props = {
@@ -46,68 +38,60 @@ export default function DashboardNav({ userName, userEmail }: Props) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return pathname === '/dashboard';
-    }
+    if (href === '/dashboard') return pathname === '/dashboard';
     return pathname.startsWith(href);
   };
 
   return (
-    <>
-      {/* Desktop Navbar */}
-      <nav className="hidden md:block bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/dashboard" className="flex items-center space-x-2">
-              <img src="/logo.png" alt="FinTek Logo" className="h-8 w-8 rounded-xl object-cover" />
-              <span className="text-xl font-bold text-primary-900">FinTek</span>
-            </Link>
+    <nav className="hidden md:block bg-white/80 backdrop-blur-xl border-b border-neutral-200/60 sticky top-0 z-50">
+      <div className="max-w-6xl mx-auto px-5">
+        <div className="flex items-center justify-between h-14">
+          {/* Logo */}
+          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+            <img src="/logo.png" alt="FinTek" className="h-7 w-7 rounded-lg object-cover" />
+            <span className="text-base font-bold text-neutral-900 tracking-tight">FinTek</span>
+          </Link>
 
-            {/* Desktop Navigation */}
-            <div className="flex items-center space-x-1">
-              {navigation.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${active
-                      ? 'bg-neutral-900 text-white'
-                      : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
-                      }`}
-                  >
-                    {item.icon}
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* User Menu & Logout */}
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-neutral-900">
-                  {userName || 'Usuario'}
-                </p>
-                <p className="text-xs text-neutral-500">{userEmail}</p>
-              </div>
-              <form action="/api/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="p-2 text-neutral-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                  title="Cerrar sesión"
+          {/* Navigation */}
+          <div className="flex items-center gap-0.5">
+            {navigation.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${active
+                    ? 'bg-neutral-900 text-white'
+                    : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'
+                    }`}
                 >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </form>
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* User */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right">
+              <p className="text-xs font-medium text-neutral-900 leading-tight">
+                {userName || 'Usuario'}
+              </p>
+              <p className="text-[10px] text-neutral-400">{userEmail}</p>
             </div>
+            <form action="/api/auth/signout" method="post">
+              <button
+                type="submit"
+                className="p-1.5 text-neutral-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                title="Cerrar sesión"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         </div>
-      </nav>
-
-      {/* Mobile Header - HIDDEN - Clean app without top header */}
-      {/* Header removed for cleaner mobile experience */}
-    </>
+      </div>
+    </nav>
   );
 }

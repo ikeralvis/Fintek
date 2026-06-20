@@ -34,7 +34,6 @@ export default function StatisticsView({ initialTransactions, accounts, categori
     const [exporting, setExporting] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
-    // Calculate available months from transactions
     const availableMonths = useMemo(() => {
         const months = new Set<string>();
         initialTransactions.forEach((t: any) => {
@@ -59,7 +58,6 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             startDate = new Date(1970, 0, 1);
         }
 
-        // Filter transactions
         const filteredTxs = initialTransactions.filter((t: any) => {
             const d = parseISO(t.transaction_date);
             if (!isValid(d)) return false;
@@ -67,9 +65,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             return true;
         });
 
-        // Monthly breakdown
         const monthlyData: Record<string, { month: string; monthKey: string; income: number; expense: number; balance: number }> = {};
-        
+
         const monthsRange = eachMonthOfInterval({ start: startDate, end: endDate });
         monthsRange.forEach(m => {
             const key = format(m, 'yyyy-MM');
@@ -86,14 +83,12 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             }
         });
 
-        // Calculate balance for each month
         Object.values(monthlyData).forEach(m => {
             m.balance = m.income - m.expense;
         });
 
-        // Category breakdown
         const categoryStats: Record<string, { name: string; icon: string; color: string; income: number; expense: number; count: number }> = {};
-        
+
         filteredTxs.forEach((t: any) => {
             const catId = t.category_id || 'uncategorized';
             const catName = t.categories?.name || 'Sin categoría';
@@ -113,16 +108,14 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             .map(([id, data]) => ({ id, ...data, total: data.income + data.expense }))
             .sort((a, b) => b.total - a.total);
 
-        // Totals
         const totalIncome = filteredTxs.filter((t: any) => t.type === 'income').reduce((acc: number, t: any) => acc + t.amount, 0);
         const totalExpense = filteredTxs.filter((t: any) => t.type === 'expense').reduce((acc: number, t: any) => acc + t.amount, 0);
         const balance = totalIncome - totalExpense;
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
 
-        // Comparison with previous period
         let prevStartDate: Date;
         let prevEndDate: Date;
-        
+
         if (periodType === 'month') {
             const [year, month] = selectedMonth.split('-').map(Number);
             prevStartDate = startOfMonth(subMonths(new Date(year, month - 1), 1));
@@ -146,7 +139,6 @@ export default function StatisticsView({ initialTransactions, accounts, categori
         const incomeChange = prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0;
         const expenseChange = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : 0;
 
-        // Pie data for expenses
         const pieData = categoryArray
             .filter(c => c.expense > 0)
             .map(c => ({ name: c.name, value: c.expense, color: c.color }));
@@ -196,10 +188,10 @@ export default function StatisticsView({ initialTransactions, accounts, categori
     }
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32">
+        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
             {/* Header */}
             <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
-                <div className="flex items-center justify-between">
+                <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
                         <ArrowLeft className="w-5 h-5 text-neutral-700" />
                     </Link>
@@ -210,7 +202,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 </div>
             </div>
 
-            <div ref={reportRef} className="px-5 space-y-5 max-w-2xl mx-auto">
+            <div ref={reportRef} className="px-5 space-y-5 max-w-6xl mx-auto">
                 {/* Period Selector */}
                 <div className="flex gap-2 overflow-x-auto pb-2">
                     <button
@@ -253,8 +245,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     )}
                 </div>
 
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Summary Cards - 4 cols on desktop */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
                         <div className="flex items-center gap-2 mb-2">
                             <ArrowUpRight className="w-4 h-4 text-emerald-600" />
@@ -302,117 +294,124 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     </div>
                 </div>
 
-                {/* Income vs Expense Chart */}
-                <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                    <h3 className="text-sm font-bold text-neutral-900 mb-4">Ingresos vs Gastos</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
-                            />
-                            <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                {/* Charts - Side by side on desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Income vs Expense Chart */}
+                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Ingresos vs Gastos</h3>
+                        <ResponsiveContainer width="100%" height={220}>
+                            <BarChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                    formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
+                                />
+                                <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Balance Evolution */}
+                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance</h3>
+                        <ResponsiveContainer width="100%" height={220}>
+                            <AreaChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                    formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}
+                                />
+                                <Area type="monotone" dataKey="balance" stroke="#6366f1" fillOpacity={1} fill="url(#colorBalance)" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
 
-                {/* Expense Distribution */}
-                {stats.pieData.length > 0 && (
-                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Distribución de Gastos</h3>
-                        <div className="flex items-center gap-4">
-                            <div className="w-32 h-32 relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={stats.pieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={35}
-                                            outerRadius={50}
-                                            paddingAngle={3}
-                                            dataKey="value"
-                                        >
-                                            {stats.pieData.map((entry: any, i: number) => (
-                                                <Cell key={entry.name} fill={entry.color || COLORS[i % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="flex-1 space-y-2 max-h-32 overflow-y-auto">
-                                {stats.pieData.slice(0, 6).map((item: any, i: number) => (
-                                    <div key={item.name} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
-                                            <span className="font-medium text-neutral-700 truncate max-w-[100px]">{item.name}</span>
+                {/* Bottom row - Pie + Categories side by side on desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* Expense Distribution */}
+                    {stats.pieData.length > 0 && (
+                        <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                            <h3 className="text-sm font-bold text-neutral-900 mb-4">Distribución de Gastos</h3>
+                            <div className="flex items-center gap-4">
+                                <div className="w-36 h-36 relative shrink-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={stats.pieData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={40}
+                                                outerRadius={55}
+                                                paddingAngle={3}
+                                                dataKey="value"
+                                            >
+                                                {stats.pieData.map((entry: any, i: number) => (
+                                                    <Cell key={entry.name} fill={entry.color || COLORS[i % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="flex-1 space-y-2 max-h-36 overflow-y-auto">
+                                    {stats.pieData.slice(0, 8).map((item: any, i: number) => (
+                                        <div key={item.name} className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
+                                                <span className="font-medium text-neutral-700 truncate max-w-[120px]">{item.name}</span>
+                                            </div>
+                                            <span className="font-bold text-neutral-900">{formatCompact(item.value)}€</span>
                                         </div>
-                                        <span className="font-bold text-neutral-900">{formatCompact(item.value)}€</span>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Top Categories */}
-                <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                    <h3 className="text-sm font-bold text-neutral-900 mb-4">Top Categorías</h3>
-                    <div className="space-y-3">
-                        {stats.categoryArray.slice(0, 8).map((cat: any, i: number) => {
-                            const maxValue = stats.categoryArray[0]?.total || 1;
-                            const percentage = (cat.total / maxValue) * 100;
-                            
-                            return (
-                                <div key={cat.id} className="flex items-center gap-3">
-                                    <div 
-                                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                                        style={{ backgroundColor: `${cat.color}20` }}
-                                    >
-                                        <CategoryIcon name={cat.icon} className="w-4 h-4" style={{ color: cat.color }} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm font-medium text-neutral-900 truncate">{cat.name}</span>
-                                            <span className="text-sm font-bold text-neutral-900">{formatCompact(cat.total)}€</span>
-                                        </div>
-                                        <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                                            <div 
-                                                className="h-full rounded-full transition-all"
-                                                style={{ width: `${percentage}%`, backgroundColor: cat.color }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                    {/* Top Categories */}
+                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
+                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Top Categorías</h3>
+                        <div className="space-y-3">
+                            {stats.categoryArray.slice(0, 8).map((cat: any) => {
+                                const maxValue = stats.categoryArray[0]?.total || 1;
+                                const percentage = (cat.total / maxValue) * 100;
 
-                {/* Monthly Balance Evolution */}
-                <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                    <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance</h3>
-                    <ResponsiveContainer width="100%" height={180}>
-                        <AreaChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                                formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}                            />
-                            <Area type="monotone" dataKey="balance" stroke="#6366f1" fillOpacity={1} fill="url(#colorBalance)" strokeWidth={2} />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                                return (
+                                    <div key={cat.id} className="flex items-center gap-3">
+                                        <div
+                                            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                            style={{ backgroundColor: `${cat.color}20` }}
+                                        >
+                                            <CategoryIcon name={cat.icon} className="w-4 h-4" style={{ color: cat.color }} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-sm font-medium text-neutral-900 truncate">{cat.name}</span>
+                                                <span className="text-sm font-bold text-neutral-900">{formatCompact(cat.total)}€</span>
+                                            </div>
+                                            <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full transition-all"
+                                                    style={{ width: `${percentage}%`, backgroundColor: cat.color }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Transaction Count */}

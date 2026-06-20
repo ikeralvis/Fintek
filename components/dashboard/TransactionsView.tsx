@@ -80,10 +80,18 @@ export default function TransactionsView({ initialTransactions, accounts, catego
         }
     };
 
-    const handleEditSaved = () => {
+    const handleEditSaved = async () => {
         setEditingTransaction(null);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase
+                .from('transactions')
+                .select('*, categories(id, name, icon, color), accounts!account_id(id, name)')
+                .eq('user_id', user.id)
+                .order('transaction_date', { ascending: false });
+            if (data) setTransactions(data as Transaction[]);
+        }
         router.refresh();
-        window.location.reload();
     };
 
     const filteredTransactions = useMemo(() => {
@@ -140,9 +148,10 @@ export default function TransactionsView({ initialTransactions, accounts, catego
     }, [filteredTransactions]);
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32">
+        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
             {/* Header */}
             <div className="sticky top-0 z-30 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+                <div className="max-w-6xl mx-auto">
                 <div className="flex items-center justify-between mb-4">
                     <h1 className="text-xl font-bold text-neutral-900">Transacciones</h1>
                     <div className="flex items-center gap-2">
@@ -219,9 +228,10 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                         ))}
                     </div>
                 </div>
+                </div>
             </div>
 
-            <div className="px-5 space-y-6">
+            <div className="px-5 space-y-6 max-w-6xl mx-auto">
                 {/* Summary Card */}
                 <div className="bg-neutral-900 rounded-2xl p-5 text-white">
                     <div className="flex items-center justify-between mb-4">
@@ -342,7 +352,6 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                     onImportSuccess={() => {
                         setIsImportModalOpen(false);
                         router.refresh();
-                        window.location.reload();
                     }}
                 />
             )}

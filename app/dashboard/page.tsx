@@ -66,40 +66,50 @@ export default async function DashboardPage() {
   const walletAccount = accountsData.find((a: any) => a.type === 'wallet');
   const bankAccounts = accountsData.filter((a: any) => a.type !== 'wallet');
 
-  // Get user's first name for greeting
   const firstName = user.user_metadata?.name?.split(' ')[0] || 'Usuario';
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32">
+    <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
       {/* Hero Section */}
-      <div className="px-5 pt-8 pb-6">
+      <div className="px-5 pt-8 pb-6 md:max-w-6xl md:mx-auto">
         <p className="text-sm text-neutral-400 font-medium">Hola,</p>
         <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">{firstName} 👋</h1>
       </div>
 
-      <div className="px-5 space-y-6">
-        {/* Balance Card */}
-        <NetWorthCard totalBalance={totalBalance} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} />
+      {/* Mobile: single column / Desktop: Bento grid */}
+      <div className="px-5 md:max-w-6xl md:mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
 
-        {/* Quick Actions */}
-        <QuickActions />
+          {/* Left column - Main content */}
+          <div className="md:col-span-8 space-y-5">
+            {/* Balance Card */}
+            <NetWorthCard totalBalance={totalBalance} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} />
 
-        {/* Accounts */}
-        <AccountList accounts={bankAccounts} />
+            {/* Quick Actions - desktop only shows inline */}
+            <QuickActions />
 
-        {/* Wallet Widget */}
-        {walletAccount && (
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">Mi Cartera</h3>
-            <WalletWidget walletAccount={walletAccount} />
+            {/* Recent Transactions */}
+            <RecentTransactionsList transactions={recentTransactions} />
           </div>
-        )}
 
-        {/* AI Prediction */}
-        <PredictionCard />
+          {/* Right column - Sidebar widgets */}
+          <div className="md:col-span-4 space-y-5">
+            {/* Accounts */}
+            <AccountList accounts={bankAccounts} />
 
-        {/* Recent Transactions */}
-        <RecentTransactionsList transactions={recentTransactions} />
+            {/* Wallet Widget */}
+            {walletAccount && (
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">Mi Cartera</h3>
+                <WalletWidget walletAccount={walletAccount} />
+              </div>
+            )}
+
+            {/* AI Prediction */}
+            <PredictionCard />
+          </div>
+
+        </div>
       </div>
     </div>
   );
