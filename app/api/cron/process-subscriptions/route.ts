@@ -1,14 +1,14 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { addMonths, addWeeks, addYears, parseISO, format } from 'date-fns';
 
 export async function GET(request: Request) {
-    // SECURITY: In a real app, verify a CRON_SECRET header to prevent unauthorized access.
-    // For this prototype, we'll allow it but you should call it manually or via cron.
+    const authHeader = request.headers.get('authorization');
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
 
-    const supabase = await createClient();
-
-    // 1. Get Subscriptions DUE TODAY or BEFORE (active only)
+    const supabase = createAdminClient();
     const today = new Date().toISOString().split('T')[0];
 
     const { data: dueSubs, error } = await supabase
@@ -25,55 +25,39 @@ export async function GET(request: Request) {
         return NextResponse.json({ message: 'No subscriptions due today.' });
     }
 
-    const results = {
-        processed: 0,
-        errors: 0,
-        details: [] as any[]
-    };
+    const results = { processed: 0, errors: 0, details: [] as any[] };
 
     for (const sub of dueSubs) {
         try {
-            // A. Create Transaction
             const accountId = sub.account_id || (await getDefaultAccountId(supabase, sub.user_id));
-            
-            if (!accountId) {
-                throw new Error('No account available for subscription');
-            }
+            if (!accountId) throw new Error('No account available for subscription');
 
             const { error: txError } = await supabase.from('transactions').insert({
                 user_id: sub.user_id,
                 account_id: accountId,
                 amount: sub.amount,
                 type: 'expense',
-                description: `${sub.name} - Pago Recurrente 🔄`,
+                description: `${sub.name} - Pago Recurrente`,
                 category_id: sub.category_id,
-                transaction_date: new Date().toISOString()
+                transaction_date: today,
             });
-
             if (txError) throw txError;
 
-            // Balance is updated automatically by the DB trigger on transactions insert
-
-            // B. Calculate Next Payment Date
             const currentNext = parseISO(sub.next_payment_date);
             let newNextDate = currentNext;
-
             if (sub.billing_cycle === 'monthly') newNextDate = addMonths(currentNext, 1);
-            if (sub.billing_cycle === 'yearly') newNextDate = addYears(currentNext, 1);
-            if (sub.billing_cycle === 'weekly') newNextDate = addWeeks(currentNext, 1);
-            if (sub.billing_cycle === 'bi-weekly') newNextDate = addWeeks(currentNext, 2);
+            else if (sub.billing_cycle === 'yearly') newNextDate = addYears(currentNext, 1);
+            else if (sub.billing_cycle === 'weekly') newNextDate = addWeeks(currentNext, 1);
+            else if (sub.billing_cycle === 'bi-weekly') newNextDate = addWeeks(currentNext, 2);
 
-            // D. Update Subscription
             const { error: updateError } = await supabase
                 .from('subscriptions')
                 .update({ next_payment_date: format(newNextDate, 'yyyy-MM-dd') })
                 .eq('id', sub.id);
-
             if (updateError) throw updateError;
 
             results.processed++;
             results.details.push({ id: sub.id, name: sub.name, status: 'processed' });
-
         } catch (err: any) {
             console.error(`Error processing sub ${sub.id}:`, err);
             results.errors++;
@@ -84,7 +68,6 @@ export async function GET(request: Request) {
     return NextResponse.json(results);
 }
 
-// Helper: Get first available checking account if legacy sub has null account
 async function getDefaultAccountId(supabase: any, userId: string) {
     const { data } = await supabase
         .from('accounts')

@@ -184,7 +184,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                 )}
 
                 {/* Period selector and filters */}
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 md:mx-0 md:px-0">
                     <div className="relative shrink-0">
                         <select
                             value={period}
@@ -199,7 +199,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                     </div>
 
                     {period === 'month' && (
-                        <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-xl px-1 py-1">
+                        <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-xl px-1 py-1 shrink-0">
                             <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-neutral-100 rounded-lg">
                                 <ChevronLeft className="w-4 h-4 text-neutral-600" />
                             </button>
@@ -217,13 +217,13 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                             <button
                                 key={t}
                                 onClick={() => setTypeFilter(t)}
-                                className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                                    typeFilter === t 
-                                        ? 'bg-neutral-900 text-white' 
+                                className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                                    typeFilter === t
+                                        ? 'bg-neutral-900 text-white'
                                         : 'bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-300'
                                 }`}
                             >
-                                {t === 'all' ? 'Todo' : t === 'income' ? 'Ingreso' : t === 'expense' ? 'Gasto' : 'Transferencia'}
+                                {t === 'all' ? 'Todo' : t === 'income' ? 'Ingreso' : t === 'expense' ? 'Gasto' : 'Transf.'}
                             </button>
                         ))}
                     </div>

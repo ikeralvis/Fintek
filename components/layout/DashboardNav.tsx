@@ -10,6 +10,7 @@ import {
   LogOut,
   PieChart,
   Target,
+  Plus,
   TrendingUp as InvestmentIcon
 } from 'lucide-react';
 
@@ -20,13 +21,13 @@ type NavItem = {
 };
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
-  { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-[18px] w-[18px]" /> },
-  { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-[18px] w-[18px]" /> },
-  { name: 'Inversiones', href: '/dashboard/inversiones', icon: <InvestmentIcon className="h-[18px] w-[18px]" /> },
-  { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: <PieChart className="h-[18px] w-[18px]" /> },
-  { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <Target className="h-[18px] w-[18px]" /> },
-  { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-[18px] w-[18px]" /> },
+  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-4 w-4" /> },
+  { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-4 w-4" /> },
+  { name: 'Inversiones', href: '/dashboard/inversiones', icon: <InvestmentIcon className="h-4 w-4" /> },
+  { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: <PieChart className="h-4 w-4" /> },
+  { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <Target className="h-4 w-4" /> },
+  { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-4 w-4" /> },
 ];
 
 type Props = {
@@ -72,8 +73,23 @@ export default function DashboardNav({ userName, userEmail }: Props) {
             })}
           </div>
 
-          {/* User */}
+          {/* New Transaction + User */}
           <div className="flex items-center gap-3 shrink-0">
+            <Link
+              href="/dashboard/transacciones/nueva"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('previousPath', pathname);
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-[13px] font-medium hover:bg-neutral-800 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Nuevo</span>
+            </Link>
+
+            <div className="h-6 w-px bg-neutral-200" />
+
             <div className="text-right">
               <p className="text-xs font-medium text-neutral-900 leading-tight">
                 {userName || 'Usuario'}

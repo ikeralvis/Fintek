@@ -1,17 +1,15 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
-export async function GET(_request: Request) {
-    // Verify authorization (optional but recommended: check for a secret header)
-    // const authHeader = request.headers.get('authorization');
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return new NextResponse('Unauthorized', { status: 401 });
-    // }
+export async function GET(request: Request) {
+    const authHeader = request.headers.get('authorization');
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return new NextResponse('Unauthorized', { status: 401 });
+    }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     try {
-        // 1. Get active recurring transactions due for processing
         const today = new Date().toISOString().split('T')[0];
 
         const { data: recurring, error: fetchError } = await supabase
@@ -28,9 +26,7 @@ export async function GET(_request: Request) {
 
         const results = [];
 
-        // 2. Process each transaction
         for (const rt of recurring) {
-            // Create the transaction
             const { error: insertError } = await supabase
                 .from('transactions')
                 .insert({
@@ -39,8 +35,8 @@ export async function GET(_request: Request) {
                     category_id: rt.category_id,
                     amount: rt.amount,
                     type: rt.type,
-                    description: rt.description || `Recurring: ${rt.frequency}`,
-                    transaction_date: rt.next_run_date, // Use the scheduled date
+                    description: rt.description || `Recurrente: ${rt.frequency}`,
+                    transaction_date: rt.next_run_date,
                 });
 
             if (insertError) {
@@ -49,30 +45,8 @@ export async function GET(_request: Request) {
                 continue;
             }
 
-            // Update account balance
-            const { data: account, error: accountError } = await supabase
-                .from('accounts')
-                .select('current_balance')
-                .eq('id', rt.account_id)
-                .single();
+            // Balance updated automatically by DB trigger — no manual update needed
 
-            if (accountError) {
-                console.error(`Failed to get account ${rt.account_id}:`, accountError);
-            } else {
-                const balanceChange = rt.type === 'income' ? rt.amount : -rt.amount;
-                const newBalance = account.current_balance + balanceChange;
-                
-                const { error: balanceError } = await supabase
-                    .from('accounts')
-                    .update({ current_balance: newBalance })
-                    .eq('id', rt.account_id);
-
-                if (balanceError) {
-                    console.error(`Failed to update balance for ${rt.account_id}:`, balanceError);
-                }
-            }
-
-            // Calculate next run date
             const currentRunDate = new Date(rt.next_run_date);
             const nextDate = new Date(currentRunDate);
 
@@ -88,12 +62,11 @@ export async function GET(_request: Request) {
                     break;
             }
 
-            // Update the recurring transaction
             const { error: updateError } = await supabase
                 .from('recurring_transactions')
                 .update({
                     next_run_date: nextDate.toISOString().split('T')[0],
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
                 })
                 .eq('id', rt.id);
 
@@ -105,17 +78,9 @@ export async function GET(_request: Request) {
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            processed: results.length,
-            results
-        });
-
+        return NextResponse.json({ success: true, processed: results.length, results });
     } catch (error: any) {
         console.error('Cron job error:', error);
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

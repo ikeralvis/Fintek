@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, Star, Trash2,
     ChevronLeft, ChevronRight,
-    ArrowDownRight, ArrowUpRight, Calendar, Pencil, Database
+    Calendar, Pencil, Database
 } from 'lucide-react';
 import { format, parseISO, isSameDay, isSameMonth, subMonths, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -26,11 +26,11 @@ type Transaction = {
     id: string;
     amount: number;
     type: string;
-    description: string;
+    description?: string;
     transaction_date: string;
     category_id?: string;
     account_id: string;
-    categories?: Category;
+    categories?: Category | null;
     category?: string;
     isIncomingTransfer?: boolean;
     original_account_id?: string;
@@ -111,7 +111,6 @@ export default function AccountDetailView({ account, initialTransactions, catego
         if (!confirm('¿Eliminar esta transacción?')) return;
         setDeletingId(tx.id);
         try {
-            // El trigger de la BD actualiza el balance automáticamente
             await supabase.from('transactions').delete().eq('id', tx.id);
             router.refresh();
         } catch {
@@ -146,16 +145,11 @@ export default function AccountDetailView({ account, initialTransactions, catego
     const { monthIncome, monthExpense, monthTransferIn, monthTransferOut } = useMemo(() => {
         let inc = 0, exp = 0, transferIn = 0, transferOut = 0;
         filteredTransactions.forEach(t => {
-            if (t.type === 'income') {
-                inc += t.amount;
-            } else if (t.type === 'expense') {
-                exp += t.amount;
-            } else if (t.type === 'transfer') {
-                if (t.isIncomingTransfer) {
-                    transferIn += t.amount;
-                } else {
-                    transferOut += t.amount;
-                }
+            if (t.type === 'income') inc += t.amount;
+            else if (t.type === 'expense') exp += t.amount;
+            else if (t.type === 'transfer') {
+                if (t.isIncomingTransfer) transferIn += t.amount;
+                else transferOut += t.amount;
             }
         });
         return { monthIncome: inc, monthExpense: exp, monthTransferIn: transferIn, monthTransferOut: transferOut };
@@ -171,14 +165,22 @@ export default function AccountDetailView({ account, initialTransactions, catego
         return grouped;
     }, [filteredTransactions]);
 
+    const filterButtons = [
+        { key: 'all' as const, label: 'Todos' },
+        { key: 'income' as const, label: 'Ingresos' },
+        { key: 'expense' as const, label: 'Gastos' },
+        { key: 'transfer' as const, label: 'Transf.' },
+    ];
+
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32">
+        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
-                <div className="flex items-center justify-between">
+            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+                <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <button onClick={() => router.back()} className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
                         <ArrowLeft className="w-5 h-5 text-neutral-700" />
                     </button>
+                    <h1 className="text-sm font-semibold text-neutral-900 truncate mx-3">{account.name}</h1>
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => setIsImportModalOpen(true)}
@@ -203,7 +205,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 </div>
             </div>
 
-            <div className="px-5 space-y-5">
+            <div className="px-5 space-y-5 max-w-4xl mx-auto pt-5">
                 {/* Account Card */}
                 <div
                     className="relative overflow-hidden rounded-2xl p-5 text-white"
@@ -224,7 +226,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                 <p className="font-semibold">{account.name}</p>
                             </div>
                         </div>
-                        <p className="text-3xl font-bold">
+                        <p className="text-3xl font-bold font-mono tracking-tight">
                             {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(account.current_balance)}
                         </p>
                     </div>
@@ -233,23 +235,23 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 {/* Date Controls */}
                 <div className="flex items-center justify-between bg-white rounded-xl p-2 border border-neutral-100">
                     {!showAllDates && (
-                        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg">
+                        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg shrink-0">
                             <ChevronLeft className="w-4 h-4 text-neutral-600" />
                         </button>
                     )}
                     <button
                         onClick={() => setShowAllDates(!showAllDates)}
-                        className="flex-1 text-center py-2 hover:bg-neutral-50 rounded-lg transition-colors"
+                        className="flex-1 text-center py-2 hover:bg-neutral-50 rounded-lg transition-colors min-w-0"
                     >
                         <div className="flex items-center justify-center gap-2">
-                            <Calendar className="w-4 h-4 text-neutral-400" />
-                            <span className="text-sm font-medium text-neutral-700 capitalize">
+                            <Calendar className="w-4 h-4 text-neutral-400 shrink-0" />
+                            <span className="text-sm font-medium text-neutral-700 capitalize truncate">
                                 {showAllDates ? 'Todo el historial' : format(currentMonth, 'MMMM yyyy', { locale: es })}
                             </span>
                         </div>
                     </button>
                     {!showAllDates && (
-                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg">
+                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg shrink-0">
                             <ChevronRight className="w-4 h-4 text-neutral-600" />
                         </button>
                     )}
@@ -257,42 +259,41 @@ export default function AccountDetailView({ account, initialTransactions, catego
 
                 {/* Stats Summary */}
                 {!showAllDates && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
                             <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
-                            <p className="text-base font-bold text-emerald-700">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}€</p>
+                            <p className="text-base font-bold text-emerald-700 font-mono">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}€</p>
                         </div>
                         <div className="bg-rose-50 rounded-xl p-3 text-center border border-rose-100">
                             <p className="text-[10px] text-rose-600 font-semibold uppercase">Gastos</p>
-                            <p className="text-base font-bold text-rose-700">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthExpense)}€</p>
+                            <p className="text-base font-bold text-rose-700 font-mono">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthExpense)}€</p>
                         </div>
                         <div className="bg-neutral-100 rounded-xl p-3 text-center">
                             <p className="text-[10px] text-neutral-500 font-semibold uppercase">Balance</p>
-                            <p className={`text-base font-bold ${monthIncome - monthExpense >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <p className={`text-base font-bold font-mono ${monthIncome - monthExpense >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {monthIncome - monthExpense >= 0 ? '+' : ''}{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome - monthExpense)}€
                             </p>
                         </div>
                         <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
                             <p className="text-[10px] text-blue-600 font-semibold uppercase">Transferencias</p>
-                            <p className="text-xs font-bold text-blue-700">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferIn)}€</p>
-                            <p className="text-xs font-bold text-blue-700">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferOut)}€</p>
+                            <p className="text-xs font-bold text-blue-700 font-mono">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferIn)}€ / -{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferOut)}€</p>
                         </div>
                     </div>
                 )}
 
-                {/* Filters */}
-                <div className="flex gap-2">
-                    {(['all', 'income', 'expense', 'transfer'] as const).map(t => (
+                {/* Filters - scrollable on mobile, no overflow */}
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 md:mx-0 md:px-0">
+                    {filterButtons.map(f => (
                         <button
-                            key={t}
-                            onClick={() => setFilterType(t)}
-                            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                                filterType === t 
-                                    ? 'bg-neutral-900 text-white' 
+                            key={f.key}
+                            onClick={() => setFilterType(f.key)}
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all ${
+                                filterType === f.key
+                                    ? 'bg-neutral-900 text-white'
                                     : 'bg-white border border-neutral-200 text-neutral-500'
                             }`}
                         >
-                            {t === 'all' ? 'Todos' : t === 'income' ? 'Ingresos' : t === 'expense' ? 'Gastos' : 'Transferencias'}
+                            {f.label}
                         </button>
                     ))}
                 </div>
@@ -319,12 +320,8 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                         const rowKey = `${t.id}-${t.isIncomingTransfer ? 'in' : 'out'}`;
                                         const categoryName = t.categories?.name || t.category || (t.type === 'transfer' ? 'Transferencia' : 'General');
                                         const icon = t.categories?.icon;
-                                        
-                                        // Transferencias: entrantes = ingreso, salientes = gasto
                                         const isTransfer = t.type === 'transfer';
                                         const isIncoming = t.isIncomingTransfer;
-                                        
-                                        // Determinar si es ingreso para mostrar el signo correcto
                                         const showAsIncome = t.type === 'income' || isIncoming;
 
                                         return (
@@ -333,29 +330,25 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                     style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#f0f9ff' : '#f5f5f5') }}
                                                 >
-                                                    <CategoryIcon 
-                                                        name={icon || (isTransfer ? (isIncoming ? 'up' : 'down') : (t.type === 'expense' ? 'down' : 'up'))} 
+                                                    <CategoryIcon
+                                                        name={icon || (isTransfer ? (isIncoming ? 'up' : 'down') : (t.type === 'expense' ? 'down' : 'up'))}
                                                         className="w-5 h-5"
                                                         style={{ color: t.categories?.color || (isTransfer ? '#3b82f6' : (t.type === 'expense' ? '#f43f5e' : '#10b981')) }}
                                                     />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-neutral-900 text-sm truncate">
-                                                        {categoryName}
-                                                    </p>
+                                                    <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
                                                     <p className="text-xs text-neutral-400 truncate">
                                                         {isTransfer ? (isIncoming ? 'Transferencia recibida' : 'Transferencia enviada') : t.description || 'Sin descripción'}
                                                     </p>
                                                 </div>
-                                                <p className={`font-semibold text-sm ${
-                                                    isTransfer 
-                                                        ? 'text-blue-600' 
-                                                        : (showAsIncome ? 'text-emerald-600' : 'text-neutral-900')
+                                                <p className={`font-semibold text-sm font-mono shrink-0 ${
+                                                    isTransfer ? 'text-blue-600' : (showAsIncome ? 'text-emerald-600' : 'text-neutral-900')
                                                 }`}>
                                                     {showAsIncome ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                                                 </p>
                                                 {!isTransfer && (
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             onClick={() => setEditingTransaction(t)}
                                                             className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
@@ -385,7 +378,6 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 </div>
             </div>
 
-            {/* Edit Modal */}
             {editingTransaction && (
                 <EditTransactionModal
                     transaction={editingTransaction}
@@ -396,7 +388,6 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 />
             )}
 
-            {/* Import Modal */}
             {isImportModalOpen && (
                 <ImportTransactionsModal
                     accounts={[{ id: account.id, name: account.name }]}
