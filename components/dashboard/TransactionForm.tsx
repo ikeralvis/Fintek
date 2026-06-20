@@ -181,11 +181,15 @@ export default function TransactionForm({ accounts, categories }: Props) {
     setDescription(value);
     if (value.length >= 2) {
       const query = value.toLowerCase();
-      const matches = SUGGESTIONS.filter(s =>
-        s.label.toLowerCase().includes(query) ||
-        s.description.toLowerCase().includes(query) ||
-        s.category.toLowerCase().includes(query)
-      ).slice(0, 6);
+      const matches = SUGGESTIONS.filter(s => {
+        const hasCategory = findCategoryByName(s.category);
+        if (!hasCategory) return false;
+        return (
+          s.label.toLowerCase().includes(query) ||
+          s.description.toLowerCase().includes(query) ||
+          s.category.toLowerCase().includes(query)
+        );
+      }).slice(0, 6);
       setFilteredSuggestions(matches);
       setShowSuggestions(matches.length > 0);
       setActiveSuggestionIdx(-1);

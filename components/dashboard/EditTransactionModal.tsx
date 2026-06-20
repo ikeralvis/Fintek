@@ -28,11 +28,11 @@ type Transaction = {
     id: string;
     amount: number;
     type: string;
-    description: string;
+    description?: string;
     transaction_date: string;
     category_id?: string;
     account_id: string;
-    categories?: Category;
+    categories?: Category | null;
 };
 
 type Props = {

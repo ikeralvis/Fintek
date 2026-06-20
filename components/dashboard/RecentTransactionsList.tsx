@@ -4,18 +4,19 @@ import { ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 type Transaction = {
     id: string;
     amount: number;
     type: string;
-    description: string;
+    description?: string;
     transaction_date: string;
     category?: string;
-    categories?: { name: string, icon?: string, color?: string };
+    categories?: { name: string, icon?: string, color?: string } | null;
 };
 
-export default function RecentTransactionsList({ transactions }: { transactions: Transaction[] }) {
+export default function RecentTransactionsList({ transactions }: { readonly transactions: Transaction[] }) {
     if (transactions.length === 0) {
         return (
             <div>
@@ -47,7 +48,11 @@ export default function RecentTransactionsList({ transactions }: { transactions:
                                 style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : '#f5f5f5' }}
                             >
                                 {t.categories?.icon ? (
-                                    <span className="text-lg">{t.categories.icon}</span>
+                                    <CategoryIcon
+                                        name={t.categories.icon}
+                                        className="w-5 h-5"
+                                        style={{ color: t.categories.color || '#666' }}
+                                    />
                                 ) : t.type === 'expense' ? (
                                     <ArrowDownRight className="w-4 h-4 text-rose-500" />
                                 ) : (

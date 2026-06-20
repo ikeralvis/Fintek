@@ -52,24 +52,9 @@ export async function GET(request: Request) {
 
             if (txError) throw txError;
 
-            // B. Update Account Balance
-            const { data: account, error: accountError } = await supabase
-                .from('accounts')
-                .select('current_balance')
-                .eq('id', accountId)
-                .single();
+            // Balance is updated automatically by the DB trigger on transactions insert
 
-            if (accountError) throw accountError;
-
-            const newBalance = account.current_balance - sub.amount;
-            const { error: balanceError } = await supabase
-                .from('accounts')
-                .update({ current_balance: newBalance })
-                .eq('id', accountId);
-
-            if (balanceError) throw balanceError;
-
-            // C. Calculate Next Payment Date
+            // B. Calculate Next Payment Date
             const currentNext = parseISO(sub.next_payment_date);
             let newNextDate = currentNext;
 

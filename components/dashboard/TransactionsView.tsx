@@ -32,12 +32,12 @@ type Transaction = {
     id: string;
     amount: number;
     type: 'income' | 'expense' | 'transfer';
-    description: string;
+    description?: string;
     transaction_date: string;
     category_id?: string;
     account_id: string;
     related_account_id?: string | null;
-    categories?: Category;
+    categories?: Category | null;
     category?: string;
     accounts?: { id?: string; name: string };
 };

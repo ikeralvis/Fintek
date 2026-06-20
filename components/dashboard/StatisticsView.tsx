@@ -3,18 +3,19 @@
 import { useState, useMemo, useRef } from 'react';
 import {
     AreaChart, Area, PieChart, Pie, Cell,
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    XAxis, YAxis, Tooltip,
     ResponsiveContainer
 } from 'recharts';
 import {
-    format, subMonths, startOfMonth, endOfMonth,
+    format, subMonths, addMonths, startOfMonth, endOfMonth,
     parseISO, startOfYear, eachMonthOfInterval, isValid, isWithinInterval
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
     TrendingUp, Wallet, ArrowLeft,
     Download,
-    BarChart3, ArrowUpRight, ArrowDownRight
+    BarChart3, ArrowUpRight, ArrowDownRight,
+    ChevronLeft, ChevronRight
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -26,43 +27,30 @@ const COLORS = [
     '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#84cc16'
 ];
 
-type PeriodType = 'month' | 'year' | 'all';
+type PeriodType = 'month' | 'year';
 
 export default function StatisticsView({ initialTransactions, accounts, categories }: any) {
-    const [periodType, setPeriodType] = useState<PeriodType>('all');
-    const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+    const [periodType, setPeriodType] = useState<PeriodType>('month');
+    const [currentDate, setCurrentDate] = useState(new Date());
     const [exporting, setExporting] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
 
-    const availableMonths = useMemo(() => {
-        const months = new Set<string>();
-        initialTransactions.forEach((t: any) => {
-            const d = parseISO(t.transaction_date);
-            if (isValid(d)) months.add(format(d, 'yyyy-MM'));
-        });
-        return Array.from(months).sort((a, b) => b.localeCompare(a));
-    }, [initialTransactions]);
-
     const stats = useMemo(() => {
-        const now = new Date();
         let startDate: Date;
-        let endDate: Date = now;
+        let endDate: Date;
 
         if (periodType === 'month') {
-            const [year, month] = selectedMonth.split('-').map(Number);
-            startDate = startOfMonth(new Date(year, month - 1));
-            endDate = endOfMonth(new Date(year, month - 1));
-        } else if (periodType === 'year') {
-            startDate = startOfYear(now);
+            startDate = startOfMonth(currentDate);
+            endDate = endOfMonth(currentDate);
         } else {
-            startDate = new Date(1970, 0, 1);
+            startDate = startOfYear(currentDate);
+            endDate = endOfMonth(currentDate);
         }
 
         const filteredTxs = initialTransactions.filter((t: any) => {
             const d = parseISO(t.transaction_date);
             if (!isValid(d)) return false;
-            if (!isWithinInterval(d, { start: startDate, end: endDate })) return false;
-            return true;
+            return isWithinInterval(d, { start: startDate, end: endDate });
         });
 
         const monthlyData: Record<string, { month: string; monthKey: string; income: number; expense: number; balance: number }> = {};
@@ -113,19 +101,16 @@ export default function StatisticsView({ initialTransactions, accounts, categori
         const balance = totalIncome - totalExpense;
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
 
+        // Comparison with previous period
         let prevStartDate: Date;
         let prevEndDate: Date;
 
         if (periodType === 'month') {
-            const [year, month] = selectedMonth.split('-').map(Number);
-            prevStartDate = startOfMonth(subMonths(new Date(year, month - 1), 1));
-            prevEndDate = endOfMonth(subMonths(new Date(year, month - 1), 1));
-        } else if (periodType === 'year') {
-            prevStartDate = startOfYear(subMonths(now, 12));
-            prevEndDate = endOfMonth(subMonths(now, 1));
+            prevStartDate = startOfMonth(subMonths(currentDate, 1));
+            prevEndDate = endOfMonth(subMonths(currentDate, 1));
         } else {
-            prevStartDate = new Date(1970, 0, 1);
-            prevEndDate = subMonths(now, 12);
+            prevStartDate = startOfYear(subMonths(currentDate, 12));
+            prevEndDate = endOfMonth(subMonths(currentDate, 1));
         }
 
         const prevTxs = initialTransactions.filter((t: any) => {
@@ -148,11 +133,10 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             categoryArray,
             pieData,
             totals: { income: totalIncome, expense: totalExpense, balance, savingsRate },
-            comparison: { incomeChange, expenseChange, prevIncome, prevExpense },
-            hasData: filteredTxs.length > 0,
+            comparison: { incomeChange, expenseChange },
             txCount: filteredTxs.length
         };
-    }, [initialTransactions, periodType, selectedMonth]);
+    }, [initialTransactions, periodType, currentDate]);
 
     const handleExportPDF = async () => {
         if (!reportRef.current) return;
@@ -174,6 +158,18 @@ export default function StatisticsView({ initialTransactions, accounts, categori
 
     const formatCompact = (n: number) => new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
+    const navigatePeriod = (direction: number) => {
+        if (periodType === 'month') {
+            setCurrentDate(prev => direction > 0 ? addMonths(prev, 1) : subMonths(prev, 1));
+        } else {
+            setCurrentDate(prev => new Date(prev.getFullYear() + direction, prev.getMonth(), 1));
+        }
+    };
+
+    const periodLabel = periodType === 'month'
+        ? format(currentDate, 'MMMM yyyy', { locale: es })
+        : format(currentDate, 'yyyy');
+
     if (!initialTransactions || initialTransactions.length === 0) {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-8 text-center">
@@ -190,7 +186,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
     return (
         <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
                         <ArrowLeft className="w-5 h-5 text-neutral-700" />
@@ -202,52 +198,44 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 </div>
             </div>
 
-            <div ref={reportRef} className="px-5 space-y-5 max-w-6xl mx-auto">
+            <div ref={reportRef} className="px-5 space-y-5 max-w-6xl mx-auto pt-5">
                 {/* Period Selector */}
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                    <button
-                        onClick={() => setPeriodType('month')}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                            periodType === 'month' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-600'
-                        }`}
-                    >
-                        Mensual
-                    </button>
-                    <button
-                        onClick={() => setPeriodType('year')}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                            periodType === 'year' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-600'
-                        }`}
-                    >
-                        Este Año
-                    </button>
-                    <button
-                        onClick={() => setPeriodType('all')}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                            periodType === 'all' ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200 text-neutral-600'
-                        }`}
-                    >
-                        Histórico
-                    </button>
-
-                    {periodType === 'month' && (
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(e.target.value)}
-                            className="px-3 py-2 bg-white border border-neutral-200 rounded-xl text-sm font-medium"
+                <div className="flex items-center gap-3">
+                    <div className="flex bg-neutral-100 rounded-xl p-0.5">
+                        <button
+                            onClick={() => setPeriodType('month')}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                periodType === 'month' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'
+                            }`}
                         >
-                            {availableMonths.map(m => (
-                                <option key={m} value={m}>
-                                    {format(parseISO(`${m}-01`), 'MMMM yyyy', { locale: es })}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                            Mes
+                        </button>
+                        <button
+                            onClick={() => setPeriodType('year')}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                periodType === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'
+                            }`}
+                        >
+                            Año
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-1 ml-auto bg-white border border-neutral-200 rounded-xl px-1 py-1">
+                        <button onClick={() => navigatePeriod(-1)} className="p-1.5 hover:bg-neutral-100 rounded-lg">
+                            <ChevronLeft className="w-4 h-4 text-neutral-600" />
+                        </button>
+                        <span className="text-sm font-medium text-neutral-700 min-w-[110px] text-center capitalize">
+                            {periodLabel}
+                        </span>
+                        <button onClick={() => navigatePeriod(1)} className="p-1.5 hover:bg-neutral-100 rounded-lg">
+                            <ChevronRight className="w-4 h-4 text-neutral-600" />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Summary Cards - 4 cols on desktop */}
+                {/* Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
                         <div className="flex items-center gap-2 mb-2">
                             <ArrowUpRight className="w-4 h-4 text-emerald-600" />
                             <span className="text-xs font-semibold text-emerald-600 uppercase">Ingresos</span>
@@ -260,7 +248,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                         )}
                     </div>
 
-                    <div className="bg-rose-50 rounded-2xl p-4 border border-rose-100">
+                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
                         <div className="flex items-center gap-2 mb-2">
                             <ArrowDownRight className="w-4 h-4 text-rose-600" />
                             <span className="text-xs font-semibold text-rose-600 uppercase">Gastos</span>
@@ -296,21 +284,30 @@ export default function StatisticsView({ initialTransactions, accounts, categori
 
                 {/* Charts - Side by side on desktop */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    {/* Income vs Expense Chart */}
+                    {/* Income vs Expense AreaChart */}
                     <div className="bg-white rounded-2xl p-5 border border-neutral-100">
                         <h3 className="text-sm font-bold text-neutral-900 mb-4">Ingresos vs Gastos</h3>
                         <ResponsiveContainer width="100%" height={220}>
-                            <BarChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                            <AreaChart data={stats.monthlyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="gradExpense" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
+                                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
                                 />
-                                <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                            </BarChart>
+                                <Area type="monotone" dataKey="income" name="Ingresos" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" dot={false} />
+                                <Area type="monotone" dataKey="expense" name="Gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpense)" dot={false} />
+                            </AreaChart>
                         </ResponsiveContainer>
                     </div>
 
@@ -318,29 +315,27 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     <div className="bg-white rounded-2xl p-5 border border-neutral-100">
                         <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance</h3>
                         <ResponsiveContainer width="100%" height={220}>
-                            <AreaChart data={stats.monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                            <AreaChart data={stats.monthlyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
-                                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                                    <linearGradient id="gradBalance" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
                                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}
                                 />
-                                <Area type="monotone" dataKey="balance" stroke="#6366f1" fillOpacity={1} fill="url(#colorBalance)" strokeWidth={2} />
+                                <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#gradBalance)" dot={false} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* Bottom row - Pie + Categories side by side on desktop */}
+                {/* Bottom row - Pie + Categories */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    {/* Expense Distribution */}
                     {stats.pieData.length > 0 && (
                         <div className="bg-white rounded-2xl p-5 border border-neutral-100">
                             <h3 className="text-sm font-bold text-neutral-900 mb-4">Distribución de Gastos</h3>
@@ -379,7 +374,6 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                         </div>
                     )}
 
-                    {/* Top Categories */}
                     <div className="bg-white rounded-2xl p-5 border border-neutral-100">
                         <h3 className="text-sm font-bold text-neutral-900 mb-4">Top Categorías</h3>
                         <div className="space-y-3">
@@ -414,7 +408,6 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     </div>
                 </div>
 
-                {/* Transaction Count */}
                 <div className="text-center py-4 text-xs text-neutral-400">
                     {stats.txCount} transacciones en este período
                 </div>
