@@ -1,8 +1,7 @@
 'use client';
 
 import {
-    X, Upload, AlertCircle,
-    ChevronRight, Database, Trash2
+    X, Upload, AlertCircle, ChevronRight, Trash2, Check, FileSpreadsheet
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -11,17 +10,8 @@ import { createClient } from '@/lib/supabase/client';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useRef, useState } from 'react';
 
-type Account = {
-    id: string;
-    name: string;
-};
-
-type Category = {
-    id: string;
-    name: string;
-    icon?: string;
-    color?: string;
-};
+type Account = { id: string; name: string };
+type Category = { id: string; name: string; icon?: string; color?: string };
 
 type TransactionPreview = {
     date: string;
@@ -29,7 +19,7 @@ type TransactionPreview = {
     amount: number;
     type: 'expense' | 'income';
     category_id: string;
-    status: 'valid' | 'invalid' | 'duplicate';
+    status: 'valid' | 'invalid';
 };
 
 type Props = {
@@ -39,25 +29,48 @@ type Props = {
     onImportSuccess: () => void;
 };
 
+type BankFormat = {
+    name: string;
+    dateCol: string;
+    descCol: string;
+    amountCol: string;
+};
+
+const KNOWN_FORMATS: { detect: (headers: string[]) => boolean; format: BankFormat }[] = [
+    {
+        detect: (h) => h.some(c => /fecha/i.test(c)) && h.some(c => /concepto/i.test(c)) && h.some(c => /importe/i.test(c)) && h.some(c => /saldo posterior/i.test(c)),
+        format: { name: 'Laboral Kutxa', dateCol: 'Fecha', descCol: 'Concepto', amountCol: 'Importe' }
+    },
+    {
+        detect: (h) => h.some(c => /fecha/i.test(c)) && h.some(c => /concepto/i.test(c)) && h.some(c => /importe/i.test(c)),
+        format: { name: 'Kutxabank / Genérico', dateCol: 'fecha', descCol: 'concepto', amountCol: 'importe' }
+    },
+];
+
+function autoDetectFormat(headers: string[]): BankFormat | null {
+    const normalized = headers.map(h => (h || '').toString().trim());
+    for (const known of KNOWN_FORMATS) {
+        if (known.detect(normalized)) {
+            const dateCol = normalized.find(h => /^fecha$/i.test(h)) || normalized.find(h => /fecha/i.test(h)) || '';
+            const descCol = normalized.find(h => /concepto/i.test(h)) || '';
+            const amountCol = normalized.find(h => /importe/i.test(h)) || '';
+            return { name: known.format.name, dateCol, descCol, amountCol };
+        }
+    }
+    return null;
+}
+
 export default function ImportTransactionsModal({ accounts, categories, onClose, onImportSuccess }: Props) {
     const supabase = createClient();
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
-    const [file, setFile] = useState<File | null>(null);
-    console.log('Selected file:', file?.name); // Use variable to avoid lint
     const [loading, setLoading] = useState(false);
+    const [detectedBank, setDetectedBank] = useState<string | null>(null);
 
-    // Parsing & Mapping
     const [headers, setHeaders] = useState<string[]>([]);
     const [rawData, setRawData] = useState<any[]>([]);
-    const [mapping, setMapping] = useState({
-        date: '',
-        description: '',
-        amount: '',
-        type: '' // Optional if amounts have signs
-    });
+    const [mapping, setMapping] = useState({ date: '', description: '', amount: '' });
 
-    // Preview
     const [previews, setPreviews] = useState<TransactionPreview[]>([]);
     const [importing, setImporting] = useState(false);
 
@@ -65,120 +78,122 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            processFile(selectedFile);
-        }
+        if (selectedFile) processFile(selectedFile);
     };
 
     const processFile = (file: File) => {
-        const reader = new FileReader();
         if (file.name.endsWith('.csv')) {
             Papa.parse(file, {
                 header: false,
                 skipEmptyLines: true,
                 complete: (results) => {
-                    // Find header row (it's the first row that has something that looks like headers)
-                    // Some banks have junk at the top
-                    let headerIndex = 0;
-                    for (let i = 0; i < results.data.length; i++) {
-                        const row = results.data[i] as string[];
-                        if (row.some(cell => /fecha|concepto|importe|description|amount|date/i.test(cell))) {
-                            headerIndex = i;
-                            break;
-                        }
-                    }
-
-                    const rows = results.data as any[][];
-                    setHeaders(rows[headerIndex] || []);
-                    setRawData(rows.slice(headerIndex + 1));
-                    setStep(2);
+                    const rows = results.data as string[][];
+                    findHeadersAndData(rows);
                 }
             });
         } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            const reader = new FileReader();
             reader.onload = (e) => {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
-
-                let headerIndex = 0;
-                for (let i = 0; i < jsonData.length; i++) {
-                    const row = jsonData[i];
-                    if (row && row.some(cell => typeof cell === 'string' && /fecha|concepto|importe|description|amount|date/i.test(cell))) {
-                        headerIndex = i;
-                        break;
-                    }
-                }
-
-                setHeaders(jsonData[headerIndex] || []);
-                setRawData(jsonData.slice(headerIndex + 1));
-                setStep(2);
+                findHeadersAndData(jsonData);
             };
             reader.readAsArrayBuffer(file);
         }
     };
 
+    const findHeadersAndData = (rows: any[][]) => {
+        let headerIndex = 0;
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+            const row = rows[i];
+            if (row && row.some(cell => typeof cell === 'string' && /fecha|concepto|importe|date|amount/i.test(cell))) {
+                headerIndex = i;
+                break;
+            }
+        }
+
+        const foundHeaders = (rows[headerIndex] || []).map((h: any) => (h || '').toString().trim());
+        const data = rows.slice(headerIndex + 1).filter(row => row && row.length > 1);
+
+        setHeaders(foundHeaders);
+        setRawData(data);
+
+        // Auto-detect bank format
+        const detected = autoDetectFormat(foundHeaders);
+        if (detected) {
+            setDetectedBank(detected.name);
+            setMapping({
+                date: detected.dateCol,
+                description: detected.descCol,
+                amount: detected.amountCol,
+            });
+            // Skip step 2, go directly to preview
+            generatePreviewsFromData(foundHeaders, data, {
+                date: detected.dateCol,
+                description: detected.descCol,
+                amount: detected.amountCol,
+            });
+        } else {
+            setStep(2);
+        }
+    };
+
     const parseAmount = (val: any) => {
         if (typeof val === 'number') return val;
-        if (!val || typeof val !== 'string') return 0;
-        // Handle Spanish format: 1.234,56 -> 1234.56
-        const clean = val.toString().replaceAll('.', '').replace(',', '.');
+        if (!val) return 0;
+        const str = val.toString().trim();
+        const clean = str.replaceAll('.', '').replace(',', '.');
         return Number.parseFloat(clean) || 0;
     };
 
     const parseDate = (val: any) => {
-        if (!val) return new Date().toISOString();
-        if (typeof val === 'string') {
-            // Try common formats
-            const formats = ['dd/MM/yyyy', 'yyyy-MM-dd', 'dd-MM-yyyy', 'MM/dd/yyyy'];
-            for (const f of formats) {
-                const d = parse(val, f, new Date());
-                if (isValid(d)) return d.toISOString();
-            }
-        }
-        // XLSX date serial
+        if (!val) return format(new Date(), 'yyyy-MM-dd');
         if (typeof val === 'number') {
-            return new Date((val - 25569) * 86400 * 1000).toISOString();
+            return format(new Date((val - 25569) * 86400 * 1000), 'yyyy-MM-dd');
         }
-        return new Date().toISOString();
+        const str = val.toString().trim();
+        const formats = ['dd/MM/yyyy', 'yyyy-MM-dd', 'dd-MM-yyyy', 'dd/MM/yyyy HH:mm'];
+        for (const f of formats) {
+            const d = parse(str, f, new Date());
+            if (isValid(d)) return format(d, 'yyyy-MM-dd');
+        }
+        return format(new Date(), 'yyyy-MM-dd');
     };
 
-    const generatePreviews = async () => {
+    const generatePreviewsFromData = async (hdrs: string[], data: any[][], map: { date: string; description: string; amount: string }) => {
         setLoading(true);
         try {
-            // Get existing transactions for auto-categorization
             const { data: existingTx } = await supabase
                 .from('transactions')
                 .select('description, category_id')
                 .limit(500);
 
-            const descMap = new Map();
+            const descMap = new Map<string, string>();
             existingTx?.forEach(t => {
-                if (t.description) {
-                    descMap.set(t.description.toLowerCase(), t.category_id);
-                }
+                if (t.description && t.category_id) descMap.set(t.description.toLowerCase(), t.category_id);
             });
 
-            const newPreviews: TransactionPreview[] = rawData
-                .filter((row): row is any[] => Array.isArray(row) && row.length > 0)
-                .map(row => {
-                    const dateIdx = headers.indexOf(mapping.date);
-                    const descIdx = headers.indexOf(mapping.description);
-                    const amountIdx = headers.indexOf(mapping.amount);
+            const dateIdx = hdrs.findIndex(h => h.toLowerCase() === map.date.toLowerCase());
+            const descIdx = hdrs.findIndex(h => h.toLowerCase() === map.description.toLowerCase());
+            const amountIdx = hdrs.findIndex(h => h.toLowerCase() === map.amount.toLowerCase());
 
+            const defaultCatId = categories[0]?.id || '';
+
+            const newPreviews: TransactionPreview[] = data
+                .filter(row => Array.isArray(row) && row.length > Math.max(dateIdx, descIdx, amountIdx))
+                .map(row => {
                     const amount = parseAmount(amountIdx >= 0 ? row[amountIdx] : null);
-                    const description = (descIdx >= 0 ? row[descIdx] : null) || 'Sin descripción';
+                    const description = (descIdx >= 0 ? (row[descIdx] || '').toString().trim() : '') || 'Sin descripción';
                     const date = parseDate(dateIdx >= 0 ? row[dateIdx] : null);
 
-                    // Simple auto-categorizer
-                    let categoryId = 'deef3632-4d0f-48d6-96a2-e6e2f1dbb0b6'; // Default General
-                    if (description && description.trim()) {
-                        for (const [desc, cat] of descMap.entries()) {
-                            if (description.toLowerCase().includes(desc) || desc.includes(description.toLowerCase())) {
-                                categoryId = cat;
-                                break;
-                            }
+                    let categoryId = defaultCatId;
+                    const descLower = description.toLowerCase();
+                    for (const [key, catId] of descMap.entries()) {
+                        if (descLower.includes(key) || key.includes(descLower)) {
+                            categoryId = catId;
+                            break;
                         }
                     }
 
@@ -186,12 +201,12 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                         date,
                         description,
                         amount: Math.abs(amount),
-                        type: (amount >= 0 ? 'income' : 'expense') as 'income' | 'expense',
+                        type: amount >= 0 ? 'income' as const : 'expense' as const,
                         category_id: categoryId,
-                        status: 'valid' as const
+                        status: 'valid' as const,
                     };
                 })
-                .filter(p => !isNaN(p.amount) && p.amount !== 0);
+                .filter(p => p.amount > 0);
 
             setPreviews(newPreviews);
             setStep(3);
@@ -202,13 +217,16 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
         }
     };
 
+    const generatePreviews = () => {
+        generatePreviewsFromData(headers, rawData, mapping);
+    };
+
     const handleImport = async () => {
         setImporting(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Batch insert
             const toInsert = previews.map(p => ({
                 user_id: user.id,
                 account_id: selectedAccountId,
@@ -216,10 +234,9 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                 amount: p.amount,
                 type: p.type,
                 description: p.description,
-                transaction_date: p.date
+                transaction_date: p.date,
             }));
 
-            // El trigger de la BD actualiza el balance automáticamente
             const { error } = await supabase.from('transactions').insert(toInsert);
             if (error) throw error;
 
@@ -234,53 +251,60 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-[32px] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+            <div className="relative w-full max-w-lg mx-0 md:mx-4 bg-white rounded-t-2xl md:rounded-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
                 {/* Header */}
-                <div className="p-6 border-b border-neutral-100 flex items-center justify-between">
+                <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between shrink-0">
                     <div>
-                        <h2 className="text-xl font-black text-neutral-900">Importar Transacciones</h2>
-                        <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider">
-                            Paso {step} de 3 {step === 1 ? '· Carga de Archivo' : step === 2 ? '· Mapeo de Columnas' : '· Revisar Datos'}
+                        <h2 className="text-base font-semibold text-neutral-900">Importar Movimientos</h2>
+                        <p className="text-xs text-neutral-400">
+                            Paso {step}/3
+                            {detectedBank && step === 3 && <span className="text-emerald-600 font-medium ml-1">· {detectedBank} detectado</span>}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
-                        <X className="w-6 h-6 text-neutral-400" />
+                    <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-xl">
+                        <X className="w-5 h-5 text-neutral-400" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-5">
+                    {/* STEP 1: Account + File */}
                     {step === 1 && (
-                        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-300">
-                            {/* Account Selector */}
+                        <div className="space-y-5">
                             <div>
-                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3 block">1. Selecciona la Cuenta de destino</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 block">Cuenta de destino</label>
+                                <div className="grid grid-cols-1 gap-2">
                                     {accounts.map(acc => (
                                         <button
                                             key={acc.id}
                                             onClick={() => setSelectedAccountId(acc.id)}
-                                            className={`p-4 rounded-2xl border-2 text-left transition-all ${selectedAccountId === acc.id ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg' : 'border-neutral-100 bg-white text-neutral-600 hover:border-neutral-200'}`}
+                                            className={`p-3 rounded-xl border text-left text-sm font-medium transition-all flex items-center gap-3 ${
+                                                selectedAccountId === acc.id
+                                                    ? 'border-neutral-900 bg-neutral-900 text-white'
+                                                    : 'border-neutral-200 text-neutral-700 hover:border-neutral-300'
+                                            }`}
                                         >
-                                            <p className="font-bold">{acc.name}</p>
+                                            {selectedAccountId === acc.id && <Check className="w-4 h-4 shrink-0" />}
+                                            {acc.name}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Dropzone */}
                             <div>
-                                <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3 block">2. Sube tu extracto (CSV o Excel)</label>
+                                <label className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 block">Archivo (CSV o Excel)</label>
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="border-2 border-dashed border-neutral-200 rounded-[32px] p-12 flex flex-col items-center justify-center gap-4 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer group"
+                                    className="border-2 border-dashed border-neutral-200 rounded-2xl p-8 flex flex-col items-center gap-3 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer"
                                 >
-                                    <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Upload className="w-8 h-8 text-neutral-400" />
+                                    <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center">
+                                        <FileSpreadsheet className="w-6 h-6 text-neutral-400" />
                                     </div>
                                     <div className="text-center">
-                                        <p className="font-bold text-neutral-900">Haz clic para subir o arrastra un archivo</p>
-                                        <p className="text-sm text-neutral-500">Soportamos CSV, XLS y XLSX</p>
+                                        <p className="text-sm font-medium text-neutral-700">Subir extracto bancario</p>
+                                        <p className="text-xs text-neutral-400 mt-1">CSV, XLS, XLSX · Kutxabank, Laboral Kutxa, etc.</p>
                                     </div>
                                     <input
                                         type="file"
@@ -291,161 +315,149 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                     />
                                 </div>
                             </div>
+
+                            {loading && (
+                                <div className="text-center py-4">
+                                    <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin mx-auto" />
+                                    <p className="text-xs text-neutral-400 mt-2">Analizando archivo...</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
+                    {/* STEP 2: Manual mapping (only if auto-detect fails) */}
                     {step === 2 && (
-                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex gap-3">
-                                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                                <p className="text-sm text-amber-800 font-medium">Hemos detectado {rawData.length} filas. Por favor, indica qué columna corresponde a cada dato.</p>
+                        <div className="space-y-5">
+                            <div className="bg-amber-50 rounded-xl p-3 flex items-start gap-2 border border-amber-100">
+                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 font-medium">
+                                    {rawData.length} filas detectadas. Indica qué columna corresponde a cada campo.
+                                </p>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div>
-                                        <label htmlFor="mapping-date" className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Fecha</label>
+                            <div className="space-y-3">
+                                {[
+                                    { key: 'date', label: 'Fecha' },
+                                    { key: 'description', label: 'Concepto' },
+                                    { key: 'amount', label: 'Importe' },
+                                ].map(({ key, label }) => (
+                                    <div key={key}>
+                                        <label className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 block">{label}</label>
                                         <select
-                                            id="mapping-date"
-                                            value={mapping.date}
-                                            onChange={(e) => setMapping({ ...mapping, date: e.target.value })}
-                                            className="w-full p-3 bg-neutral-100 border-none rounded-xl font-bold"
+                                            value={(mapping as any)[key]}
+                                            onChange={(e) => setMapping(prev => ({ ...prev, [key]: e.target.value }))}
+                                            className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-medium"
                                         >
                                             <option value="">Selecciona columna...</option>
                                             {headers.map(h => <option key={h} value={h}>{h}</option>)}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label htmlFor="mapping-description" className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Concepto / Descripción</label>
-                                        <select
-                                            id="mapping-description"
-                                            value={mapping.description}
-                                            onChange={(e) => setMapping({ ...mapping, description: e.target.value })}
-                                            className="w-full p-3 bg-neutral-100 border-none rounded-xl font-bold"
-                                        >
-                                            <option value="">Selecciona columna...</option>
-                                            {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="mapping-amount" className="text-xs font-bold text-neutral-500 uppercase mb-2 block">Importe</label>
-                                        <select
-                                            id="mapping-amount"
-                                            value={mapping.amount}
-                                            onChange={(e) => setMapping({ ...mapping, amount: e.target.value })}
-                                            className="w-full p-3 bg-neutral-100 border-none rounded-xl font-bold"
-                                        >
-                                            <option value="">Selecciona columna...</option>
-                                            {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
+                                ))}
+                            </div>
 
-                                <div className="bg-neutral-50 rounded-2xl p-4 overflow-hidden border border-neutral-100">
-                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-3">Vista Previa Original</p>
-                                    <div className="space-y-2 overflow-x-auto">
-                                        <table className="w-full text-[10px] font-medium text-neutral-600">
-                                            <thead>
-                                                <tr>
-                                                    {headers.map((h, i) => <th key={`${h}-${i}`} className="text-left p-1 border-b border-neutral-200">{h}</th>)}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {rawData.slice(0, 3).map((row, ri) => (
-                                                    Array.isArray(row) && (
-                                                        <tr key={ri}>
-                                                            {row.map((cell: any, ci: number) => <td key={ci} className="p-1 truncate max-w-[100px]">{cell != null ? String(cell) : ''}</td>)}
-                                                        </tr>
-                                                    )
+                            {/* Preview of raw data */}
+                            <div className="bg-neutral-50 rounded-xl p-3 border border-neutral-100 overflow-x-auto">
+                                <p className="text-[10px] font-semibold text-neutral-400 uppercase mb-2">Vista previa</p>
+                                <table className="w-full text-[10px] text-neutral-600">
+                                    <thead>
+                                        <tr>{headers.map((h, i) => <th key={i} className="text-left p-1 border-b border-neutral-200 font-semibold">{h}</th>)}</tr>
+                                    </thead>
+                                    <tbody>
+                                        {rawData.slice(0, 3).map((row, ri) => (
+                                            <tr key={ri}>
+                                                {Array.isArray(row) && row.map((cell: any, ci: number) => (
+                                                    <td key={ci} className="p-1 truncate max-w-[80px]">{cell != null ? String(cell) : ''}</td>
                                                 ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
 
                             <button
                                 onClick={generatePreviews}
                                 disabled={!mapping.date || !mapping.description || !mapping.amount || loading}
-                                className="w-full bg-neutral-900 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-neutral-900/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                                className="w-full py-3.5 bg-neutral-900 text-white rounded-xl font-semibold text-sm disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors flex items-center justify-center gap-2"
                             >
-                                {loading ? 'Procesando...' : 'Continuar'}
-                                {!loading && <ChevronRight className="w-5 h-5" />}
+                                {loading ? 'Procesando...' : 'Continuar'} {!loading && <ChevronRight className="w-4 h-4" />}
                             </button>
                         </div>
                     )}
 
+                    {/* STEP 3: Preview + Import */}
                     {step === 3 && (
-                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                        <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-neutral-900">{previews.length} transacciones detectadas</h3>
-                                <button onClick={() => setStep(2)} className="text-sm font-bold text-neutral-500 hover:text-neutral-900">Editar mapeo</button>
+                                <p className="text-sm font-semibold text-neutral-900">{previews.length} movimientos</p>
+                                <button onClick={() => setStep(2)} className="text-xs font-medium text-neutral-400 hover:text-neutral-700">
+                                    Editar mapeo
+                                </button>
                             </div>
 
-                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {previews.map((p) => {
-                                    const pIndex = previews.findIndex(item => item.description === p.description && item.date === p.date && item.amount === p.amount);
-                                    return (
-                                    <div key={`${p.description}-${p.date}-${p.amount}`} className="bg-neutral-50 rounded-2xl p-4 flex items-center gap-4 group hover:bg-white hover:shadow-md transition-all border border-transparent hover:border-neutral-100">
-                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                            {/* Summary */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+                                    <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
+                                    <p className="text-sm font-bold text-emerald-700">
+                                        +{previews.filter(p => p.type === 'income').reduce((s, p) => s + p.amount, 0).toFixed(2)}€
+                                    </p>
+                                </div>
+                                <div className="bg-rose-50 rounded-xl p-3 text-center border border-rose-100">
+                                    <p className="text-[10px] text-rose-600 font-semibold uppercase">Gastos</p>
+                                    <p className="text-sm font-bold text-rose-700">
+                                        -{previews.filter(p => p.type === 'expense').reduce((s, p) => s + p.amount, 0).toFixed(2)}€
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* List */}
+                            <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
+                                {previews.map((p, idx) => (
+                                    <div key={`${p.date}-${p.description}-${idx}`} className="flex items-center gap-2.5 p-2.5 bg-neutral-50 rounded-xl group hover:bg-white hover:border-neutral-200 border border-transparent transition-all">
+                                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0 border border-neutral-100">
                                             <CategoryIcon
                                                 name={categories.find(c => c.id === p.category_id)?.icon}
-                                                className="w-5 h-5"
+                                                className="w-4 h-4"
                                                 style={{ color: categories.find(c => c.id === p.category_id)?.color }}
                                             />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <p className="font-bold text-neutral-900 truncate text-sm">{p.description}</p>
-                                                <p className={`font-bold text-sm ${p.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
-                                                    {p.type === 'income' ? '+' : '-'}{p.amount.toFixed(2)}€
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[10px] font-bold text-neutral-400 uppercase">
-                                                <span>{format(new Date(p.date), 'dd/MM/yyyy')}</span>
-                                                <span>•</span>
+                                            <p className="text-xs font-medium text-neutral-900 truncate">{p.description}</p>
+                                            <div className="flex items-center gap-2 text-[10px] text-neutral-400">
+                                                <span>{p.date}</span>
                                                 <select
                                                     value={p.category_id}
                                                     onChange={(e) => {
-                                                        const newPreviews = [...previews];
-                                                        newPreviews[pIndex].category_id = e.target.value;
-                                                        setPreviews(newPreviews);
+                                                        const updated = [...previews];
+                                                        updated[idx].category_id = e.target.value;
+                                                        setPreviews(updated);
                                                     }}
-                                                    className="bg-transparent border-none p-0 h-4 focus:ring-0 cursor-pointer hover:text-neutral-600"
+                                                    className="bg-transparent border-none p-0 text-[10px] text-neutral-400 focus:ring-0 cursor-pointer"
                                                 >
                                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                 </select>
                                             </div>
                                         </div>
+                                        <p className={`text-xs font-bold shrink-0 ${p.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                                            {p.type === 'income' ? '+' : '-'}{p.amount.toFixed(2)}€
+                                        </p>
                                         <button
-                                            onClick={() => setPreviews(previews.filter((_, idx) => idx !== pIndex))}
-                                            className="p-2 text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => setPreviews(prev => prev.filter((_, i) => i !== idx))}
+                                            className="p-1 text-neutral-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all shrink-0"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
-                                    );
-                                })}
+                                ))}
                             </div>
 
-                            <div className="bg-neutral-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl">
-                                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
-                                <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-                                    <div>
-                                        <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest mb-1">Total a Importar</p>
-                                        <p className="text-3xl font-black">
-                                            {previews.reduce((sum, p) => sum + (p.type === 'income' ? p.amount : -p.amount), 0).toFixed(2)}€
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={handleImport}
-                                        disabled={importing || previews.length === 0}
-                                        className="w-full sm:w-auto px-10 py-4 bg-white text-neutral-900 rounded-2xl font-black text-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-xl shadow-white/10"
-                                    >
-                                        {importing ? 'Importando...' : 'Confirmar Importación'}
-                                    </button>
-                                </div>
-                            </div>
+                            <button
+                                onClick={handleImport}
+                                disabled={importing || previews.length === 0}
+                                className="w-full py-3.5 bg-neutral-900 text-white rounded-xl font-semibold text-sm disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors"
+                            >
+                                {importing ? 'Importando...' : `Importar ${previews.length} movimientos`}
+                            </button>
                         </div>
                     )}
                 </div>
