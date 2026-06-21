@@ -20,13 +20,14 @@ export default function BottomNav() {
 
     // Menu items for "More" drawer - Only items not in main nav
     const menuItems = [
-        { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
+        { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: PieChart },
+        { name: 'Calendario', href: '/dashboard/calendario', icon: Calendar },
         { name: 'Inversiones', href: '/dashboard/inversiones', icon: TrendingUp },
         { name: 'Predicción IA', href: '/dashboard/analisis', icon: Sparkles },
-        { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: PieChart },
+        { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: Target },
         { name: 'Suscripciones', href: '/dashboard/suscripciones', icon: Calendar },
         { name: 'Mi Cartera', href: '/dashboard/cartera', icon: CreditCard },
-        { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: Target },
+        { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
     ];
 
     return (

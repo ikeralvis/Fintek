@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import DashboardNav from '@/components/layout/DashboardNav';
 import BottomNav from '@/components/layout/BottomNav';
+import CommandSearch from '@/components/dashboard/CommandSearch';
 import { DashboardProvider } from '@/lib/DashboardContext';
 
 export default async function DashboardLayout({
@@ -71,6 +72,7 @@ export default async function DashboardLayout({
         initialTransactions={transactions}
         userId={user.id}
       >
+        <CommandSearch />
         <main className="animate-in fade-in duration-500">{children}</main>
       </DashboardProvider>
       <BottomNav />
