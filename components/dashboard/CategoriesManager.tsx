@@ -162,92 +162,79 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
   };
 
   return (
-    <div className="space-y-6">
-      {/* Add Form */}
-      <form onSubmit={handleSubmit} className="bg-white p-5 rounded-2xl border border-neutral-100 space-y-4">
+    <div className="space-y-5">
+      {/* Quick suggestions - always visible */}
+      {availableSuggestions.length > 0 && (
         <div>
-          <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1.5 block">Nombre</label>
-          <input
-            type="text"
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            onFocus={() => setShowSuggestions(true)}
-            placeholder="Ej: Alimentación, Transporte..."
-            className="w-full px-4 py-3 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 font-medium focus:ring-2 focus:ring-neutral-200"
-            disabled={loading}
-          />
-        </div>
-
-        {/* Icon Type Toggle */}
-        <div className="flex gap-2">
-          <button type="button" onClick={() => { setUseEmoji(false); setNewCategoryIcon('cart'); }} className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${!useEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>
-            Iconos
-          </button>
-          <button type="button" onClick={() => { setUseEmoji(true); setNewCategoryIcon('💰'); }} className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${useEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'}`}>
-            Emojis
-          </button>
-        </div>
-
-        {/* Icon Selector */}
-        <div>
-          <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">Icono</label>
-          <button type="button" onClick={() => setShowIconPicker(!showIconPicker)} className="w-14 h-14 rounded-xl border-2 border-neutral-200 flex items-center justify-center hover:border-neutral-400" style={{ backgroundColor: `${newCategoryColor}15` }}>
-            <CategoryIcon name={newCategoryIcon} className="w-6 h-6" style={{ color: newCategoryColor }} />
-          </button>
-
-          {showIconPicker && (
-            <div className="mt-3 p-3 bg-neutral-50 rounded-xl border border-neutral-200 grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
-              {useEmoji ? (
-                SUGGESTED_EMOJIS.map(emoji => (
-                  <button key={emoji} type="button" onClick={() => { setNewCategoryIcon(emoji); setShowIconPicker(false); }} className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl hover:bg-neutral-200 ${newCategoryIcon === emoji ? 'bg-neutral-900 text-white' : ''}`}>
-                    {emoji}
-                  </button>
-                ))
-              ) : (
-                AVAILABLE_ICONS.map(code => (
-                  <button key={code} type="button" onClick={() => { setNewCategoryIcon(code); setShowIconPicker(false); }} className={`w-10 h-10 rounded-xl flex items-center justify-center hover:bg-neutral-200 ${newCategoryIcon === code ? 'bg-neutral-900' : ''}`} title={iconLabels[code]}>
-                    <CategoryIcon name={code} className={`w-5 h-5 ${newCategoryIcon === code ? 'text-white' : 'text-neutral-600'}`} />
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Color Selector */}
-        <div>
-          <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">Color</label>
-          <div className="flex flex-wrap gap-2">
-            {CATEGORY_COLORS.map(c => (
-              <button key={c} type="button" onClick={() => setNewCategoryColor(c)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${newCategoryColor === c ? 'ring-2 ring-offset-2 ring-neutral-900 scale-110' : ''}`} style={{ backgroundColor: c }}>
-                {newCategoryColor === c && <Check className="w-4 h-4 text-white" />}
+          <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2">Añadir rápido</p>
+          <div className="flex flex-wrap gap-1.5">
+            {availableSuggestions.slice(0, 12).map(s => (
+              <button key={s.name} type="button" onClick={() => handleAddCategory(s.name, s.icon, s.color)} disabled={loading} className="px-2.5 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 text-neutral-700 flex items-center gap-1.5 transition-colors">
+                <CategoryIcon name={s.icon} className="w-3.5 h-3.5" style={{ color: s.color }} />
+                {s.name}
               </button>
             ))}
           </div>
         </div>
+      )}
 
-        <button type="submit" disabled={loading} className="w-full bg-neutral-900 text-white py-3 rounded-xl font-bold hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
-          <Plus className="w-4 h-4" /> {loading ? 'Guardando...' : 'Añadir Categoría'}
-        </button>
+      {/* Compact Add Form */}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">O crear personalizada</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            placeholder="Nombre de la categoría"
+            className="flex-1 px-3 py-2.5 border border-neutral-200 rounded-xl bg-neutral-50 text-sm text-neutral-900 font-medium focus:ring-2 focus:ring-neutral-200 outline-none"
+            disabled={loading}
+          />
+          <button type="submit" disabled={loading || !newCategoryName.trim()} className="px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-sm font-semibold disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors shrink-0">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800">{error}</p>
+        {/* Icon + Color row */}
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => setShowIconPicker(!showIconPicker)} className="w-10 h-10 rounded-xl border border-neutral-200 flex items-center justify-center hover:border-neutral-300 shrink-0" style={{ backgroundColor: `${newCategoryColor}10` }}>
+            <CategoryIcon name={newCategoryIcon} className="w-5 h-5" style={{ color: newCategoryColor }} />
+          </button>
+          <div className="flex flex-wrap gap-1.5 flex-1">
+            {CATEGORY_COLORS.map(c => (
+              <button key={c} type="button" onClick={() => setNewCategoryColor(c)} className={`w-6 h-6 rounded-full transition-transform ${newCategoryColor === c ? 'ring-2 ring-offset-1 ring-neutral-900 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
+            ))}
+          </div>
+        </div>
+
+        {showIconPicker && (
+          <div className="p-2 bg-neutral-50 rounded-xl border border-neutral-200 grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto">
+            {useEmoji ? (
+              SUGGESTED_EMOJIS.map(emoji => (
+                <button key={emoji} type="button" onClick={() => { setNewCategoryIcon(emoji); setShowIconPicker(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-base hover:bg-neutral-200 ${newCategoryIcon === emoji ? 'bg-neutral-900 text-white' : ''}`}>
+                  {emoji}
+                </button>
+              ))
+            ) : (
+              AVAILABLE_ICONS.map(code => (
+                <button key={code} type="button" onClick={() => { setNewCategoryIcon(code); setShowIconPicker(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center hover:bg-neutral-200 ${newCategoryIcon === code ? 'bg-neutral-900' : ''}`} title={iconLabels[code]}>
+                  <CategoryIcon name={code} className={`w-4 h-4 ${newCategoryIcon === code ? 'text-white' : 'text-neutral-600'}`} />
+                </button>
+              ))
+            )}
           </div>
         )}
 
-        {showSuggestions && availableSuggestions.length > 0 && (
-          <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl">
-            <p className="text-xs font-bold text-neutral-500 mb-3">💡 Sugerencias:</p>
-            <div className="flex flex-wrap gap-2">
-              {availableSuggestions.slice(0, 8).map(s => (
-                <button key={s.name} type="button" onClick={() => handleAddCategory(s.name, s.icon, s.color)} disabled={loading} className="px-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-full hover:bg-neutral-100 text-neutral-700 flex items-center gap-2">
-                  <CategoryIcon name={s.icon} className="w-4 h-4" style={{ color: s.color }} />
-                  {s.name}
-                </button>
-              ))}
-            </div>
+        {/* Toggle iconos/emojis */}
+        <div className="flex gap-1.5">
+          <button type="button" onClick={() => { setUseEmoji(false); setNewCategoryIcon('cart'); }} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${!useEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>Iconos</button>
+          <button type="button" onClick={() => { setUseEmoji(true); setNewCategoryIcon('💰'); }} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${useEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>Emojis</button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-100 rounded-lg p-2 flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-red-600 shrink-0" />
+            <p className="text-xs text-red-800">{error}</p>
           </div>
         )}
       </form>
