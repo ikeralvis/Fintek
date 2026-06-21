@@ -40,6 +40,7 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
   const supabase = createClient();
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
+  const [inputDates, setInputDates] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>('30d');
@@ -65,12 +66,13 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
     const value = parseFloat(inputValues[accountId]);
     if (isNaN(value) || value <= 0) return;
 
+    const selectedDate = inputDates[accountId] || today;
     setSavingId(accountId);
     try {
       const { data, error } = await supabase
         .from('investment_snapshots')
         .upsert(
-          { user_id: userId, account_id: accountId, value, snapshot_date: today },
+          { user_id: userId, account_id: accountId, value, snapshot_date: selectedDate },
           { onConflict: 'account_id,snapshot_date' }
         )
         .select()
@@ -79,14 +81,17 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       if (error) throw error;
 
       setSnapshots(prev => {
-        const filtered = prev.filter(s => !(s.account_id === accountId && s.snapshot_date === today));
+        const filtered = prev.filter(s => !(s.account_id === accountId && s.snapshot_date === selectedDate));
         return [...filtered, data].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
       });
 
-      // Also update account balance
-      await supabase.from('accounts').update({ current_balance: value }).eq('id', accountId);
+      // Update account balance only if the date is today (latest value)
+      if (selectedDate === today) {
+        await supabase.from('accounts').update({ current_balance: value }).eq('id', accountId);
+      }
 
       setInputValues(prev => ({ ...prev, [accountId]: '' }));
+      setInputDates(prev => ({ ...prev, [accountId]: '' }));
       setSavedId(accountId);
       setTimeout(() => setSavedId(null), 2000);
       router.refresh();
@@ -229,7 +234,7 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
 
         {/* Input Cards - Register today's value */}
         <div className="space-y-3">
-          <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-1">Registrar Valor de Hoy</h2>
+          <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-1">Registrar Valor</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {accounts.map(acc => {
               const latest = getLatestSnapshot(acc.id);
@@ -273,8 +278,8 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
                   </div>
 
                   {/* Quick input */}
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
+                  <div className="flex flex-wrap gap-2">
+                    <div className="relative flex-1 min-w-[120px]">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300 text-sm font-bold">€</span>
                       <input
                         type="number"
@@ -286,6 +291,12 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
                         className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-neutral-900 placeholder-neutral-300 focus:ring-2 focus:ring-neutral-200 focus:bg-white outline-none transition-all"
                       />
                     </div>
+                    <input
+                      type="date"
+                      value={inputDates[acc.id] || today}
+                      onChange={(e) => setInputDates(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                      className="bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-medium text-neutral-700 outline-none w-[130px] shrink-0"
+                    />
                     <button
                       onClick={() => handleSaveValue(acc.id)}
                       disabled={!inputValues[acc.id] || savingId === acc.id}

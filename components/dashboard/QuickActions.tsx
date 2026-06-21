@@ -3,10 +3,10 @@ import { Sparkles, PieChart, Calendar, Target } from 'lucide-react';
 
 export default function QuickActions() {
     const actions = [
-        { href: '/dashboard/analisis', icon: Sparkles, label: 'IA', color: 'text-amber-500' },
-        { href: '/dashboard/estadisticas', icon: PieChart, label: 'Stats', color: 'text-indigo-500' },
-        { href: '/dashboard/suscripciones', icon: Calendar, label: 'Subs', color: 'text-rose-500' },
-        { href: '/dashboard/presupuestos', icon: Target, label: 'Budget', color: 'text-emerald-500' },
+        { href: '/dashboard/analisis', icon: Sparkles, label: 'Predicción', color: 'text-amber-500' },
+        { href: '/dashboard/estadisticas', icon: PieChart, label: 'Estadísticas', color: 'text-indigo-500' },
+        { href: '/dashboard/suscripciones', icon: Calendar, label: 'Suscrip.', color: 'text-rose-500' },
+        { href: '/dashboard/presupuestos', icon: Target, label: 'Presup.', color: 'text-emerald-500' },
     ];
 
     return (

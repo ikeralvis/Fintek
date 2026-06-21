@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import {
     AreaChart, Area, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip,
@@ -17,7 +17,6 @@ import {
     BarChart3, ArrowUpRight, ArrowDownRight,
     ChevronLeft, ChevronRight
 } from 'lucide-react';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -33,7 +32,6 @@ export default function StatisticsView({ initialTransactions, accounts, categori
     const [periodType, setPeriodType] = useState<PeriodType>('month');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [exporting, setExporting] = useState(false);
-    const reportRef = useRef<HTMLDivElement>(null);
 
     const stats = useMemo(() => {
         let startDate: Date;
@@ -138,19 +136,127 @@ export default function StatisticsView({ initialTransactions, accounts, categori
         };
     }, [initialTransactions, periodType, currentDate]);
 
-    const handleExportPDF = async () => {
-        if (!reportRef.current) return;
+    const handleExportPDF = () => {
         setExporting(true);
         try {
-            const canvas = await html2canvas(reportRef.current, { scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Estadisticas_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+            const w = pdf.internal.pageSize.getWidth();
+            let y = 15;
+
+            const addText = (text: string, x: number, yPos: number, opts: { size?: number; bold?: boolean; color?: [number, number, number] } = {}) => {
+                pdf.setFontSize(opts.size || 10);
+                pdf.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+                pdf.setTextColor(...(opts.color || [24, 24, 27]));
+                pdf.text(text, x, yPos);
+            };
+
+            const addLine = (yPos: number) => {
+                pdf.setDrawColor(228, 228, 231);
+                pdf.line(15, yPos, w - 15, yPos);
+            };
+
+            // Header
+            addText('FinTek — Informe Financiero', 15, y, { size: 16, bold: true });
+            y += 7;
+            addText(`Período: ${periodLabel}`, 15, y, { size: 10, color: [113, 113, 122] });
+            addText(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, w - 65, y, { size: 8, color: [161, 161, 170] });
+            y += 10;
+            addLine(y); y += 8;
+
+            // Summary
+            addText('RESUMEN', 15, y, { size: 11, bold: true });
+            y += 8;
+
+            const summaryData = [
+                ['Ingresos', `+${stats.totals.income.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, [16, 185, 129] as [number, number, number]],
+                ['Gastos', `-${stats.totals.expense.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, [244, 63, 94] as [number, number, number]],
+                ['Balance', `${stats.totals.balance >= 0 ? '+' : ''}${stats.totals.balance.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, stats.totals.balance >= 0 ? [16, 185, 129] as [number, number, number] : [244, 63, 94] as [number, number, number]],
+                ['Tasa de ahorro', `${stats.totals.savingsRate.toFixed(1)}%`, [99, 102, 241] as [number, number, number]],
+            ];
+
+            for (const [label, value, color] of summaryData) {
+                addText(label as string, 20, y, { color: [113, 113, 122] });
+                addText(value as string, 80, y, { bold: true, color: color as [number, number, number] });
+                y += 6;
+            }
+
+            y += 6; addLine(y); y += 8;
+
+            // Accounts
+            addText('SALDOS POR CUENTA', 15, y, { size: 11, bold: true });
+            y += 8;
+
+            const accountGroups: Record<string, typeof accounts> = {};
+            for (const acc of accounts) {
+                const bankName = (acc as any).banks?.name || 'Otros';
+                if (!accountGroups[bankName]) accountGroups[bankName] = [];
+                accountGroups[bankName].push(acc);
+            }
+
+            for (const [bankName, accs] of Object.entries(accountGroups)) {
+                addText(bankName.toUpperCase(), 20, y, { size: 8, bold: true, color: [113, 113, 122] });
+                y += 5;
+                for (const acc of accs) {
+                    addText(`  ${(acc as any).name}`, 20, y);
+                    addText(`${(acc as any).current_balance?.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, 120, y, { bold: true });
+                    y += 5;
+                }
+                y += 3;
+            }
+
+            y += 4; addLine(y); y += 8;
+
+            // Categories breakdown
+            addText('DESGLOSE POR CATEGORÍA', 15, y, { size: 11, bold: true });
+            y += 8;
+
+            addText('Categoría', 20, y, { size: 8, bold: true, color: [113, 113, 122] });
+            addText('Tipo', 90, y, { size: 8, bold: true, color: [113, 113, 122] });
+            addText('Importe', 120, y, { size: 8, bold: true, color: [113, 113, 122] });
+            addText('Operaciones', 155, y, { size: 8, bold: true, color: [113, 113, 122] });
+            y += 6;
+
+            for (const cat of stats.categoryArray.slice(0, 15)) {
+                if (y > 270) { pdf.addPage(); y = 20; }
+                const isIncome = cat.income > cat.expense;
+                addText(cat.name, 20, y, { size: 9 });
+                addText(isIncome ? 'Ingreso' : 'Gasto', 90, y, { size: 8, color: isIncome ? [16, 185, 129] : [244, 63, 94] });
+                addText(`${isIncome ? '+' : '-'}${cat.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, 120, y, { size: 9, bold: true });
+                addText(`${cat.count}`, 160, y, { size: 9, color: [113, 113, 122] });
+                y += 5.5;
+            }
+
+            y += 6; addLine(y); y += 8;
+
+            // Monthly data
+            if (stats.monthlyData.length > 1) {
+                addText('EVOLUCIÓN MENSUAL', 15, y, { size: 11, bold: true });
+                y += 8;
+                addText('Mes', 20, y, { size: 8, bold: true, color: [113, 113, 122] });
+                addText('Ingresos', 60, y, { size: 8, bold: true, color: [113, 113, 122] });
+                addText('Gastos', 100, y, { size: 8, bold: true, color: [113, 113, 122] });
+                addText('Balance', 140, y, { size: 8, bold: true, color: [113, 113, 122] });
+                y += 6;
+
+                for (const m of stats.monthlyData) {
+                    if (y > 270) { pdf.addPage(); y = 20; }
+                    addText(m.month, 20, y, { size: 9 });
+                    addText(`+${m.income.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€`, 60, y, { size: 9, color: [16, 185, 129] });
+                    addText(`-${m.expense.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€`, 100, y, { size: 9, color: [244, 63, 94] });
+                    addText(`${m.balance >= 0 ? '+' : ''}${m.balance.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€`, 140, y, { size: 9, bold: true });
+                    y += 5.5;
+                }
+            }
+
+            // Footer
+            y = pdf.internal.pageSize.getHeight() - 10;
+            addText('Generado por FinTek', 15, y, { size: 7, color: [161, 161, 170] });
+            addText(`${stats.txCount} transacciones analizadas`, w - 60, y, { size: 7, color: [161, 161, 170] });
+
+            pdf.save(`FinTek_Informe_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
         } catch (err) {
             console.error("PDF Error", err);
+            alert('Error al generar PDF');
         } finally {
             setExporting(false);
         }
@@ -198,7 +304,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 </div>
             </div>
 
-            <div ref={reportRef} className="px-5 space-y-5 max-w-6xl mx-auto pt-5">
+            <div className="px-5 space-y-5 max-w-6xl mx-auto pt-5">
                 {/* Period Selector */}
                 <div className="flex items-center gap-3">
                     <div className="flex bg-neutral-100 rounded-xl p-0.5">
@@ -305,8 +411,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
                                 />
-                                <Area type="monotone" dataKey="income" name="Ingresos" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" dot={false} />
-                                <Area type="monotone" dataKey="expense" name="Gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpense)" dot={false} />
+                                <Area type="monotone" dataKey="income" name="Ingresos" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" dot={stats.monthlyData.length <= 2} />
+                                <Area type="monotone" dataKey="expense" name="Gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpense)" dot={stats.monthlyData.length <= 2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -328,7 +434,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}
                                 />
-                                <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#gradBalance)" dot={false} />
+                                <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#gradBalance)" dot={stats.monthlyData.length <= 2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -339,34 +445,38 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     {stats.pieData.length > 0 && (
                         <div className="bg-white rounded-2xl p-5 border border-neutral-100">
                             <h3 className="text-sm font-bold text-neutral-900 mb-4">Distribución de Gastos</h3>
-                            <div className="flex items-center gap-4">
-                                <div className="w-36 h-36 relative shrink-0">
+                            <div className="flex flex-col sm:flex-row items-center gap-4">
+                                <div className="w-40 h-40 relative shrink-0">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={stats.pieData}
                                                 cx="50%"
                                                 cy="50%"
-                                                innerRadius={40}
-                                                outerRadius={55}
-                                                paddingAngle={3}
+                                                innerRadius={45}
+                                                outerRadius={60}
+                                                paddingAngle={2}
                                                 dataKey="value"
                                             >
                                                 {stats.pieData.map((entry: any, i: number) => (
                                                     <Cell key={entry.name} fill={entry.color || COLORS[i % COLORS.length]} />
                                                 ))}
                                             </Pie>
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
+                                                formatter={(val: number | undefined) => [`${formatCompact(val ?? 0)}€`, '']}
+                                            />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </div>
-                                <div className="flex-1 space-y-2 max-h-36 overflow-y-auto">
+                                <div className="flex-1 w-full space-y-2 max-h-40 overflow-y-auto">
                                     {stats.pieData.slice(0, 8).map((item: any, i: number) => (
                                         <div key={item.name} className="flex items-center justify-between text-xs">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
                                                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
-                                                <span className="font-medium text-neutral-700 truncate max-w-[120px]">{item.name}</span>
+                                                <span className="font-medium text-neutral-700 truncate">{item.name}</span>
                                             </div>
-                                            <span className="font-bold text-neutral-900">{formatCompact(item.value)}€</span>
+                                            <span className="font-bold text-neutral-900 shrink-0 ml-2">{formatCompact(item.value)}€</span>
                                         </div>
                                     ))}
                                 </div>
@@ -375,11 +485,12 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     )}
 
                     <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Top Categorías</h3>
+                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Categorías</h3>
                         <div className="space-y-3">
-                            {stats.categoryArray.slice(0, 8).map((cat: any) => {
+                            {stats.categoryArray.slice(0, 10).map((cat: any) => {
                                 const maxValue = stats.categoryArray[0]?.total || 1;
                                 const percentage = (cat.total / maxValue) * 100;
+                                const isIncome = cat.income > cat.expense;
 
                                 return (
                                     <div key={cat.id} className="flex items-center gap-3">
@@ -391,13 +502,22 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-sm font-medium text-neutral-900 truncate">{cat.name}</span>
-                                                <span className="text-sm font-bold text-neutral-900">{formatCompact(cat.total)}€</span>
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="text-sm font-medium text-neutral-900 truncate">{cat.name}</span>
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                                        isIncome ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
+                                                    }`}>
+                                                        {isIncome ? 'Ingreso' : 'Gasto'}
+                                                    </span>
+                                                </div>
+                                                <span className={`text-sm font-bold shrink-0 ml-2 ${isIncome ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                                                    {isIncome ? '+' : '-'}{formatCompact(cat.total)}€
+                                                </span>
                                             </div>
                                             <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full rounded-full transition-all"
-                                                    style={{ width: `${percentage}%`, backgroundColor: cat.color }}
+                                                    style={{ width: `${percentage}%`, backgroundColor: isIncome ? '#10b981' : cat.color }}
                                                 />
                                             </div>
                                         </div>
