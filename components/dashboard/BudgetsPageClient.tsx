@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import BudgetFormModal from './BudgetFormModal';
+import { getSpendingAnalysis } from '@/lib/actions/analysis';
 
 export default function BudgetsPageClient() {
   const { transactions, categories, userId } = useDashboard();
@@ -19,6 +20,7 @@ export default function BudgetsPageClient() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<any>(null);
+  const [predictionByCategory, setPredictionByCategory] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchBudgets = async () => {
@@ -27,6 +29,14 @@ export default function BudgetsPageClient() {
       setLoading(false);
     };
     fetchBudgets();
+
+    getSpendingAnalysis().then(res => {
+      if (res.data) {
+        const map: Record<string, number> = {};
+        res.data.categories.forEach((c: any) => { map[c.categoryId] = c.prediction; });
+        setPredictionByCategory(map);
+      }
+    });
   }, [userId]);
 
   const now = new Date();
@@ -58,11 +68,12 @@ export default function BudgetsPageClient() {
         const remaining = b.amount - spent;
         const category = categoriesMap[b.category_id];
         const status = percentage > 100 ? 'exceeded' : percentage >= 80 ? 'warning' : 'safe';
+        const prediction = predictionByCategory[b.category_id];
 
-        return { ...b, spent, percentage, remaining, category, status };
+        return { ...b, spent, percentage, remaining, category, status, prediction };
       })
       .sort((a, b) => b.percentage - a.percentage);
-  }, [budgets, spendingMap, categoriesMap]);
+  }, [budgets, spendingMap, categoriesMap, predictionByCategory]);
 
   const totalBudget = budgetData.reduce((acc, b) => acc + b.amount, 0);
   const totalSpent = budgetData.reduce((acc, b) => acc + b.spent, 0);
@@ -239,6 +250,13 @@ export default function BudgetsPageClient() {
                     {b.remaining >= 0 ? `${b.remaining.toLocaleString('es-ES')}€ libre` : `${Math.abs(b.remaining).toLocaleString('es-ES')}€ excedido`}
                   </span>
                 </div>
+
+                {b.prediction > b.amount && (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-violet-500 bg-violet-50 rounded-lg px-2 py-1.5">
+                    <TrendingUp className="w-3 h-3 shrink-0" />
+                    IA estima que gastarás ~{Math.round(b.prediction).toLocaleString('es-ES')}€ este mes, por encima del límite
+                  </div>
+                )}
               </div>
             ))}
           </div>

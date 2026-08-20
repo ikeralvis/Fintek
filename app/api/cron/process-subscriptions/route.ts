@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
-import { addMonths, addWeeks, addYears, parseISO, format } from 'date-fns';
+import { addMonths, addWeeks, addYears, addDays, parseISO, format } from 'date-fns';
+import { sendPushToUser } from '@/lib/push/sendToUser';
 
 export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
@@ -10,6 +11,10 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
     const today = new Date().toISOString().split('T')[0];
+    const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+
+    // Aviso "mañana se cobra X" — no crea transacción, solo notifica
+    const reminderResults = await sendTomorrowReminders(supabase, tomorrow);
 
     const { data: dueSubs, error } = await supabase
         .from('subscriptions')
@@ -22,7 +27,7 @@ export async function GET(request: Request) {
     }
 
     if (!dueSubs || dueSubs.length === 0) {
-        return NextResponse.json({ message: 'No subscriptions due today.' });
+        return NextResponse.json({ message: 'No subscriptions due today.', reminders: reminderResults });
     }
 
     const results = { processed: 0, errors: 0, details: [] as any[] };
@@ -65,7 +70,42 @@ export async function GET(request: Request) {
         }
     }
 
-    return NextResponse.json(results);
+    return NextResponse.json({ ...results, reminders: reminderResults });
+}
+
+async function sendTomorrowReminders(supabase: any, tomorrow: string) {
+    const { data: subsTomorrow } = await supabase
+        .from('subscriptions')
+        .select('id, user_id, name, amount')
+        .eq('status', 'active')
+        .eq('next_payment_date', tomorrow);
+
+    if (!subsTomorrow || subsTomorrow.length === 0) return { sent: 0 };
+
+    const userIds = Array.from(new Set(subsTomorrow.map((s: any) => s.user_id)));
+    const { data: settings } = await supabase
+        .from('notification_settings')
+        .select('user_id, push_enabled, subscription_reminders')
+        .in('user_id', userIds);
+
+    const enabledUserIds = new Set(
+        (settings || [])
+            .filter((s: any) => s.push_enabled && s.subscription_reminders)
+            .map((s: any) => s.user_id)
+    );
+
+    let sent = 0;
+    for (const sub of subsTomorrow) {
+        if (!enabledUserIds.has(sub.user_id)) continue;
+        await sendPushToUser(supabase, sub.user_id, {
+            title: 'Cobro mañana',
+            body: `Mañana se cobra ${sub.name} (${Number(sub.amount).toFixed(2)}€)`,
+            url: '/dashboard/suscripciones',
+            tag: `subscription-reminder-${sub.id}`,
+        });
+        sent++;
+    }
+    return { sent };
 }
 
 async function getDefaultAccountId(supabase: any, userId: string) {

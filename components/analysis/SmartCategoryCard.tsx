@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 
 export default function SmartCategoryCard({ data, delay = 0 }: { data: any, delay?: number }) {
-    const { name, icon, color, prediction, average, current, trend, insight } = data;
+    const { name, icon, color, prediction, average, current, trend, insight, median, min, max } = data;
 
     const maxVal = Math.max(prediction, average, current, 1);
     const predPct = (prediction / maxVal) * 100;
@@ -78,6 +78,16 @@ export default function SmartCategoryCard({ data, delay = 0 }: { data: any, dela
                     <span className="w-10 text-right font-mono text-amber-500 font-bold text-[11px]">{Math.round(prediction)}€</span>
                 </div>
             </div>
+
+            {(min > 0 || max > 0) && (
+                <div className="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-center gap-3 text-[10px] font-medium text-neutral-400">
+                    <span>Mín <span className="font-mono text-neutral-600">{Math.round(min)}€</span></span>
+                    <span className="w-1 h-1 rounded-full bg-neutral-200" />
+                    <span>Mediana <span className="font-mono text-neutral-600">{Math.round(median)}€</span></span>
+                    <span className="w-1 h-1 rounded-full bg-neutral-200" />
+                    <span>Máx <span className="font-mono text-neutral-600">{Math.round(max)}€</span></span>
+                </div>
+            )}
         </div>
     );
 }
