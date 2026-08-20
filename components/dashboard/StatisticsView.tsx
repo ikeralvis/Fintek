@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import {
     format, subMonths, addMonths, startOfMonth, endOfMonth,
-    parseISO, startOfYear, eachMonthOfInterval, isValid, isWithinInterval
+    parseISO, startOfYear, eachMonthOfInterval, eachDayOfInterval, isValid, isWithinInterval
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -73,6 +73,31 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             m.balance = m.income - m.expense;
         });
 
+        // Serie del gráfico: en vista "Mes" un único punto mensual no dice nada, así que
+        // se desglosa día a día (con balance acumulado); en vista "Año" se mantiene por meses.
+        let chartData: { label: string; income: number; expense: number; balance: number }[];
+        if (periodType === 'month') {
+            const dailyMap: Record<string, { income: number; expense: number }> = {};
+            const days = eachDayOfInterval({ start: startDate, end: endDate });
+            days.forEach(d => { dailyMap[format(d, 'yyyy-MM-dd')] = { income: 0, expense: 0 }; });
+            filteredTxs.forEach((t: any) => {
+                const key = t.transaction_date.substring(0, 10);
+                if (dailyMap[key]) {
+                    if (t.type === 'income') dailyMap[key].income += t.amount;
+                    else if (t.type === 'expense') dailyMap[key].expense += t.amount;
+                }
+            });
+            let running = 0;
+            chartData = days.map(d => {
+                const key = format(d, 'yyyy-MM-dd');
+                const { income, expense } = dailyMap[key];
+                running += income - expense;
+                return { label: format(d, 'd'), income, expense, balance: running };
+            });
+        } else {
+            chartData = Object.values(monthlyData).map(m => ({ label: m.month, income: m.income, expense: m.expense, balance: m.balance }));
+        }
+
         const categoryStats: Record<string, { name: string; icon: string; color: string; income: number; expense: number; count: number }> = {};
 
         filteredTxs.forEach((t: any) => {
@@ -128,6 +153,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
 
         return {
             monthlyData: Object.values(monthlyData),
+            chartData,
             categoryArray,
             pieData,
             totals: { income: totalIncome, expense: totalExpense, balance, savingsRate },
@@ -394,7 +420,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     <div className="bg-white rounded-2xl p-5 border border-neutral-100">
                         <h3 className="text-sm font-bold text-neutral-900 mb-4">Ingresos vs Gastos</h3>
                         <ResponsiveContainer width="100%" height={220}>
-                            <AreaChart data={stats.monthlyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                            <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
@@ -405,36 +431,36 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                         <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} />
+                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} interval={periodType === 'month' ? 4 : 0} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
                                 />
-                                <Area type="monotone" dataKey="income" name="Ingresos" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" dot={stats.monthlyData.length <= 2} />
-                                <Area type="monotone" dataKey="expense" name="Gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpense)" dot={stats.monthlyData.length <= 2} />
+                                <Area type="monotone" dataKey="income" name="Ingresos" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" dot={stats.chartData.length <= 2} />
+                                <Area type="monotone" dataKey="expense" name="Gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpense)" dot={stats.chartData.length <= 2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
 
                     {/* Balance Evolution */}
                     <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance</h3>
+                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance{periodType === 'month' ? ' (acumulado)' : ''}</h3>
                         <ResponsiveContainer width="100%" height={220}>
-                            <AreaChart data={stats.monthlyData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                            <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="gradBalance" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
                                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} />
+                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} interval={periodType === 'month' ? 4 : 0} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}
                                 />
-                                <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#gradBalance)" dot={stats.monthlyData.length <= 2} />
+                                <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#gradBalance)" dot={stats.chartData.length <= 2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>

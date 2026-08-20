@@ -8,8 +8,9 @@ import QuickActions from './QuickActions';
 import AccountList from './AccountList';
 import RecentTransactionsList from './RecentTransactionsList';
 import WalletWidget from './WalletWidget';
+import UpcomingSubscriptionsWidget from './UpcomingSubscriptionsWidget';
 
-type WidgetId = 'netWorth' | 'quickActions' | 'recentTransactions' | 'accounts' | 'wallet';
+type WidgetId = 'netWorth' | 'quickActions' | 'recentTransactions' | 'accounts' | 'wallet' | 'upcomingSubscriptions';
 type Column = 'main' | 'side';
 
 type WidgetDef = {
@@ -24,6 +25,7 @@ const WIDGET_DEFS: WidgetDef[] = [
   { id: 'recentTransactions', label: 'Transacciones recientes', column: 'main' },
   { id: 'accounts', label: 'Cuentas', column: 'side' },
   { id: 'wallet', label: 'Mi Cartera', column: 'side' },
+  { id: 'upcomingSubscriptions', label: 'Próximos cobros', column: 'side' },
 ];
 
 type LayoutEntry = { id: WidgetId; visible: boolean };
@@ -119,6 +121,8 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
             <WalletWidget walletAccount={walletAccount} />
           </div>
         ) : null;
+      case 'upcomingSubscriptions':
+        return <UpcomingSubscriptionsWidget />;
       default:
         return null;
     }

@@ -39,7 +39,10 @@ export default function BudgetsPageClient() {
   const spendingMap = useMemo(() => {
     const map: Record<string, number> = {};
     transactions.forEach(t => {
-      if (t.type === 'expense' && t.transaction_date >= startOfMonth && t.category_id) {
+      // Los gastos siempre cuentan. Las transferencias solo cuentan si el usuario les puso
+      // categoría explícitamente (ej. una aportación regular a otra cuenta categorizada como "Ahorro").
+      const countsTowardBudget = t.type === 'expense' || t.type === 'transfer';
+      if (countsTowardBudget && t.transaction_date >= startOfMonth && t.category_id) {
         map[t.category_id] = (map[t.category_id] || 0) + t.amount;
       }
     });

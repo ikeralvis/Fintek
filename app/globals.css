@@ -9,6 +9,7 @@
   /* Tamaño de fuente base: más legible en móviles */
   html {
     font-size: 16px; /* Desktop default */
+    overflow-x: hidden;
   }
 
   @media (max-width: 640px) {
@@ -28,6 +29,7 @@
     -moz-osx-font-smoothing: grayscale;
     position: relative;
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
   body::before {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Calendar, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { updateTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 
@@ -88,6 +89,7 @@ export default function EditTransferModal({ transaction, categories, accounts, o
 
             if (result.error) throw new Error(result.error);
 
+            toast.success('Transferencia actualizada');
             onSaved();
             router.refresh();
         } catch (err: any) {

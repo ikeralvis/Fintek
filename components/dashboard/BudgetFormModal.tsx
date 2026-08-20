@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { upsertBudget, deleteBudget } from '@/lib/actions/budgets';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 
@@ -43,9 +44,10 @@ export default function BudgetFormModal({
         setLoading(false);
 
         if (res.success) {
+            toast.success(existingBudget ? 'Presupuesto actualizado' : 'Presupuesto creado');
             onClose();
         } else {
-            alert('Error al guardar: ' + res.error);
+            toast.error('Error al guardar: ' + res.error);
         }
     };
 
@@ -54,6 +56,7 @@ export default function BudgetFormModal({
         setLoading(true);
         await deleteBudget(existingBudget.id);
         setLoading(false);
+        toast.success('Presupuesto eliminado');
         onClose();
     };
 

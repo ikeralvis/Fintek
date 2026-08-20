@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({
       </head>
       <body className={`${GeistSans.variable} font-sans antialiased text-neutral-900 bg-neutral-50`}>
         {children}
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );

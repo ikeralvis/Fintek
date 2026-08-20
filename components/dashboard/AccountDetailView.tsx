@@ -10,12 +10,14 @@ import {
 import { format, parseISO, isSameDay, isSameMonth, subMonths, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import { cancelAccount } from '@/lib/actions/accounts';
 import { deleteTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import EditTransactionModal from './EditTransactionModal';
 import EditTransferModal from './EditTransferModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
+import SwipeToDeleteRow from './SwipeToDeleteRow';
 
 type Category = {
     id: string;
@@ -103,7 +105,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
             router.push('/dashboard/cuentas');
             router.refresh();
         } catch {
-            alert('Error al cancelar la cuenta');
+            toast.error('Error al cancelar la cuenta');
         } finally {
             setIsDeleting(false);
         }
@@ -119,9 +121,10 @@ export default function AccountDetailView({ account, initialTransactions, catego
             } else {
                 await supabase.from('transactions').delete().eq('id', tx.id);
             }
+            toast.success('Transacción eliminada');
             router.refresh();
         } catch {
-            alert('Error al eliminar');
+            toast.error('Error al eliminar');
         } finally {
             setDeletingId(null);
         }
@@ -332,7 +335,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                         const showAsIncome = t.type === 'income' || isIncoming;
 
                                         return (
-                                            <div key={rowKey} className="px-4 py-3 flex items-center gap-3 group">
+                                            <SwipeToDeleteRow key={rowKey} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-white px-4 py-3 flex items-center gap-3 group">
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                     style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#f0f9ff' : '#f5f5f5') }}
@@ -373,7 +376,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                                         )}
                                                     </button>
                                                 </div>
-                                            </div>
+                                            </SwipeToDeleteRow>
                                         );
                                     })}
                                 </div>

@@ -6,9 +6,11 @@ import { Search, ChevronDown, ChevronLeft, ChevronRight, Trash2, Pencil, X, Data
 import { format, parseISO, isSameDay, isSameMonth, isSameWeek, isSameYear, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import EditTransactionModal from './EditTransactionModal';
 import EditTransferModal from './EditTransferModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
+import SwipeToDeleteRow from './SwipeToDeleteRow';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { deleteTransfer } from '@/lib/actions/transfers';
 
@@ -78,10 +80,11 @@ export default function TransactionsView({ initialTransactions, accounts, catego
             }
 
             setTransactions(transactions.filter(t => t.id !== tx.id));
+            toast.success('Transacción eliminada');
             router.refresh();
         } catch (err) {
             console.error('Error deleting transaction:', err);
-            alert('Error al eliminar la transacción');
+            toast.error('Error al eliminar la transacción');
         } finally {
             setDeletingId(null);
         }
@@ -281,7 +284,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                             : null;
 
                                         return (
-                                            <div key={t.id} className="px-4 py-3 flex items-center gap-3 group">
+                                            <SwipeToDeleteRow key={t.id} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-white px-4 py-3 flex items-center gap-3 group">
                                                 {/* Category Icon */}
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -327,7 +330,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                                         )}
                                                     </button>
                                                 </div>
-                                            </div>
+                                            </SwipeToDeleteRow>
                                         );
                                     })}
                                 </div>

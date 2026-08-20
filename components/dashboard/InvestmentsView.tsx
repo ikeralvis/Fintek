@@ -16,6 +16,7 @@ import {
   ResponsiveContainer, Cell, ReferenceLine, Legend
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import Link from 'next/link';
 
 type Account = {
@@ -33,15 +34,24 @@ type Snapshot = {
   user_id: string;
 };
 
+type Transfer = {
+  id: string;
+  amount: number;
+  account_id: string;
+  related_account_id: string | null;
+  transaction_date: string;
+};
+
 type Props = {
   accounts: Account[];
   snapshots: Snapshot[];
+  transfers?: Transfer[];
   userId: string;
 };
 
 type Period = '7d' | '30d' | '90d' | 'all';
 
-export default function InvestmentsView({ accounts, snapshots: initialSnapshots, userId }: Props) {
+export default function InvestmentsView({ accounts, snapshots: initialSnapshots, transfers = [], userId }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [snapshots, setSnapshots] = useState(initialSnapshots);
@@ -132,6 +142,35 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
   const dailyChange = totalValue - totalYesterday;
   const dailyChangePct = totalYesterday > 0 ? (dailyChange / totalYesterday) * 100 : 0;
 
+  // --- Aportaciones vs. rendimiento real ---
+  // Una transferencia hacia una cuenta de inversión es dinero externo entrando al portfolio
+  // (aportación), no rendimiento del mercado. Una transferencia entre dos cuentas de inversión
+  // es un movimiento interno y no cambia el valor total del portfolio, así que se ignora.
+  const investmentAccountIds = useMemo(() => new Set(accounts.map(a => a.id)), [accounts]);
+
+  const transferContribution = (t: Transfer): number => {
+    const fromInv = investmentAccountIds.has(t.account_id);
+    const toInv = t.related_account_id ? investmentAccountIds.has(t.related_account_id) : false;
+    if (fromInv && toInv) return 0;
+    if (toInv) return t.amount;
+    if (fromInv) return -t.amount;
+    return 0;
+  };
+
+  // Suma de aportaciones/retiradas netas con fecha en (fromExclusive, toInclusive]
+  const netContributionInRange = (fromExclusive: string, toInclusive: string): number => {
+    return transfers.reduce((sum, t) => {
+      if (t.transaction_date > fromExclusive && t.transaction_date <= toInclusive) {
+        return sum + transferContribution(t);
+      }
+      return sum;
+    }, 0);
+  };
+
+  const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const contributionToday = netContributionInRange(yesterdayStr, today);
+  const realGainToday = dailyChange - contributionToday;
+
   // --- Daily Changes (bar chart data) ---
   const dailyChangesData = useMemo(() => {
     const periodStart = period === '7d' ? subDays(new Date(), 7)
@@ -141,16 +180,20 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
     const startStr = format(periodStart, 'yyyy-MM-dd');
 
     const filtered = sortedDates.filter(d => d >= startStr);
-    const result: { date: string; label: string; change: number; value: number }[] = [];
+    const result: { date: string; label: string; change: number; value: number; contribution: number; realGain: number }[] = [];
 
     for (let i = 0; i < filtered.length; i++) {
       const date = filtered[i];
       const val = totalByDate[date];
       const prevVal = i > 0 ? totalByDate[filtered[i - 1]] : val;
+      const prevDate = i > 0 ? filtered[i - 1] : date;
+      const contribution = netContributionInRange(prevDate, date);
       result.push({
         date,
         label: format(parseISO(date), 'd MMM', { locale: es }),
         change: val - prevVal,
+        contribution,
+        realGain: (val - prevVal) - contribution,
         value: val,
       });
     }
@@ -240,7 +283,7 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       setSavedId(accountId);
       setTimeout(() => setSavedId(null), 2000);
       router.refresh();
-    } catch { alert('Error al guardar'); }
+    } catch { toast.error('Error al guardar'); }
     finally { setSavingId(null); }
   };
 
@@ -269,7 +312,7 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       setEditingSnapshot(null);
       router.refresh();
     } catch {
-      alert('Error al actualizar el registro');
+      toast.error('Error al actualizar el registro');
     } finally {
       setHistoryBusyId(null);
     }
@@ -287,7 +330,7 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       await syncAccountBalanceFromSnapshots(snapshot.account_id, nextSnapshots);
       router.refresh();
     } catch {
-      alert('Error al eliminar el registro');
+      toast.error('Error al eliminar el registro');
     } finally {
       setHistoryBusyId(null);
     }
@@ -344,6 +387,12 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
             </span>
             <span className="text-xs text-neutral-400">hoy</span>
           </div>
+          {contributionToday !== 0 && (
+            <p className="text-[11px] text-neutral-400 mt-1.5">
+              De los cuales <span className="font-semibold text-neutral-600">{fmtShort(contributionToday)}</span> son aportaciones y{' '}
+              <span className={`font-semibold ${realGainToday >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtShort(realGainToday)}</span> rendimiento real
+            </p>
+          )}
         </div>
 
         {/* Comparison strip */}
@@ -495,7 +544,14 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
                     <ReferenceLine y={0} stroke="#e4e4e7" />
                     <Tooltip
                       contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                      formatter={(val: number | undefined) => [fmtShort(val ?? 0), 'Cambio']}
+                      formatter={(val: number | undefined, name: string | undefined, item: any) => {
+                        const contribution = item?.payload?.contribution ?? 0;
+                        if (contribution !== 0) {
+                          const realGain = item?.payload?.realGain ?? 0;
+                          return [`${fmtShort(val ?? 0)}  ·  Aportación ${fmtShort(contribution)}  ·  Rendimiento ${fmtShort(realGain)}`, 'Cambio'];
+                        }
+                        return [fmtShort(val ?? 0), 'Cambio'];
+                      }}
                     />
                     <Bar dataKey="change" radius={[3, 3, 0, 0]} maxBarSize={24}>
                       {dailyChangesData.map((entry, i) => (
