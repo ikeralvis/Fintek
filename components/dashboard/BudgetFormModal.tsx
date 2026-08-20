@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Check } from 'lucide-react';
 import { upsertBudget, deleteBudget } from '@/lib/actions/budgets';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 
 export default function BudgetFormModal({
     isOpen,
@@ -87,7 +88,7 @@ export default function BudgetFormModal({
                                             : 'border-neutral-100 bg-white hover:bg-neutral-50 text-neutral-600'
                                         } ${existingBudget && existingBudget.category_id !== cat.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    <span>{cat.icon}</span>
+                                    <CategoryIcon name={cat.icon} className="w-4 h-4 shrink-0" />
                                     <span className="text-xs font-bold truncate">{cat.name}</span>
                                 </button>
                             ))}

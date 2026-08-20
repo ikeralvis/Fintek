@@ -122,6 +122,126 @@ export async function createTransfer(formData: {
   }
 }
 
+const UpdateTransferSchema = z.object({
+  fromAccountId: z.string().uuid(),
+  toAccountId: z.string().uuid(),
+  categoryId: z.string().uuid().optional().nullable(),
+  amount: z.number().positive(),
+  description: z.string().optional(),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
+});
+
+export async function updateTransfer(transactionId: string, formData: {
+  fromAccountId: string;
+  toAccountId: string;
+  categoryId?: string | null;
+  amount: number;
+  description?: string;
+  transactionDate: string;
+}) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'No autenticado' };
+  }
+
+  const validation = UpdateTransferSchema.safeParse(formData);
+  if (!validation.success) {
+    return { error: 'Datos inválidos: ' + validation.error.issues.map(e => e.message).join(', ') };
+  }
+
+  if (formData.fromAccountId === formData.toAccountId) {
+    return { error: 'No puedes transferir a la misma cuenta' };
+  }
+
+  try {
+    // Load the existing transfer
+    const { data: existing, error: fetchError } = await supabase
+      .from('transactions')
+      .select('type, amount, account_id, related_account_id')
+      .eq('id', transactionId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!existing || existing.type !== 'transfer' || !existing.related_account_id) {
+      return { error: 'Esta transacción no es una transferencia' };
+    }
+
+    // Fetch balances for every account involved (old + new sides, deduplicated)
+    const accountIds = Array.from(new Set([
+      existing.account_id,
+      existing.related_account_id,
+      formData.fromAccountId,
+      formData.toAccountId,
+    ]));
+
+    const { data: accounts, error: accountsError } = await supabase
+      .from('accounts')
+      .select('id, user_id, current_balance')
+      .in('id', accountIds);
+
+    if (accountsError) throw accountsError;
+
+    if (!accounts || accounts.length !== accountIds.length || !accounts.every(acc => acc.user_id === user.id)) {
+      return { error: 'Una o más cuentas no existen o no son tuyas' };
+    }
+
+    const balances = new Map(accounts.map(acc => [acc.id, acc.current_balance]));
+
+    // Revert the old transfer's effect
+    balances.set(existing.account_id, balances.get(existing.account_id)! + existing.amount);
+    balances.set(existing.related_account_id, balances.get(existing.related_account_id)! - existing.amount);
+
+    // Check sufficient balance on the new source account after reverting the old effect
+    if (balances.get(formData.fromAccountId)! < formData.amount) {
+      return { error: 'Saldo insuficiente en la cuenta de origen' };
+    }
+
+    // Apply the new transfer's effect
+    balances.set(formData.fromAccountId, balances.get(formData.fromAccountId)! - formData.amount);
+    balances.set(formData.toAccountId, balances.get(formData.toAccountId)! + formData.amount);
+
+    // Persist the updated transaction row
+    const { error: updateTxError } = await supabase
+      .from('transactions')
+      .update({
+        account_id: formData.fromAccountId,
+        related_account_id: formData.toAccountId,
+        amount: formData.amount,
+        description: formData.description || 'Transferencia',
+        transaction_date: formData.transactionDate,
+        category_id: formData.categoryId || null,
+      })
+      .eq('id', transactionId)
+      .eq('user_id', user.id);
+
+    if (updateTxError) throw updateTxError;
+
+    // Persist the recalculated balances for every affected account
+    for (const accountId of accountIds) {
+      const { error: updateAccError } = await supabase
+        .from('accounts')
+        .update({ current_balance: balances.get(accountId), updated_at: new Date().toISOString() })
+        .eq('id', accountId);
+      if (updateAccError) throw updateAccError;
+    }
+
+    revalidatePath('/dashboard/transacciones');
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/cuentas');
+
+    return { error: null };
+  } catch (err: any) {
+    console.error('Error updating transfer:', err);
+    return { error: err.message };
+  }
+}
+
 export async function deleteTransfer(transactionId: string) {
   const supabase = await createClient();
 

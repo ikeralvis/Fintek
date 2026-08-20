@@ -235,7 +235,7 @@ export default function WalletView({ account, initialTransactions }: Props) {
                                         <button
                                             onClick={() => handleDeleteTransaction(tx)}
                                             disabled={deletingId === tx.id}
-                                            className="p-2 text-neutral-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                            className="p-2 text-neutral-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

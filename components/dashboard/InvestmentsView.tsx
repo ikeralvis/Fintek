@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, TrendingUp, TrendingDown, Check, Loader2,
-  ChevronLeft, ChevronRight, BarChart3
+  ChevronLeft, ChevronRight, BarChart3, Pencil, Trash2, X, History
 } from 'lucide-react';
 import {
   format, parseISO, subDays, subMonths, addMonths,
@@ -12,8 +12,8 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell, ReferenceLine
+  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, Cell, ReferenceLine, Legend
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -52,24 +52,59 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
   const [period, setPeriod] = useState<Period>('30d');
   const [calMonth, setCalMonth] = useState(new Date());
   const [activeTab, setActiveTab] = useState<'charts' | 'calendar'>('charts');
+  const [showPerAccount, setShowPerAccount] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [editingSnapshot, setEditingSnapshot] = useState<{ id: string; value: string } | null>(null);
+  const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
+
+  const ACCOUNT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f43f5e', '#84cc16'];
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
   // --- Helpers ---
-  const totalByDate = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const s of snapshots) {
-      map[s.snapshot_date] = (map[s.snapshot_date] || 0) + s.value;
+  // Snapshots por cuenta, ordenados por fecha, para poder "arrastrar" (forward-fill)
+  // el último valor conocido de cada cuenta en fechas donde no se registró nada.
+  const accountSnapshotsSorted = useMemo(() => {
+    const map: Record<string, Snapshot[]> = {};
+    for (const acc of accounts) {
+      map[acc.id] = snapshots
+        .filter(s => s.account_id === acc.id)
+        .sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     }
     return map;
-  }, [snapshots]);
+  }, [snapshots, accounts]);
 
+  const valueForAccountAtDate = (accountId: string, date: string): number | undefined => {
+    const list = accountSnapshotsSorted[accountId] || [];
+    let result: number | undefined;
+    for (const s of list) {
+      if (s.snapshot_date <= date) result = s.value;
+      else break;
+    }
+    return result;
+  };
+
+  // Fechas con al menos un registro de alguna cuenta (unión, no solo las que coinciden en todas)
   const sortedDates = useMemo(() =>
-    Object.keys(totalByDate).sort(),
-  [totalByDate]);
+    Array.from(new Set(snapshots.map(s => s.snapshot_date))).sort(),
+  [snapshots]);
+
+  // Total del portfolio por fecha, arrastrando el último valor conocido de cada cuenta
+  // (si una cuenta no tiene registro ese día, no cuenta como "perdido": se usa su último valor).
+  const totalByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const date of sortedDates) {
+      let total = 0;
+      for (const acc of accounts) {
+        total += valueForAccountAtDate(acc.id, date) ?? acc.current_balance;
+      }
+      map[date] = total;
+    }
+    return map;
+  }, [sortedDates, accounts, accountSnapshotsSorted]);
 
   const getLatestSnapshot = (accountId: string): Snapshot | undefined => {
-    const accs = snapshots.filter(s => s.account_id === accountId);
+    const accs = accountSnapshotsSorted[accountId] || [];
     return accs[accs.length - 1];
   };
 
@@ -139,6 +174,28 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       }));
   }, [snapshots, period, sortedDates, totalByDate]);
 
+  // --- Per-account evolution (para el toggle "por cuenta") ---
+  const perAccountEvolutionData = useMemo(() => {
+    const periodStart = period === '7d' ? subDays(new Date(), 7)
+      : period === '30d' ? subDays(new Date(), 30)
+      : period === '90d' ? subMonths(new Date(), 3)
+      : new Date(2020, 0, 1);
+    const startStr = format(periodStart, 'yyyy-MM-dd');
+
+    return sortedDates
+      .filter(d => d >= startStr)
+      .map(date => {
+        const row: Record<string, number | string> = {
+          date,
+          label: format(parseISO(date), 'd MMM', { locale: es }),
+        };
+        for (const acc of accounts) {
+          row[acc.id] = valueForAccountAtDate(acc.id, date) ?? acc.current_balance;
+        }
+        return row;
+      });
+  }, [snapshots, period, sortedDates, accounts, accountSnapshotsSorted]);
+
   // --- Calendar data ---
   const calendarGains = useMemo(() => {
     const gains: Record<string, number> = {};
@@ -185,6 +242,55 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       router.refresh();
     } catch { alert('Error al guardar'); }
     finally { setSavingId(null); }
+  };
+
+  // Recalcula el saldo de una cuenta a partir de su snapshot más reciente restante (o el propio balance si no queda ninguno)
+  const syncAccountBalanceFromSnapshots = async (accountId: string, remainingSnapshots: Snapshot[]) => {
+    const accSnapshots = remainingSnapshots.filter(s => s.account_id === accountId).sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const latest = accSnapshots[accSnapshots.length - 1];
+    if (latest) {
+      await supabase.from('accounts').update({ current_balance: latest.value }).eq('id', accountId);
+    }
+  };
+
+  const handleUpdateSnapshot = async (snapshot: Snapshot) => {
+    if (!editingSnapshot || editingSnapshot.id !== snapshot.id) return;
+    const value = parseFloat(editingSnapshot.value);
+    if (isNaN(value) || value <= 0) return;
+
+    setHistoryBusyId(snapshot.id);
+    try {
+      const { error } = await supabase.from('investment_snapshots').update({ value }).eq('id', snapshot.id);
+      if (error) throw error;
+
+      const nextSnapshots = snapshots.map(s => s.id === snapshot.id ? { ...s, value } : s);
+      setSnapshots(nextSnapshots);
+      await syncAccountBalanceFromSnapshots(snapshot.account_id, nextSnapshots);
+      setEditingSnapshot(null);
+      router.refresh();
+    } catch {
+      alert('Error al actualizar el registro');
+    } finally {
+      setHistoryBusyId(null);
+    }
+  };
+
+  const handleDeleteSnapshot = async (snapshot: Snapshot) => {
+    if (!confirm('¿Eliminar este registro del historial?')) return;
+    setHistoryBusyId(snapshot.id);
+    try {
+      const { error } = await supabase.from('investment_snapshots').delete().eq('id', snapshot.id);
+      if (error) throw error;
+
+      const nextSnapshots = snapshots.filter(s => s.id !== snapshot.id);
+      setSnapshots(nextSnapshots);
+      await syncAccountBalanceFromSnapshots(snapshot.account_id, nextSnapshots);
+      router.refresh();
+    } catch {
+      alert('Error al eliminar el registro');
+    } finally {
+      setHistoryBusyId(null);
+    }
   };
 
   const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
@@ -298,6 +404,70 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
           </div>
         </div>
 
+        {/* Historial de registros (editable, por si un valor se introdujo mal) */}
+        <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+          <button
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-neutral-400" />
+              <span className="text-sm font-semibold text-neutral-900">Historial de registros</span>
+              <span className="text-xs text-neutral-400">({snapshots.length})</span>
+            </div>
+            <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${isHistoryOpen ? 'rotate-90' : ''}`} />
+          </button>
+          {isHistoryOpen && (
+            <div className="border-t border-neutral-100 max-h-[320px] overflow-y-auto divide-y divide-neutral-50">
+              {[...snapshots].sort((a, b) => b.snapshot_date.localeCompare(a.snapshot_date)).map(s => {
+                const acc = accounts.find(a => a.id === s.account_id);
+                const isEditing = editingSnapshot?.id === s.id;
+                const isBusy = historyBusyId === s.id;
+                return (
+                  <div key={s.id} className="px-4 py-2.5 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-neutral-900 truncate">{acc?.name || 'Cuenta'}</p>
+                      <p className="text-[11px] text-neutral-400">{format(parseISO(s.snapshot_date), 'd MMM yyyy', { locale: es })}</p>
+                    </div>
+                    {isEditing ? (
+                      <>
+                        <div className="relative w-28 shrink-0">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-300 text-xs font-bold">€</span>
+                          <input
+                            type="number" step="0.01" autoFocus value={editingSnapshot.value}
+                            onChange={(e) => setEditingSnapshot({ id: s.id, value: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateSnapshot(s); }}
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-200"
+                          />
+                        </div>
+                        <button onClick={() => handleUpdateSnapshot(s)} disabled={isBusy} className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg shrink-0">
+                          {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        </button>
+                        <button onClick={() => setEditingSnapshot(null)} className="p-1.5 bg-neutral-100 text-neutral-500 hover:bg-neutral-200 rounded-lg shrink-0">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs font-bold font-mono text-neutral-700 shrink-0">{fmt(s.value)}</span>
+                        <button onClick={() => setEditingSnapshot({ id: s.id, value: s.value.toString() })} className="p-1.5 text-neutral-400 hover:bg-neutral-100 rounded-lg shrink-0">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDeleteSnapshot(s)} disabled={isBusy} className="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg shrink-0">
+                          {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {snapshots.length === 0 && (
+                <div className="px-4 py-6 text-center text-xs text-neutral-400">Sin registros todavía</div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Tab toggle: Charts / Calendar */}
         <div className="flex bg-neutral-100 rounded-xl p-0.5">
           <button onClick={() => setActiveTab('charts')} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'charts' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}>Gráficos</button>
@@ -340,23 +510,46 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
             {/* Portfolio Evolution */}
             {evolutionData.length > 1 && (
               <div className="bg-white rounded-2xl border border-neutral-100 p-5">
-                <h3 className="text-sm font-semibold text-neutral-900 mb-4">Evolución del Portfolio</h3>
-                <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={evolutionData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gradPort" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#d4d4d8' }}
-                      domain={[(min: number) => Math.floor(min * 0.998), (max: number) => Math.ceil(max * 1.002)]} />
-                    <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                      formatter={(val: number | undefined) => [`${(val ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, 'Portfolio']} />
-                    <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#gradPort)" dot={evolutionData.length <= 10} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-neutral-900">Evolución del Portfolio</h3>
+                  {accounts.length > 1 && (
+                    <div className="flex bg-neutral-100 rounded-lg p-0.5">
+                      <button onClick={() => setShowPerAccount(false)} className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${!showPerAccount ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}>Total</button>
+                      <button onClick={() => setShowPerAccount(true)} className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${showPerAccount ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}>Por cuenta</button>
+                    </div>
+                  )}
+                </div>
+                {showPerAccount && accounts.length > 1 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={perAccountEvolutionData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#d4d4d8' }} />
+                      <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
+                        formatter={(val: number | undefined, name: string | undefined) => [`${(val ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, accounts.find(a => a.id === name)?.name || name || '']} />
+                      <Legend wrapperStyle={{ fontSize: '10px' }} formatter={(value: string) => accounts.find(a => a.id === value)?.name || value} />
+                      {accounts.map((acc, i) => (
+                        <Line key={acc.id} type="monotone" dataKey={acc.id} name={acc.id} stroke={ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]} strokeWidth={2} dot={perAccountEvolutionData.length <= 10} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <AreaChart data={evolutionData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="gradPort" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#d4d4d8' }}
+                        domain={[(min: number) => Math.floor(min * 0.998), (max: number) => Math.ceil(max * 1.002)]} />
+                      <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
+                        formatter={(val: number | undefined) => [`${(val ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, 'Portfolio']} />
+                      <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#gradPort)" dot={evolutionData.length <= 10} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             )}
 

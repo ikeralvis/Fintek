@@ -11,8 +11,10 @@ import { format, parseISO, isSameDay, isSameMonth, subMonths, addMonths, isValid
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
 import { cancelAccount } from '@/lib/actions/accounts';
+import { deleteTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import EditTransactionModal from './EditTransactionModal';
+import EditTransferModal from './EditTransferModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
 
 type Category = {
@@ -33,8 +35,7 @@ type Transaction = {
     categories?: Category | null;
     category?: string;
     isIncomingTransfer?: boolean;
-    original_account_id?: string;
-    related_account_id?: string;
+    related_account_id?: string | null;
 };
 
 type Account = {
@@ -55,9 +56,10 @@ type Props = {
     account: Account;
     initialTransactions: Transaction[];
     categories: Category[];
+    accounts: Account[];
 };
 
-export default function AccountDetailView({ account, initialTransactions, categories }: Props) {
+export default function AccountDetailView({ account, initialTransactions, categories, accounts }: Props) {
     const router = useRouter();
     const supabase = createClient();
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
@@ -111,7 +113,12 @@ export default function AccountDetailView({ account, initialTransactions, catego
         if (!confirm('¿Eliminar esta transacción?')) return;
         setDeletingId(tx.id);
         try {
-            await supabase.from('transactions').delete().eq('id', tx.id);
+            if (tx.type === 'transfer') {
+                const result = await deleteTransfer(tx.id);
+                if (result.error) throw new Error(result.error);
+            } else {
+                await supabase.from('transactions').delete().eq('id', tx.id);
+            }
             router.refresh();
         } catch {
             alert('Error al eliminar');
@@ -347,27 +354,25 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                                 }`}>
                                                     {showAsIncome ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                                                 </p>
-                                                {!isTransfer && (
-                                                    <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => setEditingTransaction(t)}
-                                                            className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                                        >
-                                                            <Pencil className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteTransaction(t)}
-                                                            disabled={deletingId === t.id}
-                                                            className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
-                                                        >
-                                                            {deletingId === t.id ? (
-                                                                <div className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
-                                                            ) : (
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => setEditingTransaction(t)}
+                                                        className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                    >
+                                                        <Pencil className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteTransaction(t)}
+                                                        disabled={deletingId === t.id}
+                                                        className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                                    >
+                                                        {deletingId === t.id ? (
+                                                            <div className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -378,7 +383,15 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 </div>
             </div>
 
-            {editingTransaction && (
+            {editingTransaction && editingTransaction.type === 'transfer' ? (
+                <EditTransferModal
+                    transaction={editingTransaction as any}
+                    categories={categories}
+                    accounts={accounts}
+                    onClose={() => setEditingTransaction(null)}
+                    onSaved={handleEditSaved}
+                />
+            ) : editingTransaction && (
                 <EditTransactionModal
                     transaction={editingTransaction}
                     categories={categories}

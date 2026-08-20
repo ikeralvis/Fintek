@@ -7,8 +7,10 @@ import { format, parseISO, isSameDay, isSameMonth, isSameWeek, isSameYear, start
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
 import EditTransactionModal from './EditTransactionModal';
+import EditTransferModal from './EditTransferModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import { deleteTransfer } from '@/lib/actions/transfers';
 
 type Category = {
     id: string;
@@ -66,9 +68,14 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
         setDeletingId(tx.id);
         try {
-            // Eliminar transacción (el trigger de la BD actualiza automáticamente los saldos)
-            const { error: delError } = await supabase.from('transactions').delete().eq('id', tx.id);
-            if (delError) throw delError;
+            if (tx.type === 'transfer') {
+                const result = await deleteTransfer(tx.id);
+                if (result.error) throw new Error(result.error);
+            } else {
+                // Eliminar transacción (el trigger de la BD actualiza automáticamente los saldos)
+                const { error: delError } = await supabase.from('transactions').delete().eq('id', tx.id);
+                if (delError) throw delError;
+            }
 
             setTransactions(transactions.filter(t => t.id !== tx.id));
             router.refresh();
@@ -300,28 +307,26 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                                     {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                                                 </p>
 
-                                                {/* Actions - no editar/eliminar transferencias aquí para evitar inconsistencias de balance */}
-                                                {!isTransfer && (
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            onClick={() => setEditingTransaction(t)}
-                                                            className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                                        >
-                                                            <Pencil className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteTransaction(t)}
-                                                            disabled={deletingId === t.id}
-                                                            className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
-                                                        >
-                                                            {deletingId === t.id ? (
-                                                                <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
-                                                            ) : (
-                                                                <Trash2 className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                {/* Actions */}
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => setEditingTransaction(t)}
+                                                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteTransaction(t)}
+                                                        disabled={deletingId === t.id}
+                                                        className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                                    >
+                                                        {deletingId === t.id ? (
+                                                            <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="w-4 h-4" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -333,7 +338,15 @@ export default function TransactionsView({ initialTransactions, accounts, catego
             </div>
 
             {/* Edit Modal */}
-            {editingTransaction && (
+            {editingTransaction && editingTransaction.type === 'transfer' ? (
+                <EditTransferModal
+                    transaction={editingTransaction}
+                    categories={categories}
+                    accounts={accounts}
+                    onClose={() => setEditingTransaction(null)}
+                    onSaved={handleEditSaved}
+                />
+            ) : editingTransaction && (
                 <EditTransactionModal
                     transaction={editingTransaction}
                     categories={categories}

@@ -14,8 +14,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         redirect('/login');
     }
 
-    // Fetch Account, Transactions (including incoming transfers), and Categories in parallel
-    const [accountRes, outgoingTxRes, incomingTransfersRes, categoriesRes] = await Promise.all([
+    // Fetch Account, Transactions (including incoming transfers), Categories and all Accounts (for transfer editing) in parallel
+    const [accountRes, outgoingTxRes, incomingTransfersRes, categoriesRes, allAccountsRes] = await Promise.all([
         supabase
             .from('accounts')
             .select('*, banks(id, name, color, logo_url)')
@@ -45,7 +45,13 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         supabase
             .from('categories')
             .select('*')
+            .eq('user_id', user.id),
+
+        supabase
+            .from('accounts')
+            .select('*, banks(id, name, color, logo_url)')
             .eq('user_id', user.id)
+            .eq('is_active', true)
     ]);
 
     if (accountRes.error || !accountRes.data) {
@@ -58,10 +64,9 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     const incomingTransfers = (incomingTransfersRes.data || []).map(t => ({
         ...t,
         // Marcar como transferencia entrante para mostrar como +dinero
+        // (account_id/related_account_id se mantienen intactos: origen real -> esta cuenta,
+        // así el modal de edición puede mostrar las cuentas reales de la transferencia)
         isIncomingTransfer: true,
-        // Cambiar el account_id al destino para que se muestre en esta cuenta
-        original_account_id: t.account_id,
-        account_id: id,
     }));
 
     // Combinar y ordenar por fecha
@@ -73,6 +78,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             account={accountRes.data}
             initialTransactions={allTransactions}
             categories={categoriesRes.data || []}
+            accounts={allAccountsRes.data || []}
         />
     );
 }

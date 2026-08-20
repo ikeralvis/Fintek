@@ -101,7 +101,7 @@ export default function TransactionItem({ transaction }: Props) {
       <button
         onClick={handleDelete}
         disabled={deleting}
-        className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition-all disabled:opacity-50 shrink-0"
+        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-rose-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition-all disabled:opacity-50 shrink-0"
         title="Eliminar transacción"
       >
         <Trash2 className="h-4 w-4" />
