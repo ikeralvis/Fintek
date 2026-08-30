@@ -1,14 +1,19 @@
 'use client';
 
 import {
-    X, Upload, AlertCircle, ChevronRight, Trash2, Check, FileSpreadsheet
+    X, Upload, AlertCircle, ChevronRight, ChevronLeft, Trash2, Check, FileSpreadsheet,
+    ArrowLeftRight, RotateCcw, Ban, Sparkles
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { format, parse, isValid } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
+import { createTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import {
+    guessCategoryName, findCategoryIdByName, isLikelyTransfer, isBizum,
+} from '@/lib/utils/importCategorization';
 
 type Account = { id: string; name: string };
 type Category = { id: string; name: string; icon?: string; color?: string };
@@ -17,9 +22,15 @@ type TransactionPreview = {
     date: string;
     description: string;
     amount: number;
-    type: 'expense' | 'income';
+    type: 'expense' | 'income' | 'transfer';
     category_id: string;
-    status: 'valid' | 'invalid';
+    isTransfer: boolean;
+    transferAccountId: string;
+    /** 'out' = sale de la cuenta importada hacia transferAccountId; 'in' = entra desde transferAccountId */
+    transferDirection: 'out' | 'in';
+    isBizum: boolean;
+    isDuplicate: boolean;
+    skip: boolean;
 };
 
 type Props = {
@@ -27,6 +38,8 @@ type Props = {
     categories: Category[];
     onClose: () => void;
     onImportSuccess: () => void;
+    /** Todas las cuentas del usuario, usadas para elegir cuenta destino en traspasos. Si no se pasa, se usa `accounts`. */
+    allAccounts?: Account[];
 };
 
 type BankFormat = {
@@ -60,8 +73,9 @@ function autoDetectFormat(headers: string[]): BankFormat | null {
     return null;
 }
 
-export default function ImportTransactionsModal({ accounts, categories, onClose, onImportSuccess }: Props) {
+export default function ImportTransactionsModal({ accounts, categories, onClose, onImportSuccess, allAccounts }: Props) {
     const supabase = createClient();
+    const destinationAccounts = allAccounts || accounts;
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
     const [loading, setLoading] = useState(false);
@@ -73,6 +87,8 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
 
     const [previews, setPreviews] = useState<TransactionPreview[]>([]);
     const [importing, setImporting] = useState(false);
+    const [importError, setImportError] = useState<string | null>(null);
+    const [filter, setFilter] = useState<'all' | 'review'>('all');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,6 +98,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
     };
 
     const processFile = (file: File) => {
+        setLoading(true);
         if (file.name.endsWith('.csv')) {
             Papa.parse(file, {
                 header: false,
@@ -136,6 +153,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                 amount: detected.amountCol,
             });
         } else {
+            setLoading(false);
             setStep(2);
         }
     };
@@ -165,21 +183,26 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
     const generatePreviewsFromData = async (hdrs: string[], data: any[][], map: { date: string; description: string; amount: string }) => {
         setLoading(true);
         try {
+            // Histórico de descripciones ya categorizadas por el usuario (aprendizaje simple)
             const { data: existingTx } = await supabase
                 .from('transactions')
-                .select('description, category_id')
-                .limit(500);
+                .select('description, category_id, amount, transaction_date')
+                .eq('account_id', selectedAccountId)
+                .limit(1000);
 
             const descMap = new Map<string, string>();
             existingTx?.forEach(t => {
                 if (t.description && t.category_id) descMap.set(t.description.toLowerCase(), t.category_id);
             });
 
+            // Firma "fecha|importe|descripcion" del histórico, para detectar duplicados exactos
+            const existingSignatures = new Set(
+                (existingTx || []).map(t => `${(t.transaction_date || '').slice(0, 10)}|${Math.abs(t.amount)}|${(t.description || '').toLowerCase().trim()}`)
+            );
+
             const dateIdx = hdrs.findIndex(h => h.toLowerCase() === map.date.toLowerCase());
             const descIdx = hdrs.findIndex(h => h.toLowerCase() === map.description.toLowerCase());
             const amountIdx = hdrs.findIndex(h => h.toLowerCase() === map.amount.toLowerCase());
-
-            const defaultCatId = categories[0]?.id || '';
 
             const newPreviews: TransactionPreview[] = data
                 .filter(row => Array.isArray(row) && row.length > Math.max(dateIdx, descIdx, amountIdx))
@@ -187,23 +210,44 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                     const amount = parseAmount(amountIdx >= 0 ? row[amountIdx] : null);
                     const description = (descIdx >= 0 ? (row[descIdx] || '').toString().trim() : '') || 'Sin descripción';
                     const date = parseDate(dateIdx >= 0 ? row[dateIdx] : null);
-
-                    let categoryId = defaultCatId;
                     const descLower = description.toLowerCase();
-                    for (const [key, catId] of descMap.entries()) {
-                        if (descLower.includes(key) || key.includes(descLower)) {
-                            categoryId = catId;
-                            break;
+
+                    const transferCandidate = isLikelyTransfer(description);
+                    const bizum = isBizum(description);
+
+                    // 1) Reglas de palabras clave por comercio/tipo de movimiento (incluye
+                    //    categorías propias de traspaso como Redondeo/Aportacion mensual/Transferencia)
+                    // 2) Histórico de transacciones ya categorizadas manualmente por el usuario
+                    // 3) Sin categorizar (el usuario decide en el preview)
+                    let categoryId = '';
+                    const guessedName = guessCategoryName(description);
+                    if (guessedName) {
+                        categoryId = findCategoryIdByName(categories, guessedName) || '';
+                    }
+                    if (!categoryId && !bizum && !transferCandidate) {
+                        for (const [key, catId] of descMap.entries()) {
+                            if (descLower.includes(key) || key.includes(descLower)) {
+                                categoryId = catId;
+                                break;
+                            }
                         }
                     }
+
+                    const signature = `${date}|${Math.abs(amount)}|${descLower.trim()}`;
 
                     return {
                         date,
                         description,
                         amount: Math.abs(amount),
-                        type: amount >= 0 ? 'income' as const : 'expense' as const,
+                        type: transferCandidate ? 'transfer' as const : (amount >= 0 ? 'income' as const : 'expense' as const),
                         category_id: categoryId,
-                        status: 'valid' as const,
+                        isTransfer: transferCandidate,
+                        transferAccountId: '',
+                        // importe negativo = sale de esta cuenta ("out"); positivo = entra a esta cuenta ("in")
+                        transferDirection: amount < 0 ? 'out' as const : 'in' as const,
+                        isBizum: bizum,
+                        isDuplicate: existingSignatures.has(signature),
+                        skip: existingSignatures.has(signature),
                     };
                 })
                 .filter(p => p.amount > 0);
@@ -221,40 +265,104 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
         generatePreviewsFromData(headers, rawData, mapping);
     };
 
+    const updatePreview = (idx: number, patch: Partial<TransactionPreview>) => {
+        setPreviews(prev => prev.map((p, i) => i === idx ? { ...p, ...patch } : p));
+    };
+
+    const toggleTransfer = (idx: number) => {
+        setPreviews(prev => prev.map((p, i) => {
+            if (i !== idx) return p;
+            const isTransfer = !p.isTransfer;
+            return {
+                ...p,
+                isTransfer,
+                type: isTransfer ? 'transfer' : (p.type === 'transfer' ? 'expense' : p.type),
+            };
+        }));
+    };
+
+    // Aplica una misma cuenta destino a todas las filas de traspaso que aún no la tengan
+    // (útil para el redondeo automático, que genera muchas filas idénticas)
+    const applyAccountToAllTransfers = (accountId: string) => {
+        setPreviews(prev => prev.map(p => p.isTransfer && !p.skip ? { ...p, transferAccountId: accountId } : p));
+    };
+
+    const stats = useMemo(() => {
+        const active = previews.filter(p => !p.skip);
+        return {
+            income: active.filter(p => p.type === 'income').reduce((s, p) => s + p.amount, 0),
+            expense: active.filter(p => p.type === 'expense').reduce((s, p) => s + p.amount, 0),
+            transfers: active.filter(p => p.type === 'transfer').length,
+            needsReview: active.filter(p => p.type !== 'transfer' && !p.category_id).length,
+            duplicates: previews.filter(p => p.isDuplicate).length,
+        };
+    }, [previews]);
+
+    const visiblePreviews = useMemo(() => {
+        if (filter === 'all') return previews;
+        return previews.filter(p => p.isDuplicate || (p.type !== 'transfer' && !p.category_id) || (p.isTransfer && !p.transferAccountId));
+    }, [previews, filter]);
+
     const handleImport = async () => {
         setImporting(true);
+        setImportError(null);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const toInsert = previews.map(p => ({
-                user_id: user.id,
-                account_id: selectedAccountId,
-                category_id: p.category_id,
-                amount: p.amount,
-                type: p.type,
-                description: p.description,
-                transaction_date: p.date,
-            }));
+            const toImport = previews.filter(p => !p.skip);
 
-            const { error } = await supabase.from('transactions').insert(toInsert);
-            if (error) throw error;
+            const transferRows = toImport.filter(p => p.isTransfer && p.transferAccountId);
+            const normalRows = toImport.filter(p => !(p.isTransfer && p.transferAccountId));
+
+            if (normalRows.length > 0) {
+                const toInsert = normalRows.map(p => ({
+                    user_id: user.id,
+                    account_id: selectedAccountId,
+                    category_id: p.category_id || null,
+                    amount: p.amount,
+                    // fila marcada como traspaso pero sin cuenta destino elegida: se importa
+                    // según el signo original en vez de bloquear la importación
+                    type: p.type === 'transfer' ? (p.transferDirection === 'out' ? 'expense' : 'income') : p.type,
+                    description: p.description,
+                    transaction_date: p.date,
+                }));
+                const { error } = await supabase.from('transactions').insert(toInsert);
+                if (error) throw error;
+            }
+
+            for (const p of transferRows) {
+                // 'out': sale de la cuenta importada hacia la elegida. 'in': entra desde la elegida.
+                const fromAccountId = p.transferDirection === 'out' ? selectedAccountId : p.transferAccountId;
+                const toAccountId = p.transferDirection === 'out' ? p.transferAccountId : selectedAccountId;
+                const result = await createTransfer({
+                    fromAccountId,
+                    toAccountId,
+                    amount: p.amount,
+                    description: p.description,
+                    transactionDate: p.date,
+                    categoryId: p.category_id || undefined,
+                });
+                if (result.error) throw new Error(result.error);
+            }
 
             onImportSuccess();
             onClose();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('Error al importar');
+            setImportError(err.message || 'Error al importar');
         } finally {
             setImporting(false);
         }
     };
 
+    const activeCount = previews.filter(p => !p.skip).length;
+
     return (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative w-full max-w-lg mx-0 md:mx-4 bg-white rounded-t-2xl md:rounded-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="relative w-full max-w-lg md:max-w-3xl mx-0 md:mx-4 bg-white rounded-t-2xl md:rounded-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between shrink-0">
                     <div>
@@ -275,7 +383,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                         <div className="space-y-5">
                             <div>
                                 <label className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 block">Cuenta de destino</label>
-                                <div className="grid grid-cols-1 gap-2">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {accounts.map(acc => (
                                         <button
                                             key={acc.id}
@@ -335,7 +443,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                                 </p>
                             </div>
 
-                            <div className="space-y-3">
+                            <div className="space-y-3 md:grid md:grid-cols-3 md:gap-3 md:space-y-0">
                                 {[
                                     { key: 'date', label: 'Fecha' },
                                     { key: 'description', label: 'Concepto' },
@@ -388,75 +496,191 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                     {step === 3 && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <p className="text-sm font-semibold text-neutral-900">{previews.length} movimientos</p>
+                                <p className="text-sm font-semibold text-neutral-900">{activeCount} de {previews.length} movimientos</p>
                                 <button onClick={() => setStep(2)} className="text-xs font-medium text-neutral-400 hover:text-neutral-700">
                                     Editar mapeo
                                 </button>
                             </div>
 
                             {/* Summary */}
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                 <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
                                     <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
-                                    <p className="text-sm font-bold text-emerald-700">
-                                        +{previews.filter(p => p.type === 'income').reduce((s, p) => s + p.amount, 0).toFixed(2)}€
-                                    </p>
+                                    <p className="text-sm font-bold text-emerald-700">+{stats.income.toFixed(2)}€</p>
                                 </div>
                                 <div className="bg-rose-50 rounded-xl p-3 text-center border border-rose-100">
                                     <p className="text-[10px] text-rose-600 font-semibold uppercase">Gastos</p>
-                                    <p className="text-sm font-bold text-rose-700">
-                                        -{previews.filter(p => p.type === 'expense').reduce((s, p) => s + p.amount, 0).toFixed(2)}€
-                                    </p>
+                                    <p className="text-sm font-bold text-rose-700">-{stats.expense.toFixed(2)}€</p>
+                                </div>
+                                <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+                                    <p className="text-[10px] text-blue-600 font-semibold uppercase">Traspasos</p>
+                                    <p className="text-sm font-bold text-blue-700">{stats.transfers}</p>
+                                </div>
+                                <div className="bg-amber-50 rounded-xl p-3 text-center border border-amber-100">
+                                    <p className="text-[10px] text-amber-600 font-semibold uppercase">Por revisar</p>
+                                    <p className="text-sm font-bold text-amber-700">{stats.needsReview}</p>
                                 </div>
                             </div>
 
-                            {/* List */}
-                            <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
-                                {previews.map((p, idx) => (
-                                    <div key={`${p.date}-${p.description}-${idx}`} className="flex items-center gap-2.5 p-2.5 bg-neutral-50 rounded-xl group hover:bg-white hover:border-neutral-200 border border-transparent transition-all">
-                                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0 border border-neutral-100">
-                                            <CategoryIcon
-                                                name={categories.find(c => c.id === p.category_id)?.icon}
-                                                className="w-4 h-4"
-                                                style={{ color: categories.find(c => c.id === p.category_id)?.color }}
-                                            />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium text-neutral-900 truncate">{p.description}</p>
-                                            <div className="flex items-center gap-2 text-[10px] text-neutral-400">
-                                                <span>{p.date}</span>
-                                                <select
-                                                    value={p.category_id}
-                                                    onChange={(e) => {
-                                                        const updated = [...previews];
-                                                        updated[idx].category_id = e.target.value;
-                                                        setPreviews(updated);
-                                                    }}
-                                                    className="bg-transparent border-none p-0 text-[10px] text-neutral-400 focus:ring-0 cursor-pointer"
-                                                >
-                                                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <p className={`text-xs font-bold shrink-0 ${p.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
-                                            {p.type === 'income' ? '+' : '-'}{p.amount.toFixed(2)}€
-                                        </p>
-                                        <button
-                                            onClick={() => setPreviews(prev => prev.filter((_, i) => i !== idx))}
-                                            className="p-1 text-neutral-300 hover:text-rose-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all shrink-0"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                ))}
+                            {/* Filter tabs */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setFilter('all')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === 'all' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}
+                                >
+                                    Todos ({previews.length})
+                                </button>
+                                <button
+                                    onClick={() => setFilter('review')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${filter === 'review' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700'}`}
+                                >
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    Por revisar ({stats.needsReview + previews.filter(p => p.isTransfer && !p.transferAccountId).length})
+                                </button>
                             </div>
+
+                            {/* Bulk destination account for transfer rows (redondeo, aportaciones...) */}
+                            {stats.transfers > 0 && (
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 flex items-center gap-2 flex-wrap">
+                                    <ArrowLeftRight className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                    <p className="text-[11px] font-medium text-blue-700 shrink-0">Aplicar cuenta a los {stats.transfers} traspasos:</p>
+                                    <select
+                                        onChange={(e) => e.target.value && applyAccountToAllTransfers(e.target.value)}
+                                        defaultValue=""
+                                        className="text-[11px] font-medium rounded-lg px-2 py-1 border border-blue-200 bg-white text-blue-700 flex-1 min-w-[140px]"
+                                    >
+                                        <option value="">Elige cuenta...</option>
+                                        {destinationAccounts.filter(a => a.id !== selectedAccountId).map(a => (
+                                            <option key={a.id} value={a.id}>{a.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* List */}
+                            <div className="space-y-1.5 max-h-[42vh] overflow-y-auto">
+                                {visiblePreviews.length === 0 && (
+                                    <p className="text-center text-xs text-neutral-400 py-6">Nada que revisar aquí 🎉</p>
+                                )}
+                                {visiblePreviews.map((p) => {
+                                    const idx = previews.indexOf(p);
+                                    const category = categories.find(c => c.id === p.category_id);
+                                    const needsCategory = p.type !== 'transfer' && !p.category_id;
+                                    const needsAccount = p.isTransfer && !p.transferAccountId;
+
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className={`p-2.5 rounded-xl border transition-all ${
+                                                p.skip ? 'bg-neutral-50 border-neutral-100 opacity-50' :
+                                                needsCategory || needsAccount ? 'bg-amber-50/60 border-amber-200' :
+                                                'bg-neutral-50 border-transparent hover:border-neutral-200 hover:bg-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0 border border-neutral-100">
+                                                    {p.isTransfer ? (
+                                                        <ArrowLeftRight className="w-4 h-4 text-blue-500" />
+                                                    ) : (
+                                                        <CategoryIcon
+                                                            name={category?.icon}
+                                                            className="w-4 h-4"
+                                                            style={{ color: category?.color }}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="text-xs font-medium text-neutral-900 truncate">{p.description}</p>
+                                                        {p.isBizum && !p.isTransfer && (
+                                                            <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded shrink-0">BIZUM</span>
+                                                        )}
+                                                        {p.isDuplicate && (
+                                                            <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200 px-1.5 py-0.5 rounded shrink-0">DUPLICADO</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[10px] text-neutral-400">{p.date}</p>
+                                                </div>
+                                                <p className={`text-xs font-bold shrink-0 ${p.type === 'income' ? 'text-emerald-600' : p.type === 'transfer' ? 'text-blue-600' : 'text-neutral-900'}`}>
+                                                    {p.type === 'income' ? '+' : p.type === 'transfer' ? '' : '-'}{p.amount.toFixed(2)}€
+                                                </p>
+                                                <button
+                                                    onClick={() => updatePreview(idx, { skip: !p.skip })}
+                                                    title={p.skip ? 'Incluir' : 'Excluir de la importación'}
+                                                    className={`p-1.5 rounded-lg shrink-0 transition-all ${p.skip ? 'text-emerald-600 hover:bg-emerald-50' : 'text-neutral-300 hover:text-rose-500 hover:bg-rose-50'}`}
+                                                >
+                                                    {p.skip ? <RotateCcw className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+
+                                            {!p.skip && (
+                                                <div className="mt-2 pl-[42px] flex flex-wrap items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => toggleTransfer(idx)}
+                                                        className={`text-[10px] font-semibold px-2 py-1 rounded-lg flex items-center gap-1 transition-colors ${
+                                                            p.isTransfer ? 'bg-blue-600 text-white' : 'bg-white border border-neutral-200 text-neutral-500'
+                                                        }`}
+                                                    >
+                                                        <ArrowLeftRight className="w-3 h-3" /> Traspaso
+                                                    </button>
+
+                                                    <select
+                                                        value={p.category_id}
+                                                        onChange={(e) => updatePreview(idx, { category_id: e.target.value })}
+                                                        className={`text-[11px] font-medium rounded-lg px-2 py-1 border ${needsCategory ? 'border-amber-300 bg-white text-amber-700' : 'border-neutral-200 bg-white text-neutral-600'}`}
+                                                    >
+                                                        <option value="">Sin categoría...</option>
+                                                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                    </select>
+
+                                                    {p.isTransfer ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => updatePreview(idx, { transferDirection: p.transferDirection === 'out' ? 'in' : 'out' })}
+                                                                title="Cambiar dirección del traspaso"
+                                                                className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-500"
+                                                            >
+                                                                {p.transferDirection === 'out' ? 'Sale de esta cuenta' : 'Entra a esta cuenta'}
+                                                            </button>
+                                                            <select
+                                                                value={p.transferAccountId}
+                                                                onChange={(e) => updatePreview(idx, { transferAccountId: e.target.value })}
+                                                                className={`text-[11px] font-medium rounded-lg px-2 py-1 border ${needsAccount ? 'border-amber-300 bg-white text-amber-700' : 'border-neutral-200 bg-white text-neutral-600'}`}
+                                                            >
+                                                                <option value="">{p.transferDirection === 'out' ? 'Cuenta destino...' : 'Cuenta origen...'}</option>
+                                                                {destinationAccounts.filter(a => a.id !== selectedAccountId).map(a => (
+                                                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => updatePreview(idx, { type: p.type === 'income' ? 'expense' : 'income' })}
+                                                            className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-500"
+                                                        >
+                                                            Marcar como {p.type === 'income' ? 'gasto' : 'ingreso'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {importError && (
+                                <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-rose-700 font-medium">{importError}</p>
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleImport}
-                                disabled={importing || previews.length === 0}
+                                disabled={importing || activeCount === 0}
                                 className="w-full py-3.5 bg-neutral-900 text-white rounded-xl font-semibold text-sm disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors"
                             >
-                                {importing ? 'Importando...' : `Importar ${previews.length} movimientos`}
+                                {importing ? 'Importando...' : `Importar ${activeCount} movimientos`}
                             </button>
                         </div>
                     )}

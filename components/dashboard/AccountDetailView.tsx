@@ -407,6 +407,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
             {isImportModalOpen && (
                 <ImportTransactionsModal
                     accounts={[{ id: account.id, name: account.name }]}
+                    allAccounts={accounts.map(a => ({ id: a.id, name: a.name }))}
                     categories={categories}
                     onClose={() => setIsImportModalOpen(false)}
                     onImportSuccess={() => {
