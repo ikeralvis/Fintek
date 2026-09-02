@@ -62,6 +62,7 @@ export type Database = {
           name: string
           initial_balance: number
           current_balance: number
+          contributed_capital: number
           is_active: boolean
           created_at: string
           updated_at: string
@@ -74,6 +75,7 @@ export type Database = {
           name: string
           initial_balance?: number
           current_balance?: number
+          contributed_capital?: number
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -86,6 +88,7 @@ export type Database = {
           name?: string
           initial_balance?: number
           current_balance?: number
+          contributed_capital?: number
           is_active?: boolean
           created_at?: string
           updated_at?: string

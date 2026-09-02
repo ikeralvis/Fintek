@@ -27,26 +27,10 @@ export default async function InversionesPage() {
     banks: Array.isArray(acc.banks) ? acc.banks[0] : acc.banks,
   }));
 
-  const investmentAccountIds = accounts.map((a: any) => a.id);
-
-  // Transferencias que tocan alguna cuenta de inversión, para poder distinguir
-  // aportaciones/retiradas (dinero externo) de rendimiento real del mercado.
-  const transfersRes = investmentAccountIds.length > 0
-    ? await supabase
-        .from('transactions')
-        .select('id, amount, account_id, related_account_id, transaction_date')
-        .eq('user_id', user.id)
-        .eq('type', 'transfer')
-        .or(
-          `account_id.in.(${investmentAccountIds.join(',')}),related_account_id.in.(${investmentAccountIds.join(',')})`
-        )
-    : { data: [] };
-
   return (
     <InvestmentsView
       accounts={accounts}
       snapshots={snapshotsRes.data || []}
-      transfers={transfersRes.data || []}
       userId={user.id}
     />
   );

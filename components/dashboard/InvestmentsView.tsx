@@ -23,6 +23,7 @@ type Account = {
   id: string;
   name: string;
   current_balance: number;
+  contributed_capital: number;
   banks?: { name: string; color: string; logo_url?: string } | null;
 };
 
@@ -34,26 +35,18 @@ type Snapshot = {
   user_id: string;
 };
 
-type Transfer = {
-  id: string;
-  amount: number;
-  account_id: string;
-  related_account_id: string | null;
-  transaction_date: string;
-};
-
 type Props = {
   accounts: Account[];
   snapshots: Snapshot[];
-  transfers?: Transfer[];
   userId: string;
 };
 
 type Period = '7d' | '30d' | '90d' | 'all';
 
-export default function InvestmentsView({ accounts, snapshots: initialSnapshots, transfers = [], userId }: Props) {
+export default function InvestmentsView({ accounts: initialAccounts, snapshots: initialSnapshots, userId }: Props) {
   const router = useRouter();
   const supabase = createClient();
+  const [accounts, setAccounts] = useState(initialAccounts);
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [inputDates, setInputDates] = useState<Record<string, string>>({});
@@ -66,6 +59,9 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [editingSnapshot, setEditingSnapshot] = useState<{ id: string; value: string } | null>(null);
   const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [contribInputs, setContribInputs] = useState<Record<string, string>>({});
+  const [savingContribId, setSavingContribId] = useState<string | null>(null);
 
   const ACCOUNT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f43f5e', '#84cc16'];
 
@@ -143,33 +139,15 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
   const dailyChangePct = totalYesterday > 0 ? (dailyChange / totalYesterday) * 100 : 0;
 
   // --- Aportaciones vs. rendimiento real ---
-  // Una transferencia hacia una cuenta de inversión es dinero externo entrando al portfolio
-  // (aportación), no rendimiento del mercado. Una transferencia entre dos cuentas de inversión
-  // es un movimiento interno y no cambia el valor total del portfolio, así que se ignora.
-  const investmentAccountIds = useMemo(() => new Set(accounts.map(a => a.id)), [accounts]);
+  // El capital aportado a cada cuenta se introduce manualmente (bloque "Configurar aportaciones"),
+  // en vez de inferirse de las transferencias: el dinero de una transferencia puede tardar días en
+  // reflejarse en el fondo, lo que descuadraba el cálculo automático.
+  const totalContributed = useMemo(() =>
+    accounts.reduce((sum, acc) => sum + (acc.contributed_capital || 0), 0),
+  [accounts]);
 
-  const transferContribution = (t: Transfer): number => {
-    const fromInv = investmentAccountIds.has(t.account_id);
-    const toInv = t.related_account_id ? investmentAccountIds.has(t.related_account_id) : false;
-    if (fromInv && toInv) return 0;
-    if (toInv) return t.amount;
-    if (fromInv) return -t.amount;
-    return 0;
-  };
-
-  // Suma de aportaciones/retiradas netas con fecha en (fromExclusive, toInclusive]
-  const netContributionInRange = (fromExclusive: string, toInclusive: string): number => {
-    return transfers.reduce((sum, t) => {
-      if (t.transaction_date > fromExclusive && t.transaction_date <= toInclusive) {
-        return sum + transferContribution(t);
-      }
-      return sum;
-    }, 0);
-  };
-
-  const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  const contributionToday = netContributionInRange(yesterdayStr, today);
-  const realGainToday = dailyChange - contributionToday;
+  const realGain = totalValue - totalContributed;
+  const realGainPct = totalContributed > 0 ? (realGain / totalContributed) * 100 : 0;
 
   // --- Daily Changes (bar chart data) ---
   const dailyChangesData = useMemo(() => {
@@ -180,20 +158,16 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
     const startStr = format(periodStart, 'yyyy-MM-dd');
 
     const filtered = sortedDates.filter(d => d >= startStr);
-    const result: { date: string; label: string; change: number; value: number; contribution: number; realGain: number }[] = [];
+    const result: { date: string; label: string; change: number; value: number }[] = [];
 
     for (let i = 0; i < filtered.length; i++) {
       const date = filtered[i];
       const val = totalByDate[date];
       const prevVal = i > 0 ? totalByDate[filtered[i - 1]] : val;
-      const prevDate = i > 0 ? filtered[i - 1] : date;
-      const contribution = netContributionInRange(prevDate, date);
       result.push({
         date,
         label: format(parseISO(date), 'd MMM', { locale: es }),
         change: val - prevVal,
-        contribution,
-        realGain: (val - prevVal) - contribution,
         value: val,
       });
     }
@@ -285,6 +259,21 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
       router.refresh();
     } catch { toast.error('Error al guardar'); }
     finally { setSavingId(null); }
+  };
+
+  // --- Save contributed capital (aportación manual, no ligada a fecha de transferencia) ---
+  const handleSaveContributed = async (accountId: string) => {
+    const value = parseFloat(contribInputs[accountId]);
+    if (isNaN(value) || value < 0) return;
+    setSavingContribId(accountId);
+    try {
+      const { error } = await supabase.from('accounts').update({ contributed_capital: value }).eq('id', accountId);
+      if (error) throw error;
+      setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, contributed_capital: value } : a));
+      setContribInputs(prev => ({ ...prev, [accountId]: '' }));
+      router.refresh();
+    } catch { toast.error('Error al guardar la aportación'); }
+    finally { setSavingContribId(null); }
   };
 
   // Recalcula el saldo de una cuenta a partir de su snapshot más reciente restante (o el propio balance si no queda ninguno)
@@ -387,10 +376,12 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
             </span>
             <span className="text-xs text-neutral-400">hoy</span>
           </div>
-          {contributionToday !== 0 && (
+          {totalContributed > 0 && (
             <p className="text-[11px] text-neutral-400 mt-1.5">
-              De los cuales <span className="font-semibold text-neutral-600">{fmtShort(contributionToday)}</span> son aportaciones y{' '}
-              <span className={`font-semibold ${realGainToday >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtShort(realGainToday)}</span> rendimiento real
+              Aportado <span className="font-semibold text-neutral-600">{fmt(totalContributed)}</span> · Rendimiento real{' '}
+              <span className={`font-semibold ${realGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {fmtShort(realGain)} ({realGainPct >= 0 ? '+' : ''}{realGainPct.toFixed(2)}%)
+              </span>
             </p>
           )}
         </div>
@@ -451,6 +442,63 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
               );
             })}
           </div>
+        </div>
+
+        {/* Configurar aportaciones: capital invertido manualmente por cuenta */}
+        <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+          <button
+            onClick={() => setIsConfigOpen(!isConfigOpen)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-neutral-400" />
+              <span className="text-sm font-semibold text-neutral-900">Configurar aportaciones</span>
+              <span className="text-xs text-neutral-400">({fmt(totalContributed)})</span>
+            </div>
+            <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${isConfigOpen ? 'rotate-90' : ''}`} />
+          </button>
+          {isConfigOpen && (
+            <div className="border-t border-neutral-100 divide-y divide-neutral-50">
+              <p className="px-4 py-2.5 text-[11px] text-neutral-400">
+                Indica cuánto dinero llevas metido en total en cada fondo (no el de hoy: el acumulado). Cuando aportes más, súmalo aquí manualmente el día que el dinero aparezca reflejado en el fondo.
+              </p>
+              {accounts.map(acc => {
+                const accGain = (acc.current_balance ?? 0) - (acc.contributed_capital || 0);
+                return (
+                  <div key={acc.id} className="px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-neutral-900 truncate">{acc.name}</p>
+                      <p className="text-[11px] text-neutral-400">
+                        Aportado {fmt(acc.contributed_capital || 0)}
+                        {acc.contributed_capital > 0 && (
+                          <span className={`ml-1.5 font-semibold ${accGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            ({fmtShort(accGain)})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="relative w-28 shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-300 text-xs font-bold">€</span>
+                      <input
+                        type="number" step="0.01" placeholder={(acc.contributed_capital || 0).toFixed(2)}
+                        value={contribInputs[acc.id] || ''}
+                        onChange={(e) => setContribInputs(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveContributed(acc.id); }}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-200"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleSaveContributed(acc.id)}
+                      disabled={!contribInputs[acc.id] || savingContribId === acc.id}
+                      className="p-1.5 bg-neutral-900 text-white rounded-lg disabled:bg-neutral-200 disabled:text-neutral-400 shrink-0"
+                    >
+                      {savingContribId === acc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Historial de registros (editable, por si un valor se introdujo mal) */}
@@ -544,14 +592,7 @@ export default function InvestmentsView({ accounts, snapshots: initialSnapshots,
                     <ReferenceLine y={0} stroke="#e4e4e7" />
                     <Tooltip
                       contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                      formatter={(val: number | undefined, name: string | undefined, item: any) => {
-                        const contribution = item?.payload?.contribution ?? 0;
-                        if (contribution !== 0) {
-                          const realGain = item?.payload?.realGain ?? 0;
-                          return [`${fmtShort(val ?? 0)}  ·  Aportación ${fmtShort(contribution)}  ·  Rendimiento ${fmtShort(realGain)}`, 'Cambio'];
-                        }
-                        return [fmtShort(val ?? 0), 'Cambio'];
-                      }}
+                      formatter={(val: number | undefined) => [fmtShort(val ?? 0), 'Cambio']}
                     />
                     <Bar dataKey="change" radius={[3, 3, 0, 0]} maxBarSize={24}>
                       {dailyChangesData.map((entry, i) => (
