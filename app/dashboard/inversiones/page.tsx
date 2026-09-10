@@ -7,7 +7,7 @@ export default async function InversionesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [accountsRes, snapshotsRes] = await Promise.all([
+  const [accountsRes, snapshotsRes, contributionsRes] = await Promise.all([
     supabase
       .from('accounts')
       .select('*, banks(name, color, logo_url)')
@@ -20,6 +20,11 @@ export default async function InversionesPage() {
       .select('*')
       .eq('user_id', user.id)
       .order('snapshot_date', { ascending: true }),
+    supabase
+      .from('investment_contributions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('contribution_date', { ascending: true }),
   ]);
 
   const accounts = (accountsRes.data || []).map((acc: any) => ({
@@ -31,6 +36,7 @@ export default async function InversionesPage() {
     <InvestmentsView
       accounts={accounts}
       snapshots={snapshotsRes.data || []}
+      contributions={contributionsRes.data || []}
       userId={user.id}
     />
   );

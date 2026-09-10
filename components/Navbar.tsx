@@ -22,7 +22,7 @@ export default function Navbar() {
           <Link href="/dashboard" className="hover:text-primary-600 transition">Inicio</Link>
           <Link href="/dashboard/cuentas" className="hover:text-primary-600 transition">Cuentas</Link>
           <Link href="/dashboard/transacciones" className="hover:text-primary-600 transition">Transacciones</Link>
-          <Link href="/dashboard/resumen" className="hover:text-primary-600 transition">Informe</Link>
+          <Link href="/dashboard/estadisticas" className="hover:text-primary-600 transition">Informe</Link>
           <Link href="/dashboard/configuracion" className="hover:text-primary-600 transition">Configuración</Link>
         </nav>
 

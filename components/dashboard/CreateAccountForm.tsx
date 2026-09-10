@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, X, Building2, Wallet, CreditCard, ChevronRight, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 type Bank = {
   id: string;
@@ -60,7 +61,7 @@ export default function CreateAccountForm({ banks }: Props) {
       router.refresh();
     } catch (err) {
       console.error('Error creating account:', err);
-      alert('Error al crear la cuenta');
+      toast.error('Error al crear la cuenta');
     } finally {
       setLoading(false);
     }

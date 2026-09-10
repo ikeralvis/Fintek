@@ -58,7 +58,9 @@ export default function RegisterPage() {
         }, 2000);
       }
     } catch (err: any) {
-      setError(err.message || 'Error al crear la cuenta');
+      console.error('Register error:', err);
+      // Mensaje genérico: evitar filtrar si el email ya existe (enumeración de usuarios)
+      setError('No se pudo crear la cuenta. Comprueba los datos e inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }

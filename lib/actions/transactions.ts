@@ -38,25 +38,7 @@ export async function createTransaction(formData: {
   }
 
   try {
-    // Obtener el saldo actual ANTES de insertar la transacción para
-    // calcular el saldo esperado (esto evita confusión con el trigger
-    // que actualiza el saldo en la base de datos inmediatamente después
-    // del INSERT).
-    const { data: accountBefore } = await supabase
-      .from('accounts')
-      .select('current_balance')
-      .eq('id', formData.accountId)
-      .single();
-
-    const beforeBalance = accountBefore?.current_balance ?? null;
-    const expectedNewBalance = beforeBalance === null
-      ? null
-      : (formData.type === 'income' ? beforeBalance + formData.amount : beforeBalance - formData.amount);
-
-    console.log('Balance before insert:', beforeBalance);
-    console.log('Expected balance after insert:', expectedNewBalance);
-
-    // Insertar transacción (el trigger en la BD ajustará el saldo)
+    // Insertar transacción (el trigger en la BD ajusta el saldo automáticamente)
     const { data: transaction, error } = await supabase
       .from('transactions')
       .insert([
@@ -74,21 +56,6 @@ export async function createTransaction(formData: {
       .single();
 
     if (error) throw error;
-
-    // Leer el saldo DESPUÉS de la inserción para confirmar lo que hizo el trigger
-    const { data: accountAfter } = await supabase
-      .from('accounts')
-      .select('current_balance')
-      .eq('id', formData.accountId)
-      .single();
-
-    console.log('Balance after insert (DB):', accountAfter?.current_balance);
-
-    // Nota: La base de datos tiene un trigger (`update_account_balance`) que
-    // actualiza el saldo de la cuenta cuando se inserta una transacción.
-    // Para evitar que el saldo se actualice doblemente (desde el trigger
-    // y desde la aplicación), no realizamos la actualización aquí.
-    console.log('Skipping application-level account update because DB trigger handles it');
 
     revalidatePath('/dashboard/transacciones');
     revalidatePath('/dashboard');
@@ -113,10 +80,10 @@ export async function deleteTransaction(transactionId: string) {
   }
 
   try {
-    // Obtener datos de la transacción antes de eliminarla
-    const { data: transaction, error: fetchError } = await supabase
+    // Confirmar que la transacción existe y pertenece al usuario antes de eliminarla
+    const { error: fetchError } = await supabase
       .from('transactions')
-      .select('type, amount, account_id')
+      .select('id')
       .eq('id', transactionId)
       .eq('user_id', user.id)
       .single();
@@ -132,20 +99,8 @@ export async function deleteTransaction(transactionId: string) {
 
     if (deleteError) throw deleteError;
 
-    // Revertir el saldo de la cuenta
-    const { data: account } = await supabase
-      .from('accounts')
-      .select('current_balance')
-      .eq('id', transaction.account_id)
-      .single();
-
-    if (account) {
-      // Nota: La base de datos tiene un trigger (`update_account_balance`)
-      // que ya ajusta el saldo cuando se eliminan transacciones. Para evitar
-      // aplicar la reversión dos veces (trigger + aplicación), no actualizamos
-      // `current_balance` aquí desde la aplicación.
-      console.log('Skipping application-level account update on delete; DB trigger handles it');
-    }
+    // Nota: la base de datos tiene un trigger (`update_account_balance`) que
+    // ya revierte el saldo de la cuenta al eliminar la transacción.
 
     revalidatePath('/dashboard/transacciones');
     revalidatePath('/dashboard');

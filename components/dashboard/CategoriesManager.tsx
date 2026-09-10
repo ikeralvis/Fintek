@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Tag, AlertCircle, Pencil, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CategoryIcon, { AVAILABLE_ICONS, iconLabels } from '@/components/ui/CategoryIcon';
+import { toast } from 'sonner';
 
 type Category = {
   id: string;
@@ -121,7 +122,7 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
       setCategories(categories.filter(cat => cat.id !== categoryId));
     } catch (err) {
       console.error(err);
-      alert('Error al eliminar');
+      toast.error('Error al eliminar');
     }
   };
 
@@ -155,7 +156,7 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
       setShowEditIconPicker(false);
     } catch (err) {
       console.error('Error updating category:', err);
-      alert('Error al actualizar. Asegúrate de usar códigos cortos para iconos.');
+      toast.error('Error al actualizar. Asegúrate de usar códigos cortos para iconos.');
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import { ChevronRight, Wallet as WalletIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 type Account = {
     id: string;
@@ -34,7 +35,7 @@ export default function AccountList({ accounts }: { accounts: Account[] }) {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             // El trigger de la BD actualiza el balance automáticamente
-            await supabase.from('transactions').insert([{
+            const { error } = await supabase.from('transactions').insert([{
                 user_id: user.id,
                 account_id: accId,
                 amount,
@@ -42,9 +43,11 @@ export default function AccountList({ accounts }: { accounts: Account[] }) {
                 description: 'Añadir Efectivo',
                 transaction_date: new Date().toISOString()
             }]);
+            if (error) throw error;
             router.refresh();
         } catch (err) {
             console.error(err);
+            toast.error('No se pudo añadir el efectivo');
         } finally {
             setLoading(null);
         }

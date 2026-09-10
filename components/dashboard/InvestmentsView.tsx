@@ -35,19 +35,29 @@ type Snapshot = {
   user_id: string;
 };
 
+type Contribution = {
+  id: string;
+  account_id: string;
+  amount: number;
+  contribution_date: string;
+  user_id: string;
+};
+
 type Props = {
   accounts: Account[];
   snapshots: Snapshot[];
+  contributions: Contribution[];
   userId: string;
 };
 
 type Period = '7d' | '30d' | '90d' | 'all';
 
-export default function InvestmentsView({ accounts: initialAccounts, snapshots: initialSnapshots, userId }: Props) {
+export default function InvestmentsView({ accounts: initialAccounts, snapshots: initialSnapshots, contributions: initialContributions, userId }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [accounts, setAccounts] = useState(initialAccounts);
   const [snapshots, setSnapshots] = useState(initialSnapshots);
+  const [contributions, setContributions] = useState(initialContributions);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [inputDates, setInputDates] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -61,6 +71,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
   const [historyBusyId, setHistoryBusyId] = useState<string | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [contribInputs, setContribInputs] = useState<Record<string, string>>({});
+  const [contribDates, setContribDates] = useState<Record<string, string>>({});
   const [savingContribId, setSavingContribId] = useState<string | null>(null);
 
   const ACCOUNT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f43f5e', '#84cc16'];
@@ -136,18 +147,34 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
 
   const totalYesterday = getTotalForDaysBack(1);
   const dailyChange = totalValue - totalYesterday;
-  const dailyChangePct = totalYesterday > 0 ? (dailyChange / totalYesterday) * 100 : 0;
 
   // --- Aportaciones vs. rendimiento real ---
   // El capital aportado a cada cuenta se introduce manualmente (bloque "Configurar aportaciones"),
   // en vez de inferirse de las transferencias: el dinero de una transferencia puede tardar días en
-  // reflejarse en el fondo, lo que descuadraba el cálculo automático.
+  // reflejarse en el fondo, lo que descuadraba el cálculo automático. Cada cambio de aportación se
+  // registra con la fecha que el usuario elija (normalmente el día que el dinero llega al fondo),
+  // para poder restarlo del cambio diario y que no se cuente como rendimiento de mercado.
   const totalContributed = useMemo(() =>
     accounts.reduce((sum, acc) => sum + (acc.contributed_capital || 0), 0),
   [accounts]);
 
   const realGain = totalValue - totalContributed;
   const realGainPct = totalContributed > 0 ? (realGain / totalContributed) * 100 : 0;
+
+  // Suma de aportaciones/retiradas con fecha en (fromExclusive, toInclusive]
+  const netContributionInRange = (fromExclusive: string, toInclusive: string): number => {
+    return contributions.reduce((sum, c) => {
+      if (c.contribution_date > fromExclusive && c.contribution_date <= toInclusive) {
+        return sum + c.amount;
+      }
+      return sum;
+    }, 0);
+  };
+
+  const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const contributionToday = netContributionInRange(yesterdayStr, today);
+  const realGainToday = dailyChange - contributionToday;
+  const realGainTodayPct = totalYesterday > 0 ? (realGainToday / totalYesterday) * 100 : 0;
 
   // --- Daily Changes (bar chart data) ---
   const dailyChangesData = useMemo(() => {
@@ -158,21 +185,26 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
     const startStr = format(periodStart, 'yyyy-MM-dd');
 
     const filtered = sortedDates.filter(d => d >= startStr);
-    const result: { date: string; label: string; change: number; value: number }[] = [];
+    const result: { date: string; label: string; change: number; value: number; contribution: number; realGain: number }[] = [];
 
     for (let i = 0; i < filtered.length; i++) {
       const date = filtered[i];
       const val = totalByDate[date];
       const prevVal = i > 0 ? totalByDate[filtered[i - 1]] : val;
+      const prevDate = i > 0 ? filtered[i - 1] : date;
+      const contribution = netContributionInRange(prevDate, date);
+      const change = val - prevVal;
       result.push({
         date,
         label: format(parseISO(date), 'd MMM', { locale: es }),
-        change: val - prevVal,
+        change,
+        contribution,
+        realGain: change - contribution,
         value: val,
       });
     }
     return result;
-  }, [snapshots, period, sortedDates, totalByDate]);
+  }, [snapshots, contributions, period, sortedDates, totalByDate]);
 
   // --- Portfolio evolution (area chart data) ---
   const evolutionData = useMemo(() => {
@@ -249,8 +281,12 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
         const filtered = prev.filter(s => !(s.account_id === accountId && s.snapshot_date === selectedDate));
         return [...filtered, data].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
       });
-      if (selectedDate === today) {
+      // Si la fecha introducida es la más reciente que tiene la cuenta (normalmente hoy),
+      // el saldo actual de la cuenta también se actualiza, tanto en BD como en la UI.
+      const isLatestForAccount = !accountSnapshotsSorted[accountId]?.some(s => s.snapshot_date > selectedDate);
+      if (isLatestForAccount) {
         await supabase.from('accounts').update({ current_balance: value }).eq('id', accountId);
+        setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, current_balance: value } : a));
       }
       setInputValues(prev => ({ ...prev, [accountId]: '' }));
       setInputDates(prev => ({ ...prev, [accountId]: '' }));
@@ -261,16 +297,30 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
     finally { setSavingId(null); }
   };
 
-  // --- Save contributed capital (aportación manual, no ligada a fecha de transferencia) ---
+  // --- Save contributed capital (aportación manual, con fecha propia en vez de la de la transferencia) ---
   const handleSaveContributed = async (accountId: string) => {
     const value = parseFloat(contribInputs[accountId]);
     if (isNaN(value) || value < 0) return;
+    const account = accounts.find(a => a.id === accountId);
+    const delta = value - (account?.contributed_capital || 0);
+    const logDate = contribDates[accountId] || today;
     setSavingContribId(accountId);
     try {
       const { error } = await supabase.from('accounts').update({ contributed_capital: value }).eq('id', accountId);
       if (error) throw error;
+
+      if (delta !== 0) {
+        const { data: contribRow, error: logError } = await supabase
+          .from('investment_contributions')
+          .insert({ user_id: userId, account_id: accountId, amount: delta, contribution_date: logDate })
+          .select().single();
+        if (logError) throw logError;
+        setContributions(prev => [...prev, contribRow]);
+      }
+
       setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, contributed_capital: value } : a));
       setContribInputs(prev => ({ ...prev, [accountId]: '' }));
+      setContribDates(prev => ({ ...prev, [accountId]: '' }));
       router.refresh();
     } catch { toast.error('Error al guardar la aportación'); }
     finally { setSavingContribId(null); }
@@ -282,6 +332,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
     const latest = accSnapshots[accSnapshots.length - 1];
     if (latest) {
       await supabase.from('accounts').update({ current_balance: latest.value }).eq('id', accountId);
+      setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, current_balance: latest.value } : a));
     }
   };
 
@@ -366,24 +417,30 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
         <div className="bg-white rounded-2xl border border-neutral-100 p-5">
           <p className="text-xs text-neutral-400 font-medium uppercase tracking-wide mb-1">Portfolio Total</p>
           <p className="text-4xl font-black tracking-tight text-neutral-900 font-mono">{fmt(totalValue)}</p>
-          <div className="flex items-center gap-3 mt-2">
-            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${dailyChange >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-              {dailyChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {fmtShort(dailyChange)}
-            </div>
-            <span className={`text-xs font-semibold ${dailyChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {dailyChangePct >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}%
-            </span>
-            <span className="text-xs text-neutral-400">hoy</span>
-          </div>
+
           {totalContributed > 0 && (
-            <p className="text-[11px] text-neutral-400 mt-1.5">
-              Aportado <span className="font-semibold text-neutral-600">{fmt(totalContributed)}</span> · Rendimiento real{' '}
-              <span className={`font-semibold ${realGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {fmtShort(realGain)} ({realGainPct >= 0 ? '+' : ''}{realGainPct.toFixed(2)}%)
-              </span>
-            </p>
+            <div className="mt-3 pt-3 border-t border-neutral-100">
+              <p className="text-[11px] text-neutral-400 font-medium uppercase tracking-wide mb-1">Rendimiento real</p>
+              <div className="flex items-baseline gap-2">
+                <p className={`text-2xl font-black font-mono ${realGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtShort(realGain)}</p>
+                <span className={`text-sm font-bold ${realGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {realGainPct >= 0 ? '+' : ''}{realGainPct.toFixed(2)}%
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400 mt-0.5">sobre {fmt(totalContributed)} aportados</p>
+            </div>
           )}
+
+          <div className="flex items-center gap-2 mt-3">
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold ${realGainToday >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              {realGainToday >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {fmtShort(realGainToday)}
+              <span className="font-normal opacity-70">({realGainTodayPct >= 0 ? '+' : ''}{realGainTodayPct.toFixed(2)}%)</span>
+            </div>
+            <span className="text-[11px] text-neutral-400">
+              hoy{contributionToday !== 0 ? ` · aportaste ${fmtShort(contributionToday)}` : ''}
+            </span>
+          </div>
         </div>
 
         {/* Comparison strip */}
@@ -460,13 +517,13 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
           {isConfigOpen && (
             <div className="border-t border-neutral-100 divide-y divide-neutral-50">
               <p className="px-4 py-2.5 text-[11px] text-neutral-400">
-                Indica cuánto dinero llevas metido en total en cada fondo (no el de hoy: el acumulado). Cuando aportes más, súmalo aquí manualmente el día que el dinero aparezca reflejado en el fondo.
+                Indica cuánto dinero llevas metido en total en cada fondo (no el de hoy: el acumulado). Cuando aportes más, súmalo aquí con la fecha en que el dinero aparezca reflejado en el fondo — así no se cuenta como rendimiento del mercado.
               </p>
               {accounts.map(acc => {
                 const accGain = (acc.current_balance ?? 0) - (acc.contributed_capital || 0);
                 return (
-                  <div key={acc.id} className="px-4 py-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
+                  <div key={acc.id} className="px-4 py-3 flex flex-wrap items-center gap-2">
+                    <div className="flex-1 min-w-[120px]">
                       <p className="text-xs font-semibold text-neutral-900 truncate">{acc.name}</p>
                       <p className="text-[11px] text-neutral-400">
                         Aportado {fmt(acc.contributed_capital || 0)}
@@ -477,7 +534,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                         )}
                       </p>
                     </div>
-                    <div className="relative w-28 shrink-0">
+                    <div className="relative w-24 shrink-0">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-300 text-xs font-bold">€</span>
                       <input
                         type="number" step="0.01" placeholder={(acc.contributed_capital || 0).toFixed(2)}
@@ -487,6 +544,9 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                         className="w-full bg-neutral-50 border border-neutral-200 rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-200"
                       />
                     </div>
+                    <input type="date" value={contribDates[acc.id] || today}
+                      onChange={(e) => setContribDates(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                      className="bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5 text-[11px] font-medium text-neutral-700 outline-none w-[110px] shrink-0" />
                     <button
                       onClick={() => handleSaveContributed(acc.id)}
                       disabled={!contribInputs[acc.id] || savingContribId === acc.id}
@@ -592,11 +652,17 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                     <ReferenceLine y={0} stroke="#e4e4e7" />
                     <Tooltip
                       contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                      formatter={(val: number | undefined) => [fmtShort(val ?? 0), 'Cambio']}
+                      formatter={(val: number | undefined, name: string | undefined, item: any) => {
+                        const contribution = item?.payload?.contribution ?? 0;
+                        if (contribution !== 0) {
+                          return [`${fmtShort(val ?? 0)}  ·  Aportación ${fmtShort(contribution)}`, 'Rendimiento real'];
+                        }
+                        return [fmtShort(val ?? 0), 'Rendimiento real'];
+                      }}
                     />
-                    <Bar dataKey="change" radius={[3, 3, 0, 0]} maxBarSize={24}>
+                    <Bar dataKey="realGain" radius={[3, 3, 0, 0]} maxBarSize={24}>
                       {dailyChangesData.map((entry, i) => (
-                        <Cell key={i} fill={entry.change >= 0 ? '#10b981' : '#f43f5e'} />
+                        <Cell key={i} fill={entry.realGain >= 0 ? '#10b981' : '#f43f5e'} />
                       ))}
                     </Bar>
                   </BarChart>
