@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Trash2, Check } from 'lucide-react';
+import { X, Save, Trash2, Check, PiggyBank } from 'lucide-react';
 import { toast } from 'sonner';
 import { upsertBudget, deleteBudget } from '@/lib/actions/budgets';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -19,6 +19,7 @@ export default function BudgetFormModal({
 }) {
     const [amount, setAmount] = useState('');
     const [categoryId, setCategoryId] = useState('');
+    const [isSavings, setIsSavings] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -26,9 +27,11 @@ export default function BudgetFormModal({
             if (existingBudget) {
                 setAmount(existingBudget.amount.toString());
                 setCategoryId(existingBudget.category_id);
+                setIsSavings(!!existingBudget.is_savings);
             } else {
                 setAmount('');
                 setCategoryId('');
+                setIsSavings(false);
             }
         }
     }, [isOpen, existingBudget]);
@@ -40,7 +43,7 @@ export default function BudgetFormModal({
         if (!categoryId || !amount) return;
 
         setLoading(true);
-        const res = await upsertBudget(categoryId, parseFloat(amount));
+        const res = await upsertBudget(categoryId, parseFloat(amount), isSavings);
         setLoading(false);
 
         if (res.success) {
@@ -98,9 +101,32 @@ export default function BudgetFormModal({
                         </div>
                     </div>
 
+                    {/* Savings toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setIsSavings(!isSavings)}
+                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${isSavings ? 'border-emerald-500 bg-emerald-50' : 'border-neutral-100 bg-white'
+                            }`}
+                    >
+                        <div className="flex items-center gap-3 text-left">
+                            <div className={`p-2 rounded-xl ${isSavings ? 'bg-emerald-500 text-white' : 'bg-neutral-100 text-neutral-400'}`}>
+                                <PiggyBank className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className={`text-sm font-bold ${isSavings ? 'text-emerald-700' : 'text-neutral-700'}`}>Es ahorro</p>
+                                <p className="text-[11px] text-neutral-400">Se resta del ingreso, pero no cuenta como gasto ni consume el colchón</p>
+                            </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full relative shrink-0 transition-colors ${isSavings ? 'bg-emerald-500' : 'bg-neutral-200'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${isSavings ? 'left-5' : 'left-0.5'}`} />
+                        </div>
+                    </button>
+
                     {/* Amount Input */}
                     <div>
-                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider block mb-2">Límite Mensual</label>
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider block mb-2">
+                            {isSavings ? 'Objetivo de Ahorro Mensual' : 'Límite Mensual'}
+                        </label>
                         <div className="relative">
                             <input
                                 type="number"

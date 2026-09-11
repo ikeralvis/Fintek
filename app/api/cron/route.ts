@@ -123,7 +123,7 @@ async function sendBudgetAndInvestmentAlerts(supabase: any) {
                 });
 
                 if (s.budget_alerts) {
-                    for (const b of budgets) {
+                    for (const b of budgets.filter((b: any) => !b.is_savings)) {
                         const spent = spendingMap[b.category_id] || 0;
                         const pct = b.amount > 0 ? (spent / b.amount) * 100 : 0;
                         if (pct >= s.budget_threshold_percent) {
@@ -148,7 +148,7 @@ async function sendBudgetAndInvestmentAlerts(supabase: any) {
 
                     const analysis = computeSpendingAnalysis(expenseHistory || [], categories, now);
                     for (const c of analysis.categories as any[]) {
-                        const budget = budgets.find((b: any) => b.category_id === c.categoryId);
+                        const budget = budgets.find((b: any) => b.category_id === c.categoryId && !b.is_savings);
                         if (budget && c.prediction > budget.amount) {
                             await sendPushToUser(supabase, userId, {
                                 title: 'Estimación IA',

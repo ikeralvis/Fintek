@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { startOfMonth } from 'date-fns';
 
-export async function upsertBudget(categoryId: string, amount: number) {
+export async function upsertBudget(categoryId: string, amount: number, isSavings: boolean = false) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -27,7 +27,7 @@ export async function upsertBudget(categoryId: string, amount: number) {
         // Update
         const result = await supabase
             .from('budgets')
-            .update({ amount }) // We don't update period/dates usually on simple amount edit, but could if needed
+            .update({ amount, is_savings: isSavings })
             .eq('id', existing.id);
         error = result.error;
     } else {
@@ -38,6 +38,7 @@ export async function upsertBudget(categoryId: string, amount: number) {
                 user_id: user.id,
                 category_id: categoryId,
                 amount,
+                is_savings: isSavings,
                 period: 'monthly', // Default period
                 start_date: startDate // FIX: Added required field
             });
@@ -51,6 +52,30 @@ export async function upsertBudget(categoryId: string, amount: number) {
 
     revalidatePath('/dashboard/presupuestos');
     revalidatePath('/dashboard/analisis');
+    return { success: true };
+}
+
+export async function upsertBudgetSettings(monthlyIncome: number, cushion: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: 'No autorizado' };
+    }
+
+    const { error } = await supabase
+        .from('budget_settings')
+        .upsert(
+            { user_id: user.id, monthly_income: monthlyIncome, cushion, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' }
+        );
+
+    if (error) {
+        console.error('Error upserting budget settings:', error);
+        return { error: error.message };
+    }
+
+    revalidatePath('/dashboard/presupuestos');
     return { success: true };
 }
 
