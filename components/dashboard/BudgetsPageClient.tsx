@@ -27,6 +27,7 @@ export default function BudgetsPageClient() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<any>(null);
   const [predictionByCategory, setPredictionByCategory] = useState<Record<string, number>>({});
+  const [averageByCategory, setAverageByCategory] = useState<Record<string, number>>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [incomeInput, setIncomeInput] = useState('');
   const [cushionInput, setCushionInput] = useState('');
@@ -46,9 +47,14 @@ export default function BudgetsPageClient() {
 
     getSpendingAnalysis().then(res => {
       if (res.data) {
-        const map: Record<string, number> = {};
-        res.data.categories.forEach((c: any) => { map[c.categoryId] = c.prediction; });
-        setPredictionByCategory(map);
+        const predictionMap: Record<string, number> = {};
+        const averageMap: Record<string, number> = {};
+        res.data.categories.forEach((c: any) => {
+          predictionMap[c.categoryId] = c.prediction;
+          averageMap[c.categoryId] = c.average;
+        });
+        setPredictionByCategory(predictionMap);
+        setAverageByCategory(averageMap);
       }
     });
   }, [userId]);
@@ -441,6 +447,7 @@ export default function BudgetsPageClient() {
         onClose={handleModalClose}
         categories={categories}
         existingBudget={editingBudget}
+        averageByCategory={averageByCategory}
       />
     </div>
   );
