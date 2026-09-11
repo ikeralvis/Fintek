@@ -160,6 +160,17 @@ export default function TransactionForm({ accounts, categories }: Props) {
     setTimeout(() => amountRef.current?.focus(), 100);
   }, []);
 
+  // La cuenta por defecto ya viene ordenada con la favorita primero (accounts[0]), pero si la
+  // última transacción se hizo con otra cuenta, se recuerda para no tener que reabrir el selector.
+  useEffect(() => {
+    try {
+      const lastUsed = window.localStorage.getItem('fintek:lastAccountId');
+      if (lastUsed && accounts.some(a => a.id === lastUsed)) {
+        setAccountId(lastUsed);
+      }
+    } catch { /* localStorage no disponible (privado, etc.) */ }
+  }, [accounts]);
+
   // Close suggestions on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -289,6 +300,8 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
         if (error) throw error;
       }
+
+      try { window.localStorage.setItem('fintek:lastAccountId', accountId); } catch { /* ignore */ }
 
       const previousPath = sessionStorage.getItem('previousPath') || '/dashboard/transacciones';
       sessionStorage.removeItem('previousPath');

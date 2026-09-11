@@ -138,10 +138,14 @@ export default function SubscriptionsPage({ initialSubscriptions, accounts, cate
 
       <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
         {/* Summary */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-2xl border border-neutral-100 p-4">
             <p className="text-xs text-neutral-400 font-medium uppercase mb-1">Gasto mensual</p>
             <p className="text-2xl font-black text-neutral-900 font-mono">{monthlyTotal.toFixed(2)}€</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-neutral-100 p-4">
+            <p className="text-xs text-neutral-400 font-medium uppercase mb-1">Gasto anual</p>
+            <p className="text-2xl font-black text-neutral-900 font-mono">{(monthlyTotal * 12).toFixed(0)}€</p>
           </div>
           <div className="bg-white rounded-2xl border border-neutral-100 p-4">
             <p className="text-xs text-neutral-400 font-medium uppercase mb-1">Activas</p>

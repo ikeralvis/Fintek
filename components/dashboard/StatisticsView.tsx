@@ -15,7 +15,7 @@ import {
     TrendingUp, Wallet, ArrowLeft,
     Download,
     BarChart3, ArrowUpRight, ArrowDownRight,
-    ChevronLeft, ChevronRight
+    ChevronLeft, ChevronRight, Coins
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import Link from 'next/link';
@@ -124,6 +124,12 @@ export default function StatisticsView({ initialTransactions, accounts, categori
         const balance = totalIncome - totalExpense;
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
 
+        // Gasto hormiga: transacciones pequeñas (< 10€) que por separado no se notan pero suman
+        const MICRO_THRESHOLD = 10;
+        const microTxs = filteredTxs.filter((t: any) => t.type === 'expense' && t.amount < MICRO_THRESHOLD);
+        const microTotal = microTxs.reduce((acc: number, t: any) => acc + t.amount, 0);
+        const microPct = totalExpense > 0 ? (microTotal / totalExpense) * 100 : 0;
+
         // Comparison with previous period
         let prevStartDate: Date;
         let prevEndDate: Date;
@@ -157,6 +163,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             categoryArray,
             pieData,
             totals: { income: totalIncome, expense: totalExpense, balance, savingsRate },
+            microSpending: { total: microTotal, count: microTxs.length, pct: microPct },
             comparison: { incomeChange, expenseChange },
             txCount: filteredTxs.length
         };
@@ -198,6 +205,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 ['Gastos', `-${stats.totals.expense.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, [244, 63, 94] as [number, number, number]],
                 ['Balance', `${stats.totals.balance >= 0 ? '+' : ''}${stats.totals.balance.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, stats.totals.balance >= 0 ? [16, 185, 129] as [number, number, number] : [244, 63, 94] as [number, number, number]],
                 ['Tasa de ahorro', `${stats.totals.savingsRate.toFixed(1)}%`, [99, 102, 241] as [number, number, number]],
+                ['Gasto hormiga (<10€)', `${stats.microSpending.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€ (${stats.microSpending.count} compras)`, [217, 119, 6] as [number, number, number]],
             ];
 
             for (const [label, value, color] of summaryData) {
@@ -366,7 +374,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div className="bg-white rounded-2xl p-4 border border-neutral-100">
                         <div className="flex items-center gap-2 mb-2">
                             <ArrowUpRight className="w-4 h-4 text-emerald-600" />
@@ -410,6 +418,17 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                         </div>
                         <p className={`text-2xl font-bold ${stats.totals.savingsRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {stats.totals.savingsRate.toFixed(0)}%
+                        </p>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 border border-neutral-100 col-span-2 md:col-span-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Coins className="w-4 h-4 text-amber-500" />
+                            <span className="text-xs font-semibold text-amber-600 uppercase">Gasto Hormiga</span>
+                        </div>
+                        <p className="text-2xl font-bold text-amber-700">{formatCompact(stats.microSpending.total)}€</p>
+                        <p className="text-xs font-medium text-neutral-400 mt-1">
+                            {stats.microSpending.count} compras &lt;10€ · {stats.microSpending.pct.toFixed(0)}% del gasto
                         </p>
                     </div>
                 </div>

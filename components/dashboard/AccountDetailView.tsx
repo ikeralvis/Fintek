@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, Star, Trash2,
     ChevronLeft, ChevronRight,
-    Calendar, Pencil, Database
+    Calendar, Pencil, Database, Loader2
 } from 'lucide-react';
-import { format, parseISO, isSameDay, isSameMonth, subMonths, addMonths, isValid } from 'date-fns';
+import { format, parseISO, isSameDay, subMonths, addMonths, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -61,30 +61,108 @@ type Props = {
     accounts: Account[];
 };
 
+const HISTORY_PAGE_SIZE = 100;
+
 export default function AccountDetailView({ account, initialTransactions, categories, accounts }: Props) {
     const router = useRouter();
     const supabase = createClient();
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
 
-    const [currentMonth, setCurrentMonth] = useState(() => {
-        if (initialTransactions && initialTransactions.length > 0) {
-            const latest = initialTransactions.reduce((l, c) =>
-                new Date(l.transaction_date) > new Date(c.transaction_date) ? l : c
-            );
-            const d = parseISO(latest.transaction_date);
-            return isValid(d) ? d : new Date();
-        }
-        return new Date();
-    });
+    // initialTransactions viene ya acotado al mes actual desde el servidor (carga ligera).
+    // El resto de meses y "todo el historial" se piden bajo demanda aquí.
+    const [currentMonth, setCurrentMonth] = useState(() => new Date());
+    const currentMonthKey = format(currentMonth, 'yyyy-MM');
+    const [monthCache, setMonthCache] = useState<Record<string, Transaction[]>>(() => ({
+        [format(new Date(), 'yyyy-MM')]: initialTransactions,
+    }));
+    const [loadingMonth, setLoadingMonth] = useState(false);
+
+    const [showAllDates, setShowAllDates] = useState(false);
+    const [allHistory, setAllHistory] = useState<Transaction[] | null>(null);
+    const [allHistoryHasMore, setAllHistoryHasMore] = useState(true);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     const [isFavorite, setIsFavorite] = useState(account.is_favorite);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [showAllDates, setShowAllDates] = useState(true);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const themeColor = account.banks?.color || '#1a1a1a';
+
+    // Trae transacciones (normales + transferencias entrantes) de esta cuenta en un rango o página,
+    // combinadas igual que hace el servidor al cargar la página.
+    const fetchTransactionsBatch = async (opts: { start?: string; end?: string; before?: string; limit: number }) => {
+        let outQ = supabase.from('transactions').select('*, categories(id, name, icon, color)')
+            .eq('account_id', account.id).order('transaction_date', { ascending: false }).limit(opts.limit);
+        let inQ = supabase.from('transactions').select('*, categories(id, name, icon, color)')
+            .eq('related_account_id', account.id).eq('type', 'transfer').order('transaction_date', { ascending: false }).limit(opts.limit);
+
+        if (opts.start) { outQ = outQ.gte('transaction_date', opts.start); inQ = inQ.gte('transaction_date', opts.start); }
+        if (opts.end) { outQ = outQ.lte('transaction_date', opts.end); inQ = inQ.lte('transaction_date', opts.end); }
+        if (opts.before) { outQ = outQ.lt('transaction_date', opts.before); inQ = inQ.lt('transaction_date', opts.before); }
+
+        const [{ data: out }, { data: inc }] = await Promise.all([outQ, inQ]);
+        const incoming = (inc || []).map((t: any) => ({ ...t, isIncomingTransfer: true }));
+        return [...(out || []), ...incoming].sort((a: any, b: any) =>
+            new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+        ) as Transaction[];
+    };
+
+    // Cargar el mes al que se navega si no está ya en caché
+    useEffect(() => {
+        if (showAllDates || monthCache[currentMonthKey]) return;
+        let cancelled = false;
+        setLoadingMonth(true);
+        fetchTransactionsBatch({
+            start: format(startOfMonth(currentMonth), 'yyyy-MM-dd'),
+            end: format(endOfMonth(currentMonth), 'yyyy-MM-dd'),
+            limit: 1000,
+        }).then(data => {
+            if (cancelled) return;
+            setMonthCache(prev => ({ ...prev, [currentMonthKey]: data }));
+        }).finally(() => { if (!cancelled) setLoadingMonth(false); });
+        return () => { cancelled = true; };
+    }, [currentMonthKey, showAllDates]);
+
+    // Cargar la primera página de "todo el historial" la primera vez que se activa
+    useEffect(() => {
+        if (!showAllDates || allHistory !== null) return;
+        setLoadingHistory(true);
+        fetchTransactionsBatch({ limit: HISTORY_PAGE_SIZE }).then(data => {
+            setAllHistory(data);
+            setAllHistoryHasMore(data.length >= HISTORY_PAGE_SIZE);
+        }).finally(() => setLoadingHistory(false));
+    }, [showAllDates]);
+
+    // Cuando el servidor manda transacciones frescas del mes actual (tras un router.refresh()
+    // por crear/editar/borrar algo), sincronizamos la caché en vez de dejarla desactualizada.
+    useEffect(() => {
+        setMonthCache(prev => ({ ...prev, [format(new Date(), 'yyyy-MM')]: initialTransactions }));
+    }, [initialTransactions]);
+
+    // Invalida cachés que puedan haber quedado obsoletas tras editar/borrar/crear algo,
+    // para que se vuelvan a pedir la próxima vez que se visiten.
+    const invalidateStaleCaches = () => {
+        setAllHistory(null);
+        setMonthCache(prev => {
+            const currentKey = format(new Date(), 'yyyy-MM');
+            return currentKey in prev ? { [currentKey]: prev[currentKey] } : {};
+        });
+    };
+
+    const loadMoreHistory = async () => {
+        if (!allHistory || allHistory.length === 0) return;
+        setLoadingHistory(true);
+        try {
+            const cursor = allHistory[allHistory.length - 1].transaction_date;
+            const more = await fetchTransactionsBatch({ before: cursor, limit: HISTORY_PAGE_SIZE });
+            setAllHistory(prev => [...(prev || []), ...more]);
+            setAllHistoryHasMore(more.length >= HISTORY_PAGE_SIZE);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
 
     const toggleFavorite = async () => {
         const newValue = !isFavorite;
@@ -122,6 +200,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 await supabase.from('transactions').delete().eq('id', tx.id);
             }
             toast.success('Transacción eliminada');
+            invalidateStaleCaches();
             router.refresh();
         } catch {
             toast.error('Error al eliminar');
@@ -132,25 +211,30 @@ export default function AccountDetailView({ account, initialTransactions, catego
 
     const handleEditSaved = () => {
         setEditingTransaction(null);
+        invalidateStaleCaches();
         router.refresh();
     };
 
+    const sourceTransactions = useMemo(() => {
+        if (showAllDates) return allHistory || [];
+        return monthCache[currentMonthKey] || [];
+    }, [showAllDates, allHistory, monthCache, currentMonthKey]);
+
     const parsedTransactions = useMemo(() => {
-        return initialTransactions.map(t => {
+        return sourceTransactions.map(t => {
             let date = parseISO(t.transaction_date);
             if (!isValid(date)) date = new Date(t.transaction_date);
             return { ...t, parsedDate: date };
         });
-    }, [initialTransactions]);
+    }, [sourceTransactions]);
 
     const filteredTransactions = useMemo(() => {
         return parsedTransactions.filter(t => {
             if (!isValid(t.parsedDate)) return false;
-            if (!showAllDates && !isSameMonth(t.parsedDate, currentMonth)) return false;
             if (filterType !== 'all' && t.type !== filterType) return false;
             return true;
         });
-    }, [parsedTransactions, filterType, currentMonth, showAllDates]);
+    }, [parsedTransactions, filterType]);
 
     const { monthIncome, monthExpense, monthTransferIn, monthTransferOut } = useMemo(() => {
         let inc = 0, exp = 0, transferIn = 0, transferOut = 0;
@@ -254,7 +338,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                         className="flex-1 text-center py-2 hover:bg-neutral-50 rounded-lg transition-colors min-w-0"
                     >
                         <div className="flex items-center justify-center gap-2">
-                            <Calendar className="w-4 h-4 text-neutral-400 shrink-0" />
+                            {loadingMonth ? <Loader2 className="w-4 h-4 text-neutral-400 shrink-0 animate-spin" /> : <Calendar className="w-4 h-4 text-neutral-400 shrink-0" />}
                             <span className="text-sm font-medium text-neutral-700 capitalize truncate">
                                 {showAllDates ? 'Todo el historial' : format(currentMonth, 'MMMM yyyy', { locale: es })}
                             </span>
@@ -310,7 +394,12 @@ export default function AccountDetailView({ account, initialTransactions, catego
 
                 {/* Transaction List */}
                 <div className="space-y-5">
-                    {Object.keys(groupedTransactions).length === 0 ? (
+                    {showAllDates && loadingHistory && allHistory === null ? (
+                        <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
+                            <Loader2 className="w-5 h-5 text-neutral-300 animate-spin mx-auto mb-2" />
+                            <p className="text-neutral-400 text-sm">Cargando historial...</p>
+                        </div>
+                    ) : Object.keys(groupedTransactions).length === 0 ? (
                         <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
                             <p className="text-neutral-400 text-sm">Sin movimientos en este período</p>
                             {!showAllDates && (
@@ -383,6 +472,17 @@ export default function AccountDetailView({ account, initialTransactions, catego
                             </div>
                         ))
                     )}
+
+                    {showAllDates && allHistory !== null && allHistoryHasMore && (
+                        <button
+                            onClick={loadMoreHistory}
+                            disabled={loadingHistory}
+                            className="w-full py-3 bg-white border border-neutral-100 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            {loadingHistory ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                            Cargar más
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -412,6 +512,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                     onClose={() => setIsImportModalOpen(false)}
                     onImportSuccess={() => {
                         setIsImportModalOpen(false);
+                        invalidateStaleCaches();
                         router.refresh();
                     }}
                 />

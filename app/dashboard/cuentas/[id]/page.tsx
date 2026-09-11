@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
+import { startOfMonth, endOfMonth } from 'date-fns';
 import AccountDetailView from '@/components/dashboard/AccountDetailView';
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +15,12 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         redirect('/login');
     }
 
-    // Fetch Account, Transactions (including incoming transfers), Categories and all Accounts (for transfer editing) in parallel
+    // Solo se carga el mes actual al entrar (mucho más ligero que todo el historial).
+    // El resto de meses y "todo el historial" se piden bajo demanda desde el cliente.
+    const monthStart = startOfMonth(new Date()).toISOString().split('T')[0];
+    const monthEnd = endOfMonth(new Date()).toISOString().split('T')[0];
+
+    // Fetch Account, Transactions del mes actual (incl. transferencias entrantes), Categories y todas las Accounts (para editar transferencias) en paralelo
     const [accountRes, outgoingTxRes, incomingTransfersRes, categoriesRes, allAccountsRes] = await Promise.all([
         supabase
             .from('accounts')
@@ -23,24 +29,26 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             .eq('user_id', user.id)
             .single(),
 
-        // Transacciones normales + transferencias salientes
+        // Transacciones normales + transferencias salientes del mes actual
         supabase
             .from('transactions')
             .select('*, categories(id, name, icon, color)')
             .eq('account_id', id)
             .eq('user_id', user.id)
-            .order('transaction_date', { ascending: false })
-            .limit(500),
+            .gte('transaction_date', monthStart)
+            .lte('transaction_date', monthEnd)
+            .order('transaction_date', { ascending: false }),
 
-        // Transferencias entrantes (donde esta cuenta es el destino)
+        // Transferencias entrantes del mes actual (donde esta cuenta es el destino)
         supabase
             .from('transactions')
             .select('*, categories(id, name, icon, color)')
             .eq('related_account_id', id)
             .eq('user_id', user.id)
             .eq('type', 'transfer')
-            .order('transaction_date', { ascending: false })
-            .limit(100),
+            .gte('transaction_date', monthStart)
+            .lte('transaction_date', monthEnd)
+            .order('transaction_date', { ascending: false }),
 
         supabase
             .from('categories')
