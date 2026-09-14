@@ -158,23 +158,23 @@ export default function TransactionsView({ initialTransactions, accounts, catego
     }, [filteredTransactions]);
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+        <div className="min-h-screen bg-background pb-32 md:pb-8">
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-neutral-50/80 backdrop-blur-xl px-5 py-4">
+            <div className="sticky top-0 z-30 glass-nav px-5 py-4">
                 <div className="max-w-6xl mx-auto">
                 <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-xl font-bold text-neutral-900">Transacciones</h1>
+                    <h1 className="text-xl font-bold text-foreground">Transacciones</h1>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setIsImportModalOpen(true)}
-                            className="p-2 text-neutral-500 hover:bg-neutral-100 rounded-xl transition-colors"
+                            className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
                             title="Importar"
                         >
                             <Database className="w-5 h-5" />
                         </button>
                         <button 
                             onClick={() => setIsSearchOpen(!isSearchOpen)} 
-                            className={`p-2 rounded-xl transition-colors ${isSearchOpen ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                            className={`p-2 rounded-xl transition-colors ${isSearchOpen ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
                         >
                             {isSearchOpen ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
                         </button>
@@ -188,7 +188,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                         placeholder="Buscar transacciones..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 outline-none text-sm font-medium text-neutral-900 placeholder-neutral-400 mb-4 focus:border-neutral-300"
+                        className="w-full bg-card border border-border rounded-xl px-4 py-3 outline-none text-sm font-medium text-foreground placeholder-muted-foreground mb-4 focus:border-primary/40"
                         autoFocus
                     />
                 )}
@@ -199,25 +199,25 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                         <select
                             value={period}
                             onChange={(e) => setPeriod(e.target.value as 'month' | 'week' | 'year')}
-                            className="appearance-none bg-neutral-900 text-white rounded-xl pl-3 pr-8 py-2 text-sm font-medium focus:outline-none"
+                            className="appearance-none bg-primary text-primary-foreground rounded-xl pl-3 pr-8 py-2 text-sm font-medium focus:outline-none"
                         >
                             <option value="month">Mes</option>
                             <option value="week">Semana</option>
                             <option value="year">Año</option>
                         </select>
-                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60 pointer-events-none" />
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/60 pointer-events-none" />
                     </div>
 
                     {period === 'month' && (
-                        <div className="flex items-center gap-1 bg-white border border-neutral-200 rounded-xl px-1 py-1 shrink-0">
-                            <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-neutral-100 rounded-lg">
-                                <ChevronLeft className="w-4 h-4 text-neutral-600" />
+                        <div className="flex items-center gap-1 bg-card border border-border rounded-xl px-1 py-1 shrink-0">
+                            <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-muted rounded-lg">
+                                <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                             </button>
-                            <span className="text-sm font-medium text-neutral-700 min-w-[80px] text-center capitalize">
+                            <span className="text-sm font-medium text-foreground min-w-[80px] text-center capitalize">
                                 {format(currentDate, 'MMM yyyy', { locale: es })}
                             </span>
-                            <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-1.5 hover:bg-neutral-100 rounded-lg">
-                                <ChevronRight className="w-4 h-4 text-neutral-600" />
+                            <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-1.5 hover:bg-muted rounded-lg">
+                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
                             </button>
                         </div>
                     )}
@@ -229,8 +229,8 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                 onClick={() => setTypeFilter(t)}
                                 className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                                     typeFilter === t
-                                        ? 'bg-neutral-900 text-white'
-                                        : 'bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-300'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-card border border-border text-muted-foreground hover:border-primary/30'
                                 }`}
                             >
                                 {t === 'all' ? 'Todo' : t === 'income' ? 'Ingreso' : t === 'expense' ? 'Gasto' : 'Transf.'}
@@ -243,20 +243,20 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
             <div className="px-5 space-y-6 max-w-6xl mx-auto">
                 {/* Summary Card */}
-                <div className="bg-neutral-900 rounded-2xl p-5 text-white">
+                <div className="bg-primary rounded-2xl p-5 text-primary-foreground">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <p className="text-xs text-neutral-400 uppercase tracking-wide font-medium">Balance del período</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Balance del período</p>
                             <p className="text-3xl font-bold">{new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalIncome - totalExpense)}</p>
                         </div>
                     </div>
                     <div className="flex gap-6">
                         <div>
-                            <p className="text-[10px] text-neutral-500 uppercase">Ingresos</p>
+                            <p className="text-[10px] text-muted-foreground uppercase">Ingresos</p>
                             <p className="text-lg font-semibold text-emerald-400">+{new Intl.NumberFormat('es-ES').format(totalIncome)}€</p>
                         </div>
                         <div>
-                            <p className="text-[10px] text-neutral-500 uppercase">Gastos</p>
+                            <p className="text-[10px] text-muted-foreground uppercase">Gastos</p>
                             <p className="text-lg font-semibold text-rose-400">-{new Intl.NumberFormat('es-ES').format(totalExpense)}€</p>
                         </div>
                     </div>
@@ -265,16 +265,16 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                 {/* Transaction List */}
                 <div className="space-y-5">
                     {Object.keys(groupedTransactions).length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
-                            <p className="text-neutral-400 text-sm">No hay transacciones</p>
+                        <div className="text-center py-16 bg-card rounded-xl border border-border">
+                            <p className="text-muted-foreground text-sm">No hay transacciones</p>
                         </div>
                     ) : (
                         Object.keys(groupedTransactions).sort((a, b) => b.localeCompare(a)).map(date => (
                             <div key={date}>
-                                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2 ml-1">
+                                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 ml-1">
                                     {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM yyyy', { locale: es })}
                                 </h3>
-                                <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
+                                <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
                                     {groupedTransactions[date].map(t => {
                                         const isTransfer = t.type === 'transfer';
                                         const categoryName = t.categories?.name || t.category || (isTransfer ? 'Transferencia' : 'General');
@@ -284,7 +284,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                             : null;
 
                                         return (
-                                            <SwipeToDeleteRow key={t.id} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-white px-4 py-3 flex items-center gap-3 group">
+                                            <SwipeToDeleteRow key={t.id} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-card px-4 py-3 flex items-center gap-3 group">
                                                 {/* Category Icon */}
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -299,14 +299,14 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
                                                 {/* Details */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
-                                                    <p className="text-xs text-neutral-400 truncate">
+                                                    <p className="font-medium text-foreground text-sm truncate">{categoryName}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">
                                                         {isTransfer && destinationName ? `${accountName} -> ${destinationName}` : accountName}
                                                     </p>
                                                 </div>
 
                                                 {/* Amount */}
-                                                <p className={`font-semibold text-sm ${t.type === 'income' ? 'text-emerald-600' : t.type === 'transfer' ? 'text-blue-600' : 'text-neutral-900'}`}>
+                                                <p className={`font-semibold text-sm tabular-nums ${t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : t.type === 'transfer' ? 'text-primary' : 'text-foreground'}`}>
                                                     {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                                                 </p>
 
@@ -314,17 +314,17 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                                 <div className="flex items-center gap-1">
                                                     <button
                                                         onClick={() => setEditingTransaction(t)}
-                                                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                        className="p-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors"
                                                     >
                                                         <Pencil className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteTransaction(t)}
                                                         disabled={deletingId === t.id}
-                                                        className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                                        className="p-2 bg-accent-500/10 text-accent-600 dark:text-accent-400 hover:bg-accent-500/20 rounded-lg transition-colors"
                                                     >
                                                         {deletingId === t.id ? (
-                                                            <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                            <div className="w-4 h-4 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
                                                         ) : (
                                                             <Trash2 className="w-4 h-4" />
                                                         )}

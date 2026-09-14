@@ -312,11 +312,11 @@ export default function StatisticsView({ initialTransactions, accounts, categori
 
     if (!initialTransactions || initialTransactions.length === 0) {
         return (
-            <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-8 text-center">
-                <BarChart3 className="w-16 h-16 text-neutral-300 mb-4" />
-                <h2 className="text-xl font-bold text-neutral-900 mb-2">Sin datos todavía</h2>
-                <p className="text-neutral-500 max-w-md mb-6">Añade transacciones para ver tus estadísticas detalladas.</p>
-                <Link href="/dashboard/transacciones/nueva" className="px-6 py-3 bg-neutral-900 text-white rounded-2xl text-sm font-bold">
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center">
+                <BarChart3 className="w-16 h-16 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-bold text-foreground mb-2">Sin datos todavía</h2>
+                <p className="text-muted-foreground max-w-md mb-6">Añade transacciones para ver tus estadísticas detalladas.</p>
+                <Link href="/dashboard/transacciones/nueva" className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl text-sm font-bold">
                     Añadir transacción
                 </Link>
             </div>
@@ -324,16 +324,16 @@ export default function StatisticsView({ initialTransactions, accounts, categori
     }
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+        <div className="min-h-screen bg-background pb-32 md:pb-8">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+            <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
-                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
-                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
+                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-foreground" />
                     </Link>
-                    <h1 className="text-lg font-semibold text-neutral-900">Estadísticas</h1>
-                    <button onClick={handleExportPDF} disabled={exporting} className="p-2 rounded-xl hover:bg-neutral-100">
-                        <Download className="w-5 h-5 text-neutral-600" />
+                    <h1 className="text-lg font-semibold text-foreground">Estadísticas</h1>
+                    <button onClick={handleExportPDF} disabled={exporting} className="p-2 rounded-xl hover:bg-muted">
+                        <Download className="w-5 h-5 text-muted-foreground" />
                     </button>
                 </div>
             </div>
@@ -341,11 +341,11 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             <div className="px-5 space-y-5 max-w-6xl mx-auto pt-5">
                 {/* Period Selector */}
                 <div className="flex items-center gap-3">
-                    <div className="flex bg-neutral-100 rounded-xl p-0.5">
+                    <div className="flex bg-muted rounded-xl p-0.5">
                         <button
                             onClick={() => setPeriodType('month')}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                                periodType === 'month' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'
+                                periodType === 'month' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
                             }`}
                         >
                             Mes
@@ -353,81 +353,81 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                         <button
                             onClick={() => setPeriodType('year')}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                                periodType === 'year' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'
+                                periodType === 'year' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
                             }`}
                         >
                             Año
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-1 ml-auto bg-white border border-neutral-200 rounded-xl px-1 py-1">
-                        <button onClick={() => navigatePeriod(-1)} className="p-1.5 hover:bg-neutral-100 rounded-lg">
-                            <ChevronLeft className="w-4 h-4 text-neutral-600" />
+                    <div className="flex items-center gap-1 ml-auto bg-card border border-border rounded-xl px-1 py-1">
+                        <button onClick={() => navigatePeriod(-1)} className="p-1.5 hover:bg-muted rounded-lg">
+                            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                         </button>
-                        <span className="text-sm font-medium text-neutral-700 min-w-[110px] text-center capitalize">
+                        <span className="text-sm font-medium text-foreground min-w-[110px] text-center capitalize">
                             {periodLabel}
                         </span>
-                        <button onClick={() => navigatePeriod(1)} className="p-1.5 hover:bg-neutral-100 rounded-lg">
-                            <ChevronRight className="w-4 h-4 text-neutral-600" />
+                        <button onClick={() => navigatePeriod(1)} className="p-1.5 hover:bg-muted rounded-lg">
+                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         </button>
                     </div>
                 </div>
 
                 {/* Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
+                    <div className="bg-card rounded-2xl p-4 border border-border">
                         <div className="flex items-center gap-2 mb-2">
-                            <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-                            <span className="text-xs font-semibold text-emerald-600 uppercase">Ingresos</span>
+                            <ArrowUpRight className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
+                            <span className="text-xs font-semibold text-secondary-600 dark:text-secondary-400 uppercase">Ingresos</span>
                         </div>
-                        <p className="text-2xl font-bold text-emerald-700">{formatCompact(stats.totals.income)}€</p>
+                        <p className="text-2xl font-bold tabular-nums text-secondary-700 dark:text-secondary-400">{formatCompact(stats.totals.income)}€</p>
                         {stats.comparison.incomeChange !== 0 && (
-                            <p className={`text-xs font-medium mt-1 ${stats.comparison.incomeChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <p className={`text-xs font-medium mt-1 ${stats.comparison.incomeChange >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
                                 {stats.comparison.incomeChange >= 0 ? '+' : ''}{stats.comparison.incomeChange.toFixed(0)}% vs anterior
                             </p>
                         )}
                     </div>
 
-                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
+                    <div className="bg-card rounded-2xl p-4 border border-border">
                         <div className="flex items-center gap-2 mb-2">
-                            <ArrowDownRight className="w-4 h-4 text-rose-600" />
-                            <span className="text-xs font-semibold text-rose-600 uppercase">Gastos</span>
+                            <ArrowDownRight className="w-4 h-4 text-accent-600 dark:text-accent-400" />
+                            <span className="text-xs font-semibold text-accent-600 dark:text-accent-400 uppercase">Gastos</span>
                         </div>
-                        <p className="text-2xl font-bold text-rose-700">{formatCompact(stats.totals.expense)}€</p>
+                        <p className="text-2xl font-bold tabular-nums text-accent-700 dark:text-accent-400">{formatCompact(stats.totals.expense)}€</p>
                         {stats.comparison.expenseChange !== 0 && (
-                            <p className={`text-xs font-medium mt-1 ${stats.comparison.expenseChange <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <p className={`text-xs font-medium mt-1 ${stats.comparison.expenseChange <= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
                                 {stats.comparison.expenseChange >= 0 ? '+' : ''}{stats.comparison.expenseChange.toFixed(0)}% vs anterior
                             </p>
                         )}
                     </div>
 
-                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
+                    <div className="bg-card rounded-2xl p-4 border border-border">
                         <div className="flex items-center gap-2 mb-2">
-                            <Wallet className="w-4 h-4 text-neutral-500" />
-                            <span className="text-xs font-semibold text-neutral-500 uppercase">Balance</span>
+                            <Wallet className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-xs font-semibold text-muted-foreground uppercase">Balance</span>
                         </div>
-                        <p className={`text-2xl font-bold ${stats.totals.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <p className={`text-2xl font-bold tabular-nums ${stats.totals.balance >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
                             {stats.totals.balance >= 0 ? '+' : ''}{formatCompact(stats.totals.balance)}€
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-4 border border-neutral-100">
+                    <div className="bg-card rounded-2xl p-4 border border-border">
                         <div className="flex items-center gap-2 mb-2">
-                            <TrendingUp className="w-4 h-4 text-neutral-500" />
-                            <span className="text-xs font-semibold text-neutral-500 uppercase">Ahorro</span>
+                            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-xs font-semibold text-muted-foreground uppercase">Ahorro</span>
                         </div>
-                        <p className={`text-2xl font-bold ${stats.totals.savingsRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <p className={`text-2xl font-bold tabular-nums ${stats.totals.savingsRate >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
                             {stats.totals.savingsRate.toFixed(0)}%
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-4 border border-neutral-100 col-span-2 md:col-span-1">
+                    <div className="bg-card rounded-2xl p-4 border border-border col-span-2 md:col-span-1">
                         <div className="flex items-center gap-2 mb-2">
-                            <Coins className="w-4 h-4 text-amber-500" />
-                            <span className="text-xs font-semibold text-amber-600 uppercase">Gasto Hormiga</span>
+                            <Coins className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase">Gasto Hormiga</span>
                         </div>
-                        <p className="text-2xl font-bold text-amber-700">{formatCompact(stats.microSpending.total)}€</p>
-                        <p className="text-xs font-medium text-neutral-400 mt-1">
+                        <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">{formatCompact(stats.microSpending.total)}€</p>
+                        <p className="text-xs font-medium text-muted-foreground mt-1">
                             {stats.microSpending.count} compras &lt;10€ · {stats.microSpending.pct.toFixed(0)}% del gasto
                         </p>
                     </div>
@@ -436,8 +436,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 {/* Charts - Side by side on desktop */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {/* Income vs Expense AreaChart */}
-                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Ingresos vs Gastos</h3>
+                    <div className="bg-card rounded-2xl p-5 border border-border">
+                        <h3 className="text-sm font-bold text-foreground mb-4">Ingresos vs Gastos</h3>
                         <ResponsiveContainer width="100%" height={220}>
                             <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
@@ -463,8 +463,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     </div>
 
                     {/* Balance Evolution */}
-                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Evolución del Balance{periodType === 'month' ? ' (acumulado)' : ''}</h3>
+                    <div className="bg-card rounded-2xl p-5 border border-border">
+                        <h3 className="text-sm font-bold text-foreground mb-4">Evolución del Balance{periodType === 'month' ? ' (acumulado)' : ''}</h3>
                         <ResponsiveContainer width="100%" height={220}>
                             <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
@@ -488,8 +488,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 {/* Bottom row - Pie + Categories */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     {stats.pieData.length > 0 && (
-                        <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                            <h3 className="text-sm font-bold text-neutral-900 mb-4">Distribución de Gastos</h3>
+                        <div className="bg-card rounded-2xl p-5 border border-border">
+                            <h3 className="text-sm font-bold text-foreground mb-4">Distribución de Gastos</h3>
                             <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <div className="w-40 h-40 relative shrink-0">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -519,9 +519,9 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                         <div key={item.name} className="flex items-center justify-between text-xs">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
-                                                <span className="font-medium text-neutral-700 truncate">{item.name}</span>
+                                                <span className="font-medium text-foreground truncate">{item.name}</span>
                                             </div>
-                                            <span className="font-bold text-neutral-900 shrink-0 ml-2">{formatCompact(item.value)}€</span>
+                                            <span className="font-bold text-foreground shrink-0 ml-2">{formatCompact(item.value)}€</span>
                                         </div>
                                     ))}
                                 </div>
@@ -529,8 +529,8 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                         </div>
                     )}
 
-                    <div className="bg-white rounded-2xl p-5 border border-neutral-100">
-                        <h3 className="text-sm font-bold text-neutral-900 mb-4">Categorías</h3>
+                    <div className="bg-card rounded-2xl p-5 border border-border">
+                        <h3 className="text-sm font-bold text-foreground mb-4">Categorías</h3>
                         <div className="space-y-3">
                             {stats.categoryArray.slice(0, 10).map((cat: any) => {
                                 const maxValue = stats.categoryArray[0]?.total || 1;
@@ -548,18 +548,18 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-1">
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="text-sm font-medium text-neutral-900 truncate">{cat.name}</span>
+                                                    <span className="text-sm font-medium text-foreground truncate">{cat.name}</span>
                                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                                                        isIncome ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
+                                                        isIncome ? 'bg-secondary-500/10 text-secondary-600 dark:text-secondary-400' : 'bg-accent-500/10 text-accent-500 dark:text-accent-400'
                                                     }`}>
                                                         {isIncome ? 'Ingreso' : 'Gasto'}
                                                     </span>
                                                 </div>
-                                                <span className={`text-sm font-bold shrink-0 ml-2 ${isIncome ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                                                <span className={`text-sm font-bold tabular-nums shrink-0 ml-2 ${isIncome ? 'text-secondary-600 dark:text-secondary-400' : 'text-foreground'}`}>
                                                     {isIncome ? '+' : '-'}{formatCompact(cat.total)}€
                                                 </span>
                                             </div>
-                                            <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full rounded-full transition-all"
                                                     style={{ width: `${percentage}%`, backgroundColor: isIncome ? '#10b981' : cat.color }}
@@ -573,7 +573,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     </div>
                 </div>
 
-                <div className="text-center py-4 text-xs text-neutral-400">
+                <div className="text-center py-4 text-xs text-muted-foreground">
                     {stats.txCount} transacciones en este período
                 </div>
             </div>

@@ -31,7 +31,7 @@ export default async function NewTransactionPage() {
     const categories = catRes.data || [];
 
     return (
-        <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-0 sm:p-4">
+        <div className="min-h-screen bg-background flex items-center justify-center p-0 sm:p-4">
             <div className="w-full max-w-lg h-full sm:h-auto">
                 <TransactionForm accounts={accounts} categories={categories} />
             </div>

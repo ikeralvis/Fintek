@@ -9,7 +9,7 @@ import {
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isSameDay, parseISO, addMonths, subMonths,
-  getDay, startOfWeek
+  getDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
@@ -58,14 +58,14 @@ export default function CalendarView() {
   const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+    <div className="min-h-screen bg-background pb-32 md:pb-8">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+      <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
-            <ArrowLeft className="w-5 h-5 text-neutral-700" />
+          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
-          <h1 className="text-lg font-semibold text-neutral-900">Calendario</h1>
+          <h1 className="text-lg font-semibold text-foreground">Calendario</h1>
           <div className="w-9" />
         </div>
       </div>
@@ -74,41 +74,41 @@ export default function CalendarView() {
 
         {/* Month Navigation */}
         <div className="flex items-center justify-between">
-          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-xl">
-            <ChevronLeft className="w-5 h-5 text-neutral-600" />
+          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-muted rounded-xl">
+            <ChevronLeft className="w-5 h-5 text-muted-foreground" />
           </button>
-          <h2 className="text-base font-semibold text-neutral-900 capitalize">
+          <h2 className="text-base font-semibold text-foreground capitalize">
             {format(currentMonth, 'MMMM yyyy', { locale: es })}
           </h2>
-          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-xl">
-            <ChevronRight className="w-5 h-5 text-neutral-600" />
+          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-muted rounded-xl">
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
 
         {/* Month Summary */}
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
-            <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
-            <p className="text-sm font-bold text-emerald-700">+{monthTotals.income.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€</p>
+          <div className="bg-secondary-500/10 rounded-xl p-3 text-center border border-secondary-500/20">
+            <p className="text-[10px] text-secondary-600 dark:text-secondary-400 font-semibold uppercase">Ingresos</p>
+            <p className="text-sm font-bold tabular-nums text-secondary-700 dark:text-secondary-400">+{monthTotals.income.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€</p>
           </div>
-          <div className="bg-rose-50 rounded-xl p-3 text-center border border-rose-100">
-            <p className="text-[10px] text-rose-600 font-semibold uppercase">Gastos</p>
-            <p className="text-sm font-bold text-rose-700">-{monthTotals.expense.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€</p>
+          <div className="bg-accent-500/10 rounded-xl p-3 text-center border border-accent-500/20">
+            <p className="text-[10px] text-accent-600 dark:text-accent-400 font-semibold uppercase">Gastos</p>
+            <p className="text-sm font-bold tabular-nums text-accent-700 dark:text-accent-400">-{monthTotals.expense.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€</p>
           </div>
-          <div className="bg-white rounded-xl p-3 text-center border border-neutral-100">
-            <p className="text-[10px] text-neutral-500 font-semibold uppercase">Balance</p>
-            <p className={`text-sm font-bold ${monthTotals.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <div className="bg-card rounded-xl p-3 text-center border border-border">
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase">Balance</p>
+            <p className={`text-sm font-bold ${monthTotals.balance >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
               {monthTotals.balance >= 0 ? '+' : ''}{monthTotals.balance.toLocaleString('es-ES', { maximumFractionDigits: 0 })}€
             </p>
           </div>
         </div>
 
         {/* Calendar Grid */}
-        <div className="bg-white rounded-2xl border border-neutral-100 p-4">
+        <div className="bg-card rounded-2xl border border-border p-4">
           {/* Weekday headers */}
           <div className="grid grid-cols-7 gap-1 mb-2">
             {weekDays.map(d => (
-              <div key={d} className="text-center text-[10px] font-semibold text-neutral-400 uppercase py-1">
+              <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground uppercase py-1">
                 {d}
               </div>
             ))}
@@ -133,22 +133,22 @@ export default function CalendarView() {
                   key={dateStr}
                   onClick={() => setSelectedDate(day)}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center p-0.5 transition-all relative ${
-                    isSelected ? 'bg-neutral-900 text-white' :
-                    isToday ? 'bg-neutral-100' :
-                    'hover:bg-neutral-50'
+                    isSelected ? 'bg-primary text-primary-foreground' :
+                    isToday ? 'bg-muted' :
+                    'hover:bg-muted/60'
                   }`}
                 >
-                  <span className={`text-xs font-medium ${isSelected ? 'text-white' : 'text-neutral-900'}`}>
+                  <span className={`text-xs font-medium ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
                     {format(day, 'd')}
                   </span>
                   {hasActivity && !isSelected && (
                     <div className="flex gap-0.5 mt-0.5">
-                      {totals.income > 0 && <div className="w-1 h-1 rounded-full bg-emerald-400" />}
-                      {totals.expense > 0 && <div className="w-1 h-1 rounded-full bg-rose-400" />}
+                      {totals.income > 0 && <div className="w-1 h-1 rounded-full bg-secondary-500" />}
+                      {totals.expense > 0 && <div className="w-1 h-1 rounded-full bg-accent-500" />}
                     </div>
                   )}
                   {hasActivity && isSelected && (
-                    <span className="text-[8px] font-bold text-white/70 mt-0.5">
+                    <span className="text-[8px] font-bold text-primary-foreground/70 mt-0.5">
                       -{totals.expense.toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                     </span>
                   )}
@@ -161,17 +161,17 @@ export default function CalendarView() {
         {/* Selected Day Transactions */}
         {selectedDate && (
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-1">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
               {isSameDay(selectedDate, new Date()) ? 'Hoy' : format(selectedDate, "d 'de' MMMM", { locale: es })}
               {selectedDayTransactions.length > 0 && ` · ${selectedDayTransactions.length} movimiento${selectedDayTransactions.length > 1 ? 's' : ''}`}
             </h3>
 
             {selectedDayTransactions.length === 0 ? (
-              <div className="bg-white rounded-xl border border-neutral-100 p-6 text-center">
-                <p className="text-sm text-neutral-400">Sin movimientos este día</p>
+              <div className="bg-card rounded-xl border border-border p-6 text-center">
+                <p className="text-sm text-muted-foreground">Sin movimientos este día</p>
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
+              <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
                 {selectedDayTransactions.map(t => (
                   <div key={t.id} className="px-4 py-3 flex items-center gap-3">
                     <div
@@ -181,16 +181,16 @@ export default function CalendarView() {
                       {t.categories?.icon ? (
                         <CategoryIcon name={t.categories.icon} className="w-4 h-4" style={{ color: t.categories.color || '#666' }} />
                       ) : t.type === 'income' ? (
-                        <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                        <ArrowUpRight className="w-4 h-4 text-secondary-500 dark:text-secondary-400" />
                       ) : (
-                        <ArrowDownRight className="w-4 h-4 text-rose-500" />
+                        <ArrowDownRight className="w-4 h-4 text-accent-500 dark:text-accent-400" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-900 truncate">{t.categories?.name || t.description || 'General'}</p>
-                      <p className="text-xs text-neutral-400 truncate">{t.description || ''}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{t.categories?.name || t.description || 'General'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{t.description || ''}</p>
                     </div>
-                    <p className={`text-sm font-semibold font-mono ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                    <p className={`text-sm font-semibold font-mono ${t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-foreground'}`}>
                       {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('es-ES')}€
                     </p>
                   </div>

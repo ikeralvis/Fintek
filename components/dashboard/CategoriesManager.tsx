@@ -167,10 +167,10 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
       {/* Quick suggestions - always visible */}
       {availableSuggestions.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-2">Añadir rápido</p>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Añadir rápido</p>
           <div className="flex flex-wrap gap-1.5">
             {availableSuggestions.slice(0, 12).map(s => (
-              <button key={s.name} type="button" onClick={() => handleAddCategory(s.name, s.icon, s.color)} disabled={loading} className="px-2.5 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 text-neutral-700 flex items-center gap-1.5 transition-colors">
+              <button key={s.name} type="button" onClick={() => handleAddCategory(s.name, s.icon, s.color)} disabled={loading} className="px-2.5 py-1.5 text-xs bg-muted/60 border border-border rounded-lg hover:bg-muted text-foreground flex items-center gap-1.5 transition-colors">
                 <CategoryIcon name={s.icon} className="w-3.5 h-3.5" style={{ color: s.color }} />
                 {s.name}
               </button>
@@ -181,45 +181,45 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
 
       {/* Compact Add Form */}
       <form onSubmit={handleSubmit} className="space-y-3">
-        <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">O crear personalizada</p>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">O crear personalizada</p>
         <div className="flex gap-2">
           <input
             type="text"
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}
             placeholder="Nombre de la categoría"
-            className="flex-1 px-3 py-2.5 border border-neutral-200 rounded-xl bg-neutral-50 text-sm text-neutral-900 font-medium focus:ring-2 focus:ring-neutral-200 outline-none"
+            className="flex-1 px-3 py-2.5 border border-border rounded-xl bg-muted/60 text-sm text-foreground font-medium focus:ring-2 focus:ring-ring outline-none"
             disabled={loading}
           />
-          <button type="submit" disabled={loading || !newCategoryName.trim()} className="px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-sm font-semibold disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors shrink-0">
+          <button type="submit" disabled={loading || !newCategoryName.trim()} className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold disabled:bg-muted disabled:text-muted-foreground transition-colors shrink-0">
             <Plus className="w-4 h-4" />
           </button>
         </div>
 
         {/* Icon + Color row */}
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setShowIconPicker(!showIconPicker)} className="w-10 h-10 rounded-xl border border-neutral-200 flex items-center justify-center hover:border-neutral-300 shrink-0" style={{ backgroundColor: `${newCategoryColor}10` }}>
+          <button type="button" onClick={() => setShowIconPicker(!showIconPicker)} className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:border-primary/40 shrink-0" style={{ backgroundColor: `${newCategoryColor}10` }}>
             <CategoryIcon name={newCategoryIcon} className="w-5 h-5" style={{ color: newCategoryColor }} />
           </button>
           <div className="flex flex-wrap gap-1.5 flex-1">
             {CATEGORY_COLORS.map(c => (
-              <button key={c} type="button" onClick={() => setNewCategoryColor(c)} className={`w-6 h-6 rounded-full transition-transform ${newCategoryColor === c ? 'ring-2 ring-offset-1 ring-neutral-900 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
+              <button key={c} type="button" onClick={() => setNewCategoryColor(c)} className={`w-6 h-6 rounded-full transition-transform ${newCategoryColor === c ? 'ring-2 ring-offset-1 ring-primary scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: c }} />
             ))}
           </div>
         </div>
 
         {showIconPicker && (
-          <div className="p-2 bg-neutral-50 rounded-xl border border-neutral-200 grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto">
+          <div className="p-2 bg-muted/60 rounded-xl border border-border grid grid-cols-8 gap-1.5 max-h-40 overflow-y-auto">
             {useEmoji ? (
               SUGGESTED_EMOJIS.map(emoji => (
-                <button key={emoji} type="button" onClick={() => { setNewCategoryIcon(emoji); setShowIconPicker(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-base hover:bg-neutral-200 ${newCategoryIcon === emoji ? 'bg-neutral-900 text-white' : ''}`}>
+                <button key={emoji} type="button" onClick={() => { setNewCategoryIcon(emoji); setShowIconPicker(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center text-base hover:bg-muted ${newCategoryIcon === emoji ? 'bg-primary text-primary-foreground' : ''}`}>
                   {emoji}
                 </button>
               ))
             ) : (
               AVAILABLE_ICONS.map(code => (
-                <button key={code} type="button" onClick={() => { setNewCategoryIcon(code); setShowIconPicker(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center hover:bg-neutral-200 ${newCategoryIcon === code ? 'bg-neutral-900' : ''}`} title={iconLabels[code]}>
-                  <CategoryIcon name={code} className={`w-4 h-4 ${newCategoryIcon === code ? 'text-white' : 'text-neutral-600'}`} />
+                <button key={code} type="button" onClick={() => { setNewCategoryIcon(code); setShowIconPicker(false); }} className={`w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted ${newCategoryIcon === code ? 'bg-primary' : ''}`} title={iconLabels[code]}>
+                  <CategoryIcon name={code} className={`w-4 h-4 ${newCategoryIcon === code ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
                 </button>
               ))
             )}
@@ -228,8 +228,8 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
 
         {/* Toggle iconos/emojis */}
         <div className="flex gap-1.5">
-          <button type="button" onClick={() => { setUseEmoji(false); setNewCategoryIcon('cart'); }} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${!useEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>Iconos</button>
-          <button type="button" onClick={() => { setUseEmoji(true); setNewCategoryIcon('💰'); }} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${useEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'}`}>Emojis</button>
+          <button type="button" onClick={() => { setUseEmoji(false); setNewCategoryIcon('cart'); }} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${!useEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>Iconos</button>
+          <button type="button" onClick={() => { setUseEmoji(true); setNewCategoryIcon('💰'); }} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${useEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>Emojis</button>
         </div>
 
         {error && (
@@ -242,41 +242,41 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
 
       {/* Categories List */}
       <div>
-        <h3 className="font-bold text-neutral-900 mb-3">Mis Categorías ({categories.length})</h3>
+        <h3 className="font-bold text-foreground mb-3">Mis Categorías ({categories.length})</h3>
         <div className="space-y-2">
           {categories.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-neutral-200">
-              <Tag className="h-10 w-10 mx-auto mb-2 text-neutral-300" />
-              <p className="text-neutral-500 font-medium">No tienes categorías</p>
+            <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
+              <Tag className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-muted-foreground font-medium">No tienes categorías</p>
             </div>
           ) : (
             categories.map(category => (
-              <div key={category.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-neutral-100 group">
+              <div key={category.id} className="flex items-center justify-between p-4 bg-card rounded-xl border border-border group">
                 {editingId === category.id ? (
                   <div className="flex-1 space-y-3">
-                    <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 border border-neutral-200 rounded-lg font-medium" />
+                    <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg font-medium" />
 
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditUseEmoji(false); setEditIcon('cart'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${!editUseEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100'}`}>Iconos</button>
-                      <button type="button" onClick={() => { setEditUseEmoji(true); setEditIcon('💰'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${editUseEmoji ? 'bg-neutral-900 text-white' : 'bg-neutral-100'}`}>Emojis</button>
+                      <button type="button" onClick={() => { setEditUseEmoji(false); setEditIcon('cart'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${!editUseEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>Iconos</button>
+                      <button type="button" onClick={() => { setEditUseEmoji(true); setEditIcon('💰'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${editUseEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>Emojis</button>
                     </div>
 
-                    <button type="button" onClick={() => setShowEditIconPicker(!showEditIconPicker)} className="w-12 h-12 rounded-xl border border-neutral-200 flex items-center justify-center" style={{ backgroundColor: `${editColor}15` }}>
+                    <button type="button" onClick={() => setShowEditIconPicker(!showEditIconPicker)} className="w-12 h-12 rounded-xl border border-border flex items-center justify-center" style={{ backgroundColor: `${editColor}15` }}>
                       <CategoryIcon name={editIcon} className="w-5 h-5" style={{ color: editColor }} />
                     </button>
 
                     {showEditIconPicker && (
-                      <div className="p-2 bg-neutral-50 rounded-lg border border-neutral-200 grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
+                      <div className="p-2 bg-muted/60 rounded-lg border border-border grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
                         {editUseEmoji ? (
                           SUGGESTED_EMOJIS.map(emoji => (
-                            <button key={emoji} type="button" onClick={() => { setEditIcon(emoji); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center text-lg hover:bg-neutral-200 ${editIcon === emoji ? 'bg-neutral-900 text-white' : ''}`}>
+                            <button key={emoji} type="button" onClick={() => { setEditIcon(emoji); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center text-lg hover:bg-muted ${editIcon === emoji ? 'bg-primary text-primary-foreground' : ''}`}>
                               {emoji}
                             </button>
                           ))
                         ) : (
                           AVAILABLE_ICONS.map(code => (
-                            <button key={code} type="button" onClick={() => { setEditIcon(code); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center hover:bg-neutral-200 ${editIcon === code ? 'bg-neutral-900' : ''}`}>
-                              <CategoryIcon name={code} className={`w-4 h-4 ${editIcon === code ? 'text-white' : 'text-neutral-600'}`} />
+                            <button key={code} type="button" onClick={() => { setEditIcon(code); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center hover:bg-muted ${editIcon === code ? 'bg-primary' : ''}`}>
+                              <CategoryIcon name={code} className={`w-4 h-4 ${editIcon === code ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
                             </button>
                           ))
                         )}
@@ -285,15 +285,15 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
 
                     <div className="flex flex-wrap gap-1.5">
                       {CATEGORY_COLORS.map(c => (
-                        <button key={c} type="button" onClick={() => setEditColor(c)} className={`w-6 h-6 rounded-full ${editColor === c ? 'ring-2 ring-offset-1 ring-neutral-900' : ''}`} style={{ backgroundColor: c }}>
+                        <button key={c} type="button" onClick={() => setEditColor(c)} className={`w-6 h-6 rounded-full ${editColor === c ? 'ring-2 ring-offset-1 ring-primary' : ''}`} style={{ backgroundColor: c }}>
                           {editColor === c && <Check className="w-3 h-3 text-white mx-auto" />}
                         </button>
                       ))}
                     </div>
 
                     <div className="flex gap-2">
-                      <button onClick={handleUpdateCategory} disabled={loading} className="flex-1 bg-neutral-900 text-white py-2 rounded-lg text-sm font-bold">Guardar</button>
-                      <button onClick={() => { setEditingId(null); setShowEditIconPicker(false); }} className="flex-1 bg-neutral-100 text-neutral-700 py-2 rounded-lg text-sm font-bold">Cancelar</button>
+                      <button onClick={handleUpdateCategory} disabled={loading} className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-bold">Guardar</button>
+                      <button onClick={() => { setEditingId(null); setShowEditIconPicker(false); }} className="flex-1 bg-muted text-foreground py-2 rounded-lg text-sm font-bold">Cancelar</button>
                     </div>
                   </div>
                 ) : (
@@ -302,19 +302,19 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${category.color || '#3B82F6'}15` }}>
                         <CategoryIcon name={category.icon} className="w-5 h-5" style={{ color: category.color || '#3B82F6' }} />
                       </div>
-                      <span className="font-bold text-neutral-900">{category.name}</span>
+                      <span className="font-bold text-foreground">{category.name}</span>
                     </div>
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => startEditing(category)}
-                        className="p-2 text-blue-700 bg-blue-100 border border-blue-200 hover:bg-blue-200 rounded-xl shadow-sm transition-colors"
+                        className="p-2 text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 rounded-xl shadow-sm transition-colors"
                         title="Editar"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteCategory(category.id, category.name)}
-                        className="p-2 text-rose-700 bg-rose-100 border border-rose-200 hover:bg-rose-200 rounded-xl shadow-sm transition-colors"
+                        className="p-2 text-accent-700 dark:text-accent-400 bg-accent-500/15 border border-accent-500/20 hover:bg-accent-500/25 rounded-xl shadow-sm transition-colors"
                         title="Eliminar"
                       >
                         <Trash2 className="w-4 h-4" />

@@ -347,31 +347,31 @@ export default function TransactionForm({ accounts, categories }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-slide-up">
+    <div className="fixed inset-0 bg-background z-[100] flex flex-col animate-slide-up">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-border">
         <button
           onClick={() => router.back()}
-          className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
+          className="p-2 rounded-full hover:bg-muted transition-colors"
         >
-          <X className="w-5 h-5 text-neutral-900" />
+          <X className="w-5 h-5 text-foreground" />
         </button>
-        <div className="flex bg-neutral-100 rounded-full p-0.5">
+        <div className="flex bg-muted rounded-full p-0.5">
           <button
             onClick={() => setType('expense')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'expense' ? 'bg-white text-rose-500 shadow-sm' : 'text-neutral-500'}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'expense' ? 'bg-card text-accent-600 dark:text-accent-400 shadow-sm' : 'text-muted-foreground'}`}
           >
             Gasto
           </button>
           <button
             onClick={() => setType('income')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'income' ? 'bg-white text-emerald-500 shadow-sm' : 'text-neutral-500'}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'income' ? 'bg-card text-secondary-600 dark:text-secondary-400 shadow-sm' : 'text-muted-foreground'}`}
           >
             Ingreso
           </button>
           <button
             onClick={() => setType('transfer')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'transfer' ? 'bg-white text-blue-500 shadow-sm' : 'text-neutral-500'}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'transfer' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'}`}
           >
             Transferencia
           </button>
@@ -385,7 +385,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
           {/* AMOUNT INPUT */}
           <div className="text-center py-4">
             <div className="relative inline-flex items-center justify-center">
-              <span className={`text-3xl font-bold mr-1 ${type === 'expense' ? 'text-rose-300' : type === 'income' ? 'text-emerald-300' : 'text-blue-300'}`}>€</span>
+              <span className={`text-3xl font-semibold mr-1 ${type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : type === 'income' ? 'text-secondary-500/60 dark:text-secondary-400/60' : 'text-primary/50'}`}>€</span>
               <input
                 ref={amountRef}
                 type="number"
@@ -393,7 +393,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className={`bg-transparent text-5xl font-black placeholder-neutral-200 focus:outline-none w-full text-center max-w-[240px] ${type === 'expense' ? 'text-rose-500' : type === 'income' ? 'text-emerald-500' : 'text-blue-500'}`}
+                className={`bg-transparent text-5xl font-semibold tabular-nums placeholder-muted-foreground focus:outline-none w-full text-center max-w-[240px] ${type === 'expense' ? 'text-accent-600 dark:text-accent-400' : type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-primary'}`}
               />
             </div>
           </div>
@@ -402,7 +402,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   ref={descriptionRef}
                   type="text"
@@ -411,7 +411,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                   onChange={(e) => handleDescriptionChange(e.target.value)}
                   onKeyDown={handleDescriptionKeyDown}
                   onFocus={() => description.length >= 2 && filteredSuggestions.length > 0 && setShowSuggestions(true)}
-                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl pl-9 pr-3 py-2.5 text-sm text-neutral-900 font-medium placeholder-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200 focus:border-neutral-200 outline-none transition-all"
+                  className="w-full bg-muted/60 border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm text-foreground font-medium placeholder-muted-foreground focus:bg-card focus:ring-2 focus:ring-ring focus:border-ring outline-none transition-all"
                 />
               </div>
 
@@ -419,7 +419,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
               {showSuggestions && filteredSuggestions.length > 0 && (
                 <div
                   ref={suggestionsRef}
-                  className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 overflow-hidden"
+                  className="absolute top-full left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden"
                 >
                   {filteredSuggestions.map((suggestion, idx) => {
                     const matchedCat = findCategoryByName(suggestion.category);
@@ -429,7 +429,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                         onClick={() => handleSelectSuggestion(suggestion)}
                         onMouseEnter={() => setActiveSuggestionIdx(idx)}
                         className={`w-full px-3 py-2.5 flex items-center gap-3 text-left transition-colors ${
-                          idx === activeSuggestionIdx ? 'bg-neutral-50' : 'hover:bg-neutral-50'
+                          idx === activeSuggestionIdx ? 'bg-muted/60' : 'hover:bg-muted/60'
                         }`}
                       >
                         {matchedCat && (
@@ -445,15 +445,15 @@ export default function TransactionForm({ accounts, categories }: Props) {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">{suggestion.label}</p>
-                          <p className="text-[11px] text-neutral-400 truncate">
+                          <p className="text-sm font-semibold text-foreground truncate">{suggestion.label}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
                             {matchedCat ? matchedCat.name : suggestion.category}
                             {suggestion.amount ? ` · ${suggestion.amount.toFixed(2)}€` : ''}
                           </p>
                         </div>
                         {suggestion.type && (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                            suggestion.type === 'expense' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500'
+                            suggestion.type === 'expense' ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'bg-secondary-500/10 text-secondary-600 dark:text-secondary-400'
                           }`}>
                             {suggestion.type === 'expense' ? 'Gasto' : 'Ingreso'}
                           </span>
@@ -466,23 +466,23 @@ export default function TransactionForm({ accounts, categories }: Props) {
             </div>
 
             <div className="relative shrink-0">
-              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="bg-neutral-50 border border-neutral-100 rounded-xl pl-8 pr-2 py-2.5 text-sm text-neutral-900 font-medium outline-none w-[130px]"
+                className="bg-muted/60 border border-border rounded-xl pl-8 pr-2 py-2.5 text-sm text-foreground font-medium outline-none w-[130px]"
               />
             </div>
           </div>
 
           {/* ACCOUNT SELECTOR */}
-          <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <button
               onClick={() => setIsAccountsExpanded(!isAccountsExpanded)}
-              className="w-full p-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+              className="w-full p-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
             >
-              <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 {type === 'transfer' ? 'Desde' : 'Cuenta'}
               </span>
               <div className="flex items-center gap-2">
@@ -498,26 +498,26 @@ export default function TransactionForm({ accounts, categories }: Props) {
                         selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
                       )}
                     </div>
-                    <span className="text-sm font-bold text-neutral-900">{selectedAccount.name}</span>
+                    <span className="text-sm font-bold text-foreground">{selectedAccount.name}</span>
                   </div>
                 )}
-                {isAccountsExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                {isAccountsExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </div>
             </button>
 
             {isAccountsExpanded && (
-              <div className="border-t border-neutral-100 p-2 space-y-2 max-h-48 overflow-y-auto">
+              <div className="border-t border-border p-2 space-y-2 max-h-48 overflow-y-auto">
                 {Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => (
                   <div key={bankName}>
-                    <div className="px-2 py-1 text-xs font-bold text-neutral-400 uppercase tracking-wider">{bankName}</div>
+                    <div className="px-2 py-1 text-xs font-bold text-muted-foreground uppercase tracking-wider">{bankName}</div>
                     <div className="space-y-1">
                       {bankAccounts.map((acc) => (
                         <button
                           key={acc.id}
                           onClick={() => handleSelectAccount(acc.id)}
                           className={`w-full p-2.5 rounded-xl flex items-center gap-3 transition-all ${accountId === acc.id
-                              ? 'bg-neutral-900 text-white'
-                              : 'hover:bg-neutral-50'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'hover:bg-muted/60'
                             }`}
                         >
                           <div
@@ -531,12 +531,12 @@ export default function TransactionForm({ accounts, categories }: Props) {
                             )}
                           </div>
                           <div className="flex-1 text-left min-w-0">
-                            <p className={`text-sm font-bold truncate ${accountId === acc.id ? 'text-white' : 'text-neutral-900'}`}>{acc.name}</p>
-                            <p className={`text-xs ${accountId === acc.id ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                            <p className={`text-sm font-bold truncate ${accountId === acc.id ? 'text-primary-foreground' : 'text-foreground'}`}>{acc.name}</p>
+                            <p className={`text-xs ${accountId === acc.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                               {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
                             </p>
                           </div>
-                          {accountId === acc.id && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                          {accountId === acc.id && <Check className="w-4 h-4 text-secondary-500 dark:text-secondary-400 shrink-0" />}
                         </button>
                       ))}
                     </div>
@@ -548,12 +548,12 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
           {/* TO ACCOUNT - Solo para transferencias */}
           {type === 'transfer' && (
-            <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <button
                 onClick={() => setIsToAccountsExpanded(!isToAccountsExpanded)}
-                className="w-full p-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+                className="w-full p-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
               >
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Para</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Para</span>
                 <div className="flex items-center gap-2">
                   {selectedToAccount && (
                     <div className="flex items-center gap-2">
@@ -567,18 +567,18 @@ export default function TransactionForm({ accounts, categories }: Props) {
                           selectedToAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
                         )}
                       </div>
-                      <span className="text-sm font-bold text-neutral-900">{selectedToAccount.name}</span>
+                      <span className="text-sm font-bold text-foreground">{selectedToAccount.name}</span>
                     </div>
                   )}
-                  {isToAccountsExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                  {isToAccountsExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </div>
               </button>
 
               {isToAccountsExpanded && (
-                <div className="border-t border-neutral-100 p-2 space-y-2 max-h-48 overflow-y-auto">
+                <div className="border-t border-border p-2 space-y-2 max-h-48 overflow-y-auto">
                   {Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => (
                     <div key={bankName}>
-                      <div className="px-2 py-1 text-xs font-bold text-neutral-400 uppercase tracking-wider">{bankName}</div>
+                      <div className="px-2 py-1 text-xs font-bold text-muted-foreground uppercase tracking-wider">{bankName}</div>
                       <div className="space-y-1">
                         {bankAccounts
                           .filter((acc) => acc.id !== accountId)
@@ -587,8 +587,8 @@ export default function TransactionForm({ accounts, categories }: Props) {
                               key={acc.id}
                               onClick={() => handleSelectToAccount(acc.id)}
                               className={`w-full p-2.5 rounded-xl flex items-center gap-3 transition-all ${toAccountId === acc.id
-                                  ? 'bg-neutral-900 text-white'
-                                  : 'hover:bg-neutral-50'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'hover:bg-muted/60'
                                 }`}
                             >
                               <div
@@ -602,12 +602,12 @@ export default function TransactionForm({ accounts, categories }: Props) {
                                 )}
                               </div>
                               <div className="flex-1 text-left min-w-0">
-                                <p className={`text-sm font-bold truncate ${toAccountId === acc.id ? 'text-white' : 'text-neutral-900'}`}>{acc.name}</p>
-                                <p className={`text-xs ${toAccountId === acc.id ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                                <p className={`text-sm font-bold truncate ${toAccountId === acc.id ? 'text-primary-foreground' : 'text-foreground'}`}>{acc.name}</p>
+                                <p className={`text-xs ${toAccountId === acc.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                                   {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
                                 </p>
                               </div>
-                              {toAccountId === acc.id && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                              {toAccountId === acc.id && <Check className="w-4 h-4 text-secondary-500 dark:text-secondary-400 shrink-0" />}
                             </button>
                           ))}
                       </div>
@@ -619,12 +619,12 @@ export default function TransactionForm({ accounts, categories }: Props) {
           )}
 
           {/* CATEGORIES */}
-          <div className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <button
                 onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
-                className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+                className="w-full p-4 flex items-center justify-between hover:bg-muted/60 transition-colors"
               >
-                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoría</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoría</span>
                 <div className="flex items-center gap-2">
                   {selectedCategory && (
                     <div className="flex items-center gap-2">
@@ -638,23 +638,23 @@ export default function TransactionForm({ accounts, categories }: Props) {
                           style={{ color: selectedCategory.color || '#666' }}
                         />
                       </div>
-                      <span className="text-sm font-bold text-neutral-900">{selectedCategory.name}</span>
+                      <span className="text-sm font-bold text-foreground">{selectedCategory.name}</span>
                     </div>
                   )}
-                  {isCategoriesExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                  {isCategoriesExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </div>
               </button>
 
               {isCategoriesExpanded && (
-                <div className="border-t border-neutral-100 p-3 max-h-72 overflow-y-auto">
+                <div className="border-t border-border p-3 max-h-72 overflow-y-auto">
                   <div className="grid grid-cols-4 gap-2">
                     {categories.map(cat => (
                       <button
                         key={cat.id}
                         onClick={() => handleSelectCategory(cat.id)}
                         className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${categoryId === cat.id
-                            ? 'bg-neutral-900'
-                            : 'hover:bg-neutral-50 bg-neutral-50/50'
+                            ? 'bg-primary'
+                            : 'hover:bg-muted bg-muted/40'
                           }`}
                       >
                         <div
@@ -667,7 +667,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                             style={{ color: cat.color || '#666' }}
                           />
                         </div>
-                        <span className={`text-[10px] font-semibold truncate w-full text-center leading-tight ${categoryId === cat.id ? 'text-white' : 'text-neutral-700'}`}>
+                        <span className={`text-[10px] font-semibold truncate w-full text-center leading-tight ${categoryId === cat.id ? 'text-primary-foreground' : 'text-foreground'}`}>
                           {cat.name}
                         </span>
                       </button>
@@ -681,11 +681,11 @@ export default function TransactionForm({ accounts, categories }: Props) {
       </div>
 
       {/* FOOTER */}
-      <div className="p-4 border-t border-neutral-100 bg-white/90 backdrop-blur-sm pb-8">
+      <div className="p-4 border-t border-border bg-card/90 backdrop-blur-sm pb-8">
         <button
           onClick={handleSubmit}
           disabled={loading || !canSubmit}
-          className="w-full bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-200 py-3.5 rounded-2xl font-bold text-base shadow-lg shadow-neutral-900/10 transition-all active:scale-[0.98]"
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted py-3.5 rounded-2xl font-bold text-base shadow-lg shadow-primary/10 transition-all active:scale-[0.98]"
         >
           {loading ? 'Guardando...' : `Añadir ${type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : 'Transferencia'}`}
         </button>

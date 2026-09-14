@@ -117,7 +117,7 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
       case 'wallet':
         return walletAccount ? (
           <div>
-            <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">Mi Cartera</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Mi Cartera</h3>
             <WalletWidget walletAccount={walletAccount} />
           </div>
         ) : null;
@@ -132,15 +132,15 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
   const sideWidgets = layout.filter(l => l.visible && WIDGET_DEFS.find(w => w.id === l.id)?.column === 'side');
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+    <div className="min-h-screen bg-background pb-32 md:pb-8">
       <div className="px-5 pt-8 pb-6 md:max-w-6xl md:mx-auto flex items-start justify-between">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">Hola,</p>
-          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">{firstName}</h1>
+          <p className="text-sm text-muted-foreground font-medium">Hola,</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{firstName}</h1>
         </div>
         <button
           onClick={() => setIsCustomizeOpen(true)}
-          className="p-2.5 rounded-xl bg-white border border-neutral-100 text-neutral-500 hover:bg-neutral-100 transition-colors"
+          className="p-2.5 rounded-xl bg-card border border-border text-muted-foreground hover:bg-muted transition-colors"
           title="Personalizar inicio"
         >
           <Settings2 className="w-5 h-5" />
@@ -161,19 +161,19 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
 
       {isCustomizeOpen && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-end sm:items-center justify-center animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[85vh] overflow-hidden animate-slide-up">
-            <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100">
-              <button onClick={() => setIsCustomizeOpen(false)} className="p-2 rounded-full hover:bg-neutral-100 transition-colors">
-                <X className="w-5 h-5 text-neutral-900" />
+          <div className="bg-card w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[85vh] overflow-hidden animate-slide-up">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-border">
+              <button onClick={() => setIsCustomizeOpen(false)} className="p-2 rounded-full hover:bg-muted transition-colors">
+                <X className="w-5 h-5 text-foreground" />
               </button>
-              <h2 className="text-base font-bold text-neutral-900">Personalizar inicio</h2>
+              <h2 className="text-base font-bold text-foreground">Personalizar inicio</h2>
               <div className="w-9" />
             </div>
 
             <div className="overflow-y-auto max-h-[65vh] p-4 space-y-5">
               {(['main', 'side'] as Column[]).map(column => (
                 <div key={column} className="space-y-2">
-                  <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider px-1">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
                     {column === 'main' ? 'Columna principal' : 'Columna lateral'}
                   </p>
                   {layout
@@ -181,27 +181,27 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
                     .map((entry, idx, arr) => {
                       const def = WIDGET_DEFS.find(w => w.id === entry.id)!;
                       return (
-                        <div key={entry.id} className="flex items-center gap-2 bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2.5">
-                          <span className={`flex-1 text-sm font-semibold ${entry.visible ? 'text-neutral-900' : 'text-neutral-400'}`}>
+                        <div key={entry.id} className="flex items-center gap-2 bg-muted/60 border border-border rounded-xl px-3 py-2.5">
+                          <span className={`flex-1 text-sm font-semibold ${entry.visible ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {def.label}
                           </span>
                           <button
                             onClick={() => moveWithinColumn(entry.id, -1)}
                             disabled={idx === 0}
-                            className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                           >
                             <ArrowUp className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => moveWithinColumn(entry.id, 1)}
                             disabled={idx === arr.length - 1}
-                            className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                           >
                             <ArrowDown className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => toggleVisible(entry.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${entry.visible ? 'text-neutral-600 hover:bg-neutral-200' : 'text-neutral-300 hover:bg-neutral-200'}`}
+                            className={`p-1.5 rounded-lg transition-colors ${entry.visible ? 'text-muted-foreground hover:bg-muted' : 'text-muted-foreground hover:bg-muted'}`}
                           >
                             {entry.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
@@ -212,10 +212,10 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
               ))}
             </div>
 
-            <div className="p-4 border-t border-neutral-100 bg-white pb-6">
+            <div className="p-4 border-t border-border bg-card pb-6">
               <button
                 onClick={() => setIsCustomizeOpen(false)}
-                className="w-full bg-neutral-900 text-white hover:bg-neutral-800 py-3 rounded-xl font-bold text-sm transition-all"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 py-3 rounded-xl font-bold text-sm transition-all"
               >
                 Listo
               </button>

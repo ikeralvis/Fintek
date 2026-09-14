@@ -61,7 +61,7 @@ export default async function DashboardLayout({
   }));
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-20 md:pb-0">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       <DashboardNav
         userName={user.user_metadata?.name}
         userEmail={user.email}

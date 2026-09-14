@@ -177,9 +177,9 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full p-6 rounded-2xl border-2 border-dashed border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:text-neutral-700 transition-colors flex items-center justify-center gap-3 group"
+          className="w-full p-6 rounded-2xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center justify-center gap-3 group"
         >
-          <div className="w-10 h-10 rounded-full bg-neutral-100 group-hover:bg-neutral-200 flex items-center justify-center transition-colors">
+          <div className="w-10 h-10 rounded-full bg-muted group-hover:bg-muted flex items-center justify-center transition-colors">
             <Plus className="w-5 h-5" />
           </div>
           <span className="font-semibold">Añadir Banco</span>
@@ -188,9 +188,9 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
 
       {/* Formulario */}
       {showForm && (
-        <form onSubmit={handleAddBank} className="rounded-3xl border border-neutral-200 bg-white p-8 space-y-6">
+        <form onSubmit={handleAddBank} className="rounded-3xl border border-border bg-card p-8 space-y-6">
           <div>
-            <label htmlFor="bank-select" className="block text-sm font-semibold text-neutral-900 mb-3">Banco</label>
+            <label htmlFor="bank-select" className="block text-sm font-semibold text-foreground mb-3">Banco</label>
             <select
               id="bank-select"
               value={selectedBank}
@@ -205,7 +205,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
                   setNewBankLogo('');
                 }
               }}
-              className="w-full px-4 py-3 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 font-medium focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 transition-all"
+              className="w-full px-4 py-3 border border-border rounded-xl bg-muted/60 text-foreground font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
             >
               <option value="">Seleccionar banco...</option>
               {Object.keys(BANK_LOGOS).map((bank) => (
@@ -219,13 +219,13 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
               value={newBankName}
               onChange={(e) => setNewBankName(e.target.value)}
               placeholder="Nombre del banco"
-              className="w-full mt-2 px-4 py-3 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 font-medium focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 transition-all"
+              className="w-full mt-2 px-4 py-3 border border-border rounded-xl bg-muted/60 text-foreground font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label htmlFor="color-picker" className="block text-sm font-semibold text-neutral-900 mb-3">Color</label>
+            <label htmlFor="color-picker" className="block text-sm font-semibold text-foreground mb-3">Color</label>
             <div id="color-picker" className="mb-4 h-12 rounded-xl transition-all" style={{ backgroundColor: newBankColor }} />
             <div className="grid grid-cols-4 gap-3">
               {BANK_COLORS.map((c) => (
@@ -235,7 +235,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
                   onClick={() => setNewBankColor(c.value)}
                   className={`w-12 h-12 rounded-xl transition-all ${
                     newBankColor === c.value 
-                      ? 'ring-2 ring-offset-2 ring-neutral-900 scale-110' 
+                      ? 'ring-2 ring-offset-2 ring-primary scale-110' 
                       : 'hover:scale-105'
                   }`}
                   style={{ backgroundColor: c.value }}
@@ -248,12 +248,12 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
           </div>
 
           <div>
-            <label htmlFor="logo-select" className="block text-sm font-semibold text-neutral-900 mb-3">Logo (Opcional)</label>
+            <label htmlFor="logo-select" className="block text-sm font-semibold text-foreground mb-3">Logo (Opcional)</label>
             <select
               id="logo-select"
               value={newBankLogo}
               onChange={(e) => setNewBankLogo(e.target.value)}
-              className="w-full px-4 py-3 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 font-medium focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 transition-all mb-2"
+              className="w-full px-4 py-3 border border-border rounded-xl bg-muted/60 text-foreground font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all mb-2"
             >
               <option value="">Sin logo</option>
               {Object.entries(BANK_LOGOS).map(([name, url]) => (
@@ -265,7 +265,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
               value={newBankLogo}
               onChange={(e) => setNewBankLogo(e.target.value)}
               placeholder="O URL personalizada..."
-              className="w-full px-4 py-3 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-900 font-medium focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-100 transition-all"
+              className="w-full px-4 py-3 border border-border rounded-xl bg-muted/60 text-foreground font-medium focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
             />
           </div>
 
@@ -280,14 +280,14 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
             <button
               type="button"
               onClick={resetForm}
-              className="flex-1 px-6 py-3 border border-neutral-200 rounded-xl font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
+              className="flex-1 px-6 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted/60 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-neutral-900 text-white rounded-xl font-semibold hover:bg-neutral-800 transition-colors disabled:opacity-50"
+              className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? 'Guardando...' : 'Crear Banco'}
             </button>
@@ -297,25 +297,25 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
 
       {/* Lista de bancos */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-neutral-600 uppercase tracking-wider px-1">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
           {banks.length} {banks.length === 1 ? 'Banco' : 'Bancos'}
         </h3>
         
         {banks.length === 0 ? (
           <div className="text-center py-12 px-6">
-            <Building2 className="w-12 h-12 mx-auto mb-3 text-neutral-300" />
-            <p className="text-neutral-500">No hay bancos creados</p>
+            <Building2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-muted-foreground">No hay bancos creados</p>
           </div>
         ) : (
           <div className="space-y-2">
             {banks.map((bank) =>
               editingBankId === bank.id ? (
-                <div key={bank.id} className="rounded-2xl border border-neutral-200 bg-white p-6 space-y-4">
+                <div key={bank.id} className="rounded-2xl border border-border bg-card p-6 space-y-4">
                   <input
                     type="text"
                     value={editBankName}
                     onChange={(e) => setEditBankName(e.target.value)}
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm font-medium focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-100"
+                    className="w-full px-4 py-2 border border-border rounded-lg text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                   
                   <div className="space-y-4">
@@ -328,7 +328,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
                           onClick={() => setEditBankColor(c.value)}
                           className={`w-10 h-10 rounded-lg transition-all ${
                             editBankColor === c.value 
-                              ? 'ring-2 ring-offset-1 ring-neutral-900 scale-105' 
+                              ? 'ring-2 ring-offset-1 ring-primary scale-105' 
                               : ''
                           }`}
                           style={{ backgroundColor: c.value }}
@@ -342,7 +342,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
                   <select
                     value={editBankLogo}
                     onChange={(e) => setEditBankLogo(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm font-medium focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-100"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   >
                     <option value="">Sin logo</option>
                     {Object.entries(BANK_LOGOS).map(([name, url]) => (
@@ -355,21 +355,21 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
                     value={editBankLogo}
                     onChange={(e) => setEditBankLogo(e.target.value)}
                     placeholder="URL personalizada..."
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm font-medium focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-100"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm font-medium focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
 
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleUpdateBank(bank.id)}
-                      className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors"
+                      className="flex-1 px-4 py-2 bg-secondary-500 text-white rounded-lg text-sm font-semibold hover:bg-secondary-600 transition-colors"
                     >
                       Guardar
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingBankId(null)}
-                      className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg text-sm font-semibold hover:bg-neutral-50 transition-colors"
+                      className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted/60 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -378,7 +378,7 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
               ) : (
                 <div
                   key={bank.id}
-                  className="flex items-center justify-between p-5 rounded-2xl border border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-sm transition-all group"
+                  className="flex items-center justify-between p-5 rounded-2xl border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all group"
                 >
                   <div className="flex items-center gap-4">
                     <div
@@ -391,13 +391,13 @@ export default function BanksManager({ initialBanks, userId, onBanksUpdate }: Pr
                         <Building2 className="w-5 h-5" />
                       )}
                     </div>
-                    <span className="font-semibold text-neutral-900">{bank.name}</span>
+                    <span className="font-semibold text-foreground">{bank.name}</span>
                   </div>
                   
                   <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => startEditing(bank)}
-                      className="p-2 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors"
+                      className="p-2 hover:bg-primary/10 rounded-lg text-primary transition-colors"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>

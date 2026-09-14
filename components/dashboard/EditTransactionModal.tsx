@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type Category = {
     id: string;
@@ -102,46 +106,37 @@ export default function EditTransactionModal({ transaction, categories, accounts
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-end sm:items-center justify-center animate-fade-in">
-            <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden animate-slide-up">
-                {/* Header */}
-                <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100">
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-neutral-100 transition-colors">
-                        <X className="w-5 h-5 text-neutral-900" />
-                    </button>
-                    <h2 className="text-base font-bold text-neutral-900">Editar Transacción</h2>
-                    <div className="w-9" />
-                </div>
+        <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-w-md p-0 gap-0">
+                <DialogHeader className="px-5 py-4 border-b border-border">
+                    <DialogTitle>Editar Transacción</DialogTitle>
+                </DialogHeader>
 
-                <div className="overflow-y-auto max-h-[70vh] p-4 space-y-4">
+                <div className="p-5 space-y-4">
                     {/* Type Toggle */}
-                    <div className="flex justify-center">
-                        <div className="flex bg-neutral-100 rounded-full p-0.5">
-                            <button
-                                onClick={() => setType('expense')}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'expense' ? 'bg-white text-rose-500 shadow-sm' : 'text-neutral-500'}`}
-                            >
-                                Gasto
-                            </button>
-                            <button
-                                onClick={() => setType('income')}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${type === 'income' ? 'bg-white text-emerald-500 shadow-sm' : 'text-neutral-500'}`}
-                            >
-                                Ingreso
-                            </button>
-                        </div>
-                    </div>
+                    <Tabs value={type} onValueChange={(v) => setType(v as 'expense' | 'income')}>
+                        <TabsList className="w-full">
+                            <TabsTrigger value="expense" className="flex-1 data-[state=active]:text-accent-600 dark:data-[state=active]:text-accent-400">Gasto</TabsTrigger>
+                            <TabsTrigger value="income" className="flex-1 data-[state=active]:text-secondary-600 dark:data-[state=active]:text-secondary-400">Ingreso</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
 
                     {/* Amount */}
-                    <div className="text-center py-2">
+                    <div className="py-2 text-center">
                         <div className="relative inline-flex items-center justify-center">
-                            <span className={`text-2xl font-bold mr-1 ${type === 'expense' ? 'text-rose-300' : 'text-emerald-300'}`}>€</span>
+                            <span className={cn(
+                                'mr-1 text-2xl font-semibold',
+                                type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : 'text-secondary-500/60 dark:text-secondary-400/60'
+                            )}>€</span>
                             <input
                                 type="number"
                                 step="0.01"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                className={`bg-transparent text-4xl font-black placeholder-neutral-200 focus:outline-none w-full text-center max-w-[200px] ${type === 'expense' ? 'text-rose-500' : 'text-emerald-500'}`}
+                                className={cn(
+                                    'w-full max-w-[220px] bg-transparent text-center text-5xl font-semibold tabular-nums outline-none placeholder:text-muted-foreground/40',
+                                    type === 'expense' ? 'text-accent-600 dark:text-accent-400' : 'text-secondary-600 dark:text-secondary-400'
+                                )}
                             />
                         </div>
                     </div>
@@ -153,73 +148,73 @@ export default function EditTransactionModal({ transaction, categories, accounts
                             placeholder="Descripción"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2.5 text-sm text-neutral-900 font-medium placeholder-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-200 outline-none"
+                            className="flex-1 rounded-xl border border-border bg-muted/60 px-3 py-2.5 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:bg-card focus:ring-2 focus:ring-ring"
                         />
                         <div className="relative">
-                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                            <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <input
                                 type="date"
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
-                                className="bg-neutral-50 border border-neutral-100 rounded-xl pl-8 pr-2 py-2.5 text-sm text-neutral-900 font-medium outline-none w-[130px]"
+                                className="w-[130px] rounded-xl border border-border bg-muted/60 py-2.5 pl-8 pr-2 text-sm font-medium text-foreground outline-none"
                             />
                         </div>
                     </div>
 
                     {/* Account Selector */}
-                    <div className="bg-neutral-50 border border-neutral-100 rounded-xl overflow-hidden">
+                    <div className="overflow-hidden rounded-xl border border-border bg-muted/60">
                         <button
                             onClick={() => setIsAccountsExpanded(!isAccountsExpanded)}
-                            className="w-full p-2.5 flex items-center justify-between"
+                            className="flex w-full items-center justify-between p-2.5"
                         >
-                            <span className="text-xs font-bold text-neutral-400 uppercase">Cuenta</span>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">Cuenta</span>
                             <div className="flex items-center gap-2">
                                 {selectedAccount && (
                                     <div className="flex items-center gap-2">
                                         <div
-                                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold text-white overflow-hidden"
-                                            style={{ backgroundColor: selectedAccount.banks?.logo_url ? 'transparent' : (selectedAccount.banks?.color || '#000') }}
+                                            className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-lg text-[8px] font-bold text-white"
+                                            style={{ backgroundColor: selectedAccount.banks?.logo_url ? 'transparent' : (selectedAccount.banks?.color || 'var(--primary)') }}
                                         >
                                             {selectedAccount.banks?.logo_url ? (
-                                                <img src={selectedAccount.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                                <img src={selectedAccount.banks.logo_url} alt="" className="h-full w-full object-contain" />
                                             ) : (
                                                 selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
                                             )}
                                         </div>
-                                        <span className="text-sm font-bold text-neutral-900">{selectedAccount.name}</span>
+                                        <span className="text-sm font-semibold text-foreground">{selectedAccount.name}</span>
                                     </div>
                                 )}
-                                {isAccountsExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                                {isAccountsExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                             </div>
                         </button>
                         {isAccountsExpanded && (
-                            <div className="border-t border-neutral-100 p-2 space-y-2 max-h-48 overflow-y-auto">
+                            <div className="max-h-48 space-y-2 overflow-y-auto border-t border-border p-2">
                                 {Object.entries(groupedAccounts).map(([bankName, bankAccounts]: [string, any]) => (
                                     <div key={bankName}>
-                                        <div className="px-2 py-1 text-xs font-bold text-neutral-400 uppercase tracking-wider">{bankName}</div>
+                                        <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{bankName}</div>
                                         <div className="space-y-1">
                                             {bankAccounts.map((acc: Account) => (
                                                 <button
                                                     key={acc.id}
                                                     onClick={() => { setAccountId(acc.id); setIsAccountsExpanded(false); }}
-                                                    className={`w-full p-2.5 rounded-xl flex items-center gap-3 transition-all ${accountId === acc.id
-                                                            ? 'bg-neutral-900 text-white'
-                                                            : 'hover:bg-neutral-50'
-                                                        }`}
+                                                    className={cn(
+                                                        'flex w-full items-center gap-3 rounded-xl p-2.5 transition-all',
+                                                        accountId === acc.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                                                    )}
                                                 >
                                                     <div
-                                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
-                                                        style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || '#000') }}
+                                                        className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg text-[10px] font-bold text-white"
+                                                        style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || 'var(--primary)') }}
                                                     >
                                                         {acc.banks?.logo_url ? (
-                                                            <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                                            <img src={acc.banks.logo_url} alt="" className="h-full w-full object-contain" />
                                                         ) : (
                                                             acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
                                                         )}
                                                     </div>
-                                                    <div className="flex-1 text-left min-w-0">
-                                                        <p className={`text-sm font-bold truncate ${accountId === acc.id ? 'text-white' : 'text-neutral-900'}`}>{acc.name}</p>
-                                                        <p className={`text-xs ${accountId === acc.id ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                                                    <div className="min-w-0 flex-1 text-left">
+                                                        <p className={cn('truncate text-sm font-semibold', accountId === acc.id ? 'text-primary-foreground' : 'text-foreground')}>{acc.name}</p>
+                                                        <p className={cn('text-xs tabular-nums', accountId === acc.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
                                                             {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
                                                         </p>
                                                     </div>
@@ -233,54 +228,54 @@ export default function EditTransactionModal({ transaction, categories, accounts
                     </div>
 
                     {/* Category Selector */}
-                    <div className="bg-neutral-50 border border-neutral-100 rounded-xl overflow-hidden">
+                    <div className="overflow-hidden rounded-xl border border-border bg-muted/60">
                         <button
                             onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
-                            className="w-full p-2.5 flex items-center justify-between"
+                            className="flex w-full items-center justify-between p-2.5"
                         >
-                            <span className="text-xs font-bold text-neutral-400 uppercase">Categoría</span>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">Categoría</span>
                             <div className="flex items-center gap-2">
                                 {selectedCategory && (
                                     <div className="flex items-center gap-2">
                                         <div
-                                            className="w-8 h-8 rounded-xl flex items-center justify-center"
-                                            style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : '#f5f5f5' }}
+                                            className="flex h-8 w-8 items-center justify-center rounded-xl"
+                                            style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : 'var(--muted)' }}
                                         >
-                                            <CategoryIcon 
-                                                name={selectedCategory.icon} 
-                                                className="w-4 h-4" 
-                                                style={{ color: selectedCategory.color || '#666' }} 
+                                            <CategoryIcon
+                                                name={selectedCategory.icon}
+                                                className="h-4 w-4"
+                                                style={{ color: selectedCategory.color || 'var(--muted-foreground)' }}
                                             />
                                         </div>
-                                        <span className="text-sm font-bold text-neutral-900">{selectedCategory.name}</span>
+                                        <span className="text-sm font-semibold text-foreground">{selectedCategory.name}</span>
                                     </div>
                                 )}
-                                {isCategoriesExpanded ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+                                {isCategoriesExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                             </div>
                         </button>
                         {isCategoriesExpanded && (
-                            <div className="border-t border-neutral-100 p-3 max-h-72 overflow-y-auto">
+                            <div className="max-h-72 overflow-y-auto border-t border-border p-3">
                                 <div className="grid grid-cols-4 gap-2">
                                     {categories.map(cat => (
                                         <button
                                             key={cat.id}
                                             onClick={() => { setCategoryId(cat.id); setIsCategoriesExpanded(false); }}
-                                            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${categoryId === cat.id
-                                                    ? 'bg-neutral-900'
-                                                    : 'hover:bg-neutral-50 bg-neutral-50/50'
-                                                }`}
+                                            className={cn(
+                                                'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all',
+                                                categoryId === cat.id ? 'bg-primary' : 'bg-card/50 hover:bg-card'
+                                            )}
                                         >
                                             <div
-                                                className={`w-12 h-12 rounded-xl flex items-center justify-center ${categoryId === cat.id ? 'scale-105' : ''}`}
-                                                style={{ backgroundColor: cat.color ? `${cat.color}25` : '#f0f0f0' }}
+                                                className={cn('flex h-12 w-12 items-center justify-center rounded-xl', categoryId === cat.id && 'scale-105')}
+                                                style={{ backgroundColor: cat.color ? `${cat.color}25` : 'var(--muted)' }}
                                             >
-                                                <CategoryIcon 
-                                                    name={cat.icon} 
-                                                    className="w-6 h-6" 
-                                                    style={{ color: cat.color || '#666' }} 
+                                                <CategoryIcon
+                                                    name={cat.icon}
+                                                    className="h-6 w-6"
+                                                    style={{ color: cat.color || 'var(--muted-foreground)' }}
                                                 />
                                             </div>
-                                            <span className={`text-[10px] font-semibold truncate w-full text-center leading-tight ${categoryId === cat.id ? 'text-white' : 'text-neutral-700'}`}>
+                                            <span className={cn('w-full truncate text-center text-[10px] font-semibold leading-tight', categoryId === cat.id ? 'text-primary-foreground' : 'text-foreground')}>
                                                 {cat.name}
                                             </span>
                                         </button>
@@ -291,25 +286,15 @@ export default function EditTransactionModal({ transaction, categories, accounts
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-neutral-100 bg-white pb-6">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 py-3 rounded-xl font-bold text-sm border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading || !amount || !accountId || !categoryId}
-                            className="flex-1 bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-200 py-3 rounded-xl font-bold text-sm transition-all"
-                        >
-                            {loading ? 'Guardando...' : 'Guardar'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+                <DialogFooter className="border-t border-border px-5 py-4 sm:justify-stretch">
+                    <Button variant="outline" onClick={onClose} className="flex-1">
+                        Cancelar
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={loading || !amount || !accountId || !categoryId} className="flex-1">
+                        {loading ? 'Guardando...' : 'Guardar'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

@@ -57,32 +57,32 @@ export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }
         new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(amount);
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+        <div className="min-h-screen bg-background pb-32 md:pb-8">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+            <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
-                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
-                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
+                    <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-foreground" />
                     </Link>
-                    <h1 className="text-lg font-semibold text-neutral-900">Mis Cuentas</h1>
+                    <h1 className="text-lg font-semibold text-foreground">Mis Cuentas</h1>
                     <CreateAccountButton banks={banks} />
                 </div>
             </div>
 
             <div className="px-5 space-y-5 max-w-6xl mx-auto pt-5">
                 {/* Total Balance */}
-                <div className="bg-white rounded-2xl p-6 border border-neutral-100">
-                    <p className="text-xs text-neutral-400 font-medium uppercase tracking-wide mb-1">Balance Total</p>
-                    <p className="text-3xl font-black tracking-tight text-neutral-900 font-mono">{formatCurrency(totalBalance)}</p>
-                    <p className="text-xs text-neutral-400 mt-2">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} activa{accounts.length !== 1 ? 's' : ''}</p>
+                <div className="bg-card rounded-2xl p-6 border border-border">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Balance Total</p>
+                    <p className="text-3xl font-black tracking-tight text-foreground font-mono">{formatCurrency(totalBalance)}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} activa{accounts.length !== 1 ? 's' : ''}</p>
                 </div>
 
                 {/* Accounts Bento Grid by Bank */}
                 <div className="space-y-4">
                     {Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => (
-                        <div key={bankName} className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+                        <div key={bankName} className="bg-card rounded-2xl border border-border overflow-hidden">
                             {/* Bank Header */}
-                            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-neutral-100">
+                            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
                                 <div
                                     className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white overflow-hidden shrink-0"
                                     style={{ backgroundColor: bankAccounts[0].banks?.logo_url ? 'transparent' : bankAccounts[0].bankColor }}
@@ -94,28 +94,28 @@ export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }
                                     )}
                                 </div>
                                 <div className="flex-1">
-                                    <h2 className="text-sm font-semibold text-neutral-900">{bankName}</h2>
-                                    <p className="text-xs text-neutral-400">{bankAccounts.length} cuenta{bankAccounts.length !== 1 ? 's' : ''}</p>
+                                    <h2 className="text-sm font-semibold text-foreground">{bankName}</h2>
+                                    <p className="text-xs text-muted-foreground">{bankAccounts.length} cuenta{bankAccounts.length !== 1 ? 's' : ''}</p>
                                 </div>
-                                <p className="text-sm font-bold text-neutral-900 font-mono">
+                                <p className="text-sm font-bold text-foreground font-mono">
                                     {formatCurrency(bankAccounts.reduce((sum, a) => sum + a.current_balance, 0))}
                                 </p>
                             </div>
 
                             {/* Accounts Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-neutral-100">
+                            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
                                 {bankAccounts.map((acc) => (
                                     <Link
                                         key={acc.id}
                                         href={`/dashboard/cuentas/${acc.id}`}
-                                        className="p-4 hover:bg-neutral-50 transition-colors group"
+                                        className="p-4 hover:bg-muted/60 transition-colors group"
                                     >
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
-                                                <h3 className="text-sm font-semibold text-neutral-900">{acc.name}</h3>
+                                                <h3 className="text-sm font-semibold text-foreground">{acc.name}</h3>
                                                 {acc.is_favorite && <span className="text-amber-400 text-xs">★</span>}
                                             </div>
-                                            <span className="text-[10px] font-medium text-neutral-400 uppercase">
+                                            <span className="text-[10px] font-medium text-muted-foreground uppercase">
                                                 {acc.type === 'checking' ? 'Corriente' :
                                                  acc.type === 'savings' ? 'Ahorro' :
                                                  acc.type === 'investment' ? 'Inversión' :
@@ -123,19 +123,19 @@ export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }
                                             </span>
                                         </div>
 
-                                        <p className="text-2xl font-black text-neutral-900 font-mono tracking-tight mb-3">
+                                        <p className="text-2xl font-black text-foreground font-mono tracking-tight mb-3">
                                             {formatCurrency(acc.current_balance)}
                                         </p>
 
                                         {(acc.yearlyIncome > 0 || acc.yearlyExpense > 0) && (
                                             <div className="flex items-center gap-4">
                                                 <div className="flex items-center gap-1 text-xs">
-                                                    <TrendingUp className="w-3 h-3 text-emerald-500" />
-                                                    <span className="text-emerald-600 font-medium font-mono">+{formatNumber(acc.yearlyIncome)}€</span>
+                                                    <TrendingUp className="w-3 h-3 text-secondary-500 dark:text-secondary-400" />
+                                                    <span className="text-secondary-600 dark:text-secondary-400 font-medium font-mono tabular-nums">+{formatNumber(acc.yearlyIncome)}€</span>
                                                 </div>
                                                 <div className="flex items-center gap-1 text-xs">
-                                                    <TrendingDown className="w-3 h-3 text-rose-400" />
-                                                    <span className="text-rose-500 font-medium font-mono">-{formatNumber(acc.yearlyExpense)}€</span>
+                                                    <TrendingDown className="w-3 h-3 text-accent-500 dark:text-accent-400" />
+                                                    <span className="text-accent-500 dark:text-accent-400 font-medium font-mono tabular-nums">-{formatNumber(acc.yearlyExpense)}€</span>
                                                 </div>
                                             </div>
                                         )}
@@ -147,11 +147,11 @@ export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }
 
                     {accounts.length === 0 && (
                         <div className="text-center py-16">
-                            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Wallet className="w-8 h-8 text-neutral-400" />
+                            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Wallet className="w-8 h-8 text-muted-foreground" />
                             </div>
-                            <p className="text-neutral-500 font-medium mb-1">No tienes cuentas</p>
-                            <p className="text-sm text-neutral-400">Pulsa + para crear tu primera cuenta</p>
+                            <p className="text-muted-foreground font-medium mb-1">No tienes cuentas</p>
+                            <p className="text-sm text-muted-foreground">Pulsa + para crear tu primera cuenta</p>
                         </div>
                     )}
                 </div>

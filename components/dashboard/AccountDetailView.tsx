@@ -18,6 +18,8 @@ import EditTransactionModal from './EditTransactionModal';
 import EditTransferModal from './EditTransferModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
 import SwipeToDeleteRow from './SwipeToDeleteRow';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type Category = {
     id: string;
@@ -267,31 +269,31 @@ export default function AccountDetailView({ account, initialTransactions, catego
     ];
 
     return (
-        <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+        <div className="min-h-screen bg-background pb-32 md:pb-8">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+            <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <button onClick={() => router.back()} className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
-                        <ArrowLeft className="w-5 h-5 text-neutral-700" />
+                    <button onClick={() => router.back()} className="p-2 -ml-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <h1 className="text-sm font-semibold text-neutral-900 truncate mx-3">{account.name}</h1>
+                    <h1 className="text-sm font-semibold text-foreground truncate mx-3">{account.name}</h1>
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => setIsImportModalOpen(true)}
-                            className="p-2 rounded-xl hover:bg-neutral-100 text-neutral-500 transition-colors"
+                            className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                         >
                             <Database className="w-5 h-5" />
                         </button>
                         <button
                             onClick={toggleFavorite}
-                            className={`p-2 rounded-xl transition-colors ${isFavorite ? 'text-amber-500' : 'text-neutral-400 hover:bg-neutral-100'}`}
+                            className={`p-2 rounded-xl transition-colors ${isFavorite ? 'text-amber-500' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
                         >
                             <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-500' : ''}`} />
                         </button>
                         <button
                             onClick={handleCancelAccount}
                             disabled={isDeleting}
-                            className="p-2 rounded-xl hover:bg-rose-50 text-rose-500 transition-colors"
+                            className="p-2 rounded-xl hover:bg-destructive/10 text-destructive transition-colors"
                         >
                             <Trash2 className="w-5 h-5" />
                         </button>
@@ -299,81 +301,75 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 </div>
             </div>
 
-            <div className="px-5 space-y-5 max-w-4xl mx-auto pt-5">
-                {/* Account Card */}
-                <div
-                    className="relative overflow-hidden rounded-2xl p-5 text-white"
-                    style={{ backgroundColor: themeColor }}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center overflow-hidden">
+            <div className="px-5 space-y-4 max-w-4xl mx-auto pt-5">
+                {/* Card compacta: balance + mini-badges + resplandor ambiental del color de cuenta */}
+                <div className="glass-card relative overflow-hidden rounded-2xl p-4">
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.08] dark:opacity-[0.14]"
+                        style={{ backgroundImage: `linear-gradient(to bottom right, ${themeColor}, transparent 70%)` }}
+                    />
+                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div
+                                className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+                                style={{ backgroundColor: `${themeColor}1A`, color: themeColor }}
+                            >
                                 {account.banks?.logo_url ? (
-                                    <img src={account.banks.logo_url} alt="" className="w-10 h-10 object-contain" />
+                                    <img src={account.banks.logo_url} alt="" className="h-8 w-8 object-contain" />
                                 ) : (
-                                    <span className="text-lg font-bold">{account.banks?.name?.substring(0, 2).toUpperCase() || '€'}</span>
+                                    <span className="text-sm font-bold">{account.banks?.name?.substring(0, 2).toUpperCase() || '€'}</span>
                                 )}
                             </div>
-                            <div>
-                                <p className="text-white/70 text-xs font-medium">{account.banks?.name || 'Cuenta'}</p>
-                                <p className="font-semibold">{account.name}</p>
+                            <div className="min-w-0">
+                                <p className="truncate text-xs font-medium text-muted-foreground">{account.banks?.name || 'Cuenta'}</p>
+                                <p className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">
+                                    {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(account.current_balance)}
+                                </p>
                             </div>
                         </div>
-                        <p className="text-3xl font-bold font-mono tracking-tight">
-                            {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(account.current_balance)}
-                        </p>
+
+                        {!showAllDates && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-secondary-500/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-secondary-600 dark:text-secondary-400">
+                                    +{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}€
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-accent-500/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-accent-600 dark:text-accent-400">
+                                    -{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthExpense)}€
+                                </span>
+                                {(monthTransferIn > 0 || monthTransferOut > 0) && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-primary">
+                                        ⇄ +{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferIn)}€ / -{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferOut)}€
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Date Controls */}
-                <div className="flex items-center justify-between bg-white rounded-xl p-2 border border-neutral-100">
+                {/* Selector de fecha compacto tipo pill */}
+                <div className="flex items-center justify-center gap-1">
                     {!showAllDates && (
-                        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg shrink-0">
-                            <ChevronLeft className="w-4 h-4 text-neutral-600" />
+                        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                            <ChevronLeft className="h-4 w-4" />
                         </button>
                     )}
                     <button
                         onClick={() => setShowAllDates(!showAllDates)}
-                        className="flex-1 text-center py-2 hover:bg-neutral-50 rounded-lg transition-colors min-w-0"
+                        className="min-w-0 rounded-full border border-border bg-card px-4 py-1.5 transition-colors hover:bg-muted"
                     >
-                        <div className="flex items-center justify-center gap-2">
-                            {loadingMonth ? <Loader2 className="w-4 h-4 text-neutral-400 shrink-0 animate-spin" /> : <Calendar className="w-4 h-4 text-neutral-400 shrink-0" />}
-                            <span className="text-sm font-medium text-neutral-700 capitalize truncate">
+                        <div className="flex items-center justify-center gap-1.5">
+                            {loadingMonth ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" /> : <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                            <span className="truncate text-xs font-semibold capitalize text-foreground">
                                 {showAllDates ? 'Todo el historial' : format(currentMonth, 'MMMM yyyy', { locale: es })}
                             </span>
                         </div>
                     </button>
                     {!showAllDates && (
-                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 hover:bg-neutral-100 rounded-lg shrink-0">
-                            <ChevronRight className="w-4 h-4 text-neutral-600" />
+                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                            <ChevronRight className="h-4 w-4" />
                         </button>
                     )}
                 </div>
-
-                {/* Stats Summary */}
-                {!showAllDates && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 font-semibold uppercase">Ingresos</p>
-                            <p className="text-base font-bold text-emerald-700 font-mono">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome)}€</p>
-                        </div>
-                        <div className="bg-rose-50 rounded-xl p-3 text-center border border-rose-100">
-                            <p className="text-[10px] text-rose-600 font-semibold uppercase">Gastos</p>
-                            <p className="text-base font-bold text-rose-700 font-mono">-{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthExpense)}€</p>
-                        </div>
-                        <div className="bg-neutral-100 rounded-xl p-3 text-center">
-                            <p className="text-[10px] text-neutral-500 font-semibold uppercase">Balance</p>
-                            <p className={`text-base font-bold font-mono ${monthIncome - monthExpense >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {monthIncome - monthExpense >= 0 ? '+' : ''}{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthIncome - monthExpense)}€
-                            </p>
-                        </div>
-                        <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
-                            <p className="text-[10px] text-blue-600 font-semibold uppercase">Transferencias</p>
-                            <p className="text-xs font-bold text-blue-700 font-mono">+{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferIn)}€ / -{new Intl.NumberFormat('es-ES', { notation: 'compact' }).format(monthTransferOut)}€</p>
-                        </div>
-                    </div>
-                )}
 
                 {/* Filters - scrollable on mobile, no overflow */}
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 md:mx-0 md:px-0">
@@ -381,11 +377,12 @@ export default function AccountDetailView({ account, initialTransactions, catego
                         <button
                             key={f.key}
                             onClick={() => setFilterType(f.key)}
-                            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all ${
+                            className={cn(
+                                'px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all',
                                 filterType === f.key
-                                    ? 'bg-neutral-900 text-white'
-                                    : 'bg-white border border-neutral-200 text-neutral-500'
-                            }`}
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                            )}
                         >
                             {f.label}
                         </button>
@@ -395,26 +392,26 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 {/* Transaction List */}
                 <div className="space-y-5">
                     {showAllDates && loadingHistory && allHistory === null ? (
-                        <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
-                            <Loader2 className="w-5 h-5 text-neutral-300 animate-spin mx-auto mb-2" />
-                            <p className="text-neutral-400 text-sm">Cargando historial...</p>
+                        <div className="text-center py-16 bg-card rounded-xl border border-border">
+                            <Loader2 className="w-5 h-5 text-muted-foreground animate-spin mx-auto mb-2" />
+                            <p className="text-muted-foreground text-sm">Cargando historial...</p>
                         </div>
                     ) : Object.keys(groupedTransactions).length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-xl border border-neutral-100">
-                            <p className="text-neutral-400 text-sm">Sin movimientos en este período</p>
+                        <div className="text-center py-16 bg-card rounded-xl border border-border">
+                            <p className="text-muted-foreground text-sm">Sin movimientos en este período</p>
                             {!showAllDates && (
-                                <button onClick={() => setShowAllDates(true)} className="mt-3 px-4 py-2 bg-neutral-900 text-white rounded-xl text-sm font-medium">
+                                <Button onClick={() => setShowAllDates(true)} className="mt-3" size="sm">
                                     Ver todo
-                                </button>
+                                </Button>
                             )}
                         </div>
                     ) : (
                         Object.entries(groupedTransactions).sort((a, b) => b[0].localeCompare(a[0])).map(([date, txs]) => (
                             <div key={date}>
-                                <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2 ml-1">
+                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 ml-1">
                                     {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM', { locale: es })}
                                 </h4>
-                                <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
+                                <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
                                     {txs.map(t => {
                                         const rowKey = `${t.id}-${t.isIncomingTransfer ? 'in' : 'out'}`;
                                         const categoryName = t.categories?.name || t.category || (t.type === 'transfer' ? 'Transferencia' : 'General');
@@ -424,46 +421,50 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                         const showAsIncome = t.type === 'income' || isIncoming;
 
                                         return (
-                                            <SwipeToDeleteRow key={rowKey} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-white px-4 py-3 flex items-center gap-3 group">
+                                            <SwipeToDeleteRow key={rowKey} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-card px-4 py-3 flex items-center gap-3 group">
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#f0f9ff' : '#f5f5f5') }}
+                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#4f46e515' : 'var(--muted)') }}
                                                 >
                                                     <CategoryIcon
                                                         name={icon || (isTransfer ? (isIncoming ? 'up' : 'down') : (t.type === 'expense' ? 'down' : 'up'))}
                                                         className="w-5 h-5"
-                                                        style={{ color: t.categories?.color || (isTransfer ? '#3b82f6' : (t.type === 'expense' ? '#f43f5e' : '#10b981')) }}
+                                                        style={{ color: t.categories?.color || (isTransfer ? 'var(--primary)' : (t.type === 'expense' ? '#e11d48' : '#10b981')) }}
                                                     />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
-                                                    <p className="text-xs text-neutral-400 truncate">
+                                                    <p className="font-medium text-foreground text-sm truncate">{categoryName}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">
                                                         {isTransfer ? (isIncoming ? 'Transferencia recibida' : 'Transferencia enviada') : t.description || 'Sin descripción'}
                                                     </p>
                                                 </div>
-                                                <p className={`font-semibold text-sm font-mono shrink-0 ${
-                                                    isTransfer ? 'text-blue-600' : (showAsIncome ? 'text-emerald-600' : 'text-neutral-900')
+                                                <p className={`font-semibold text-sm font-mono tabular-nums shrink-0 ${
+                                                    isTransfer ? 'text-primary' : (showAsIncome ? 'text-secondary-600 dark:text-secondary-400' : 'text-foreground')
                                                 }`}>
                                                     {showAsIncome ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                                                 </p>
                                                 <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                    <button
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
                                                         onClick={() => setEditingTransaction(t)}
-                                                        className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                        className="h-7 w-7 bg-muted text-primary hover:bg-primary/10"
                                                     >
                                                         <Pencil className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
                                                         onClick={() => handleDeleteTransaction(t)}
                                                         disabled={deletingId === t.id}
-                                                        className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                                        className="h-7 w-7 bg-muted text-destructive hover:bg-destructive/10"
                                                     >
                                                         {deletingId === t.id ? (
-                                                            <div className="w-3.5 h-3.5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                            <div className="w-3.5 h-3.5 border-2 border-destructive border-t-transparent rounded-full animate-spin" />
                                                         ) : (
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         )}
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </SwipeToDeleteRow>
                                         );
@@ -474,14 +475,15 @@ export default function AccountDetailView({ account, initialTransactions, catego
                     )}
 
                     {showAllDates && allHistory !== null && allHistoryHasMore && (
-                        <button
+                        <Button
+                            variant="outline"
                             onClick={loadMoreHistory}
                             disabled={loadingHistory}
-                            className="w-full py-3 bg-white border border-neutral-100 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors flex items-center justify-center gap-2"
+                            className="w-full"
                         >
                             {loadingHistory ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                             Cargar más
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

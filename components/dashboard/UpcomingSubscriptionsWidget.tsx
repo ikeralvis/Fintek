@@ -39,10 +39,10 @@ export default function UpcomingSubscriptionsWidget() {
   if (!subscriptions || subscriptions.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-100 p-4">
+    <div className="bg-card rounded-2xl border border-border p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Próximos cobros</h3>
-        <Link href="/dashboard/suscripciones" className="text-xs font-semibold text-neutral-400 hover:text-neutral-600">Ver todo</Link>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Próximos cobros</h3>
+        <Link href="/dashboard/suscripciones" className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">Ver todo</Link>
       </div>
       <div className="space-y-2.5">
         {subscriptions.map(sub => {
@@ -51,16 +51,16 @@ export default function UpcomingSubscriptionsWidget() {
           const isSoon = daysUntil >= 0 && daysUntil <= 3;
           return (
             <div key={sub.id} className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isToday ? 'bg-amber-100 text-amber-600' : 'bg-neutral-100 text-neutral-400'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isToday ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
                 <CalendarClock className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-neutral-900 truncate">{sub.name}</p>
-                <p className={`text-xs ${isSoon ? 'text-amber-600 font-semibold' : 'text-neutral-400'}`}>
+                <p className="text-sm font-medium text-foreground truncate">{sub.name}</p>
+                <p className={`text-xs ${isSoon ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground'}`}>
                   {isToday ? 'Hoy' : `${format(parseISO(sub.next_payment_date), 'd MMM', { locale: es })}${daysUntil > 0 && daysUntil <= 7 ? ` · en ${daysUntil}d` : ''}`}
                 </p>
               </div>
-              <span className="text-sm font-bold text-neutral-900 font-mono shrink-0">{Number(sub.amount).toFixed(2)}€</span>
+              <span className="text-sm font-bold text-foreground font-mono tabular-nums shrink-0">{Number(sub.amount).toFixed(2)}€</span>
             </div>
           );
         })}

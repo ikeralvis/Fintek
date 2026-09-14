@@ -29,7 +29,7 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
   return (
     <div className="space-y-5">
       {/* Tab bar */}
-      <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-1 bg-muted rounded-xl p-1 overflow-x-auto scrollbar-hide">
         {TABS.map(tab => {
           const Icon = tab.icon;
           return (
@@ -37,7 +37,7 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
-                activeTab === tab.id ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'
+                activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -49,19 +49,19 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
 
       {activeTab === 'account' && (
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-neutral-100 p-5 flex items-center gap-4">
-            <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center">
-              <User className="w-6 h-6 text-white" />
+          <div className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4">
+            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+              <User className="w-6 h-6 text-primary-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-neutral-900 truncate">{user.user_metadata?.name || user.email}</p>
-              <p className="text-sm text-neutral-400 truncate">{user.email}</p>
+              <p className="font-semibold text-foreground truncate">{user.user_metadata?.name || user.email}</p>
+              <p className="text-sm text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
 
-          <div className="bg-neutral-100 rounded-xl px-4 py-3 flex items-center gap-2">
-            <Keyboard className="w-4 h-4 text-neutral-400 shrink-0" />
-            <p className="text-xs text-neutral-500">
+          <div className="bg-muted rounded-xl px-4 py-3 flex items-center gap-2">
+            <Keyboard className="w-4 h-4 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground">
               <span className="font-semibold">Ctrl+K</span> para búsqueda rápida desde cualquier pantalla
             </p>
           </div>
@@ -69,7 +69,7 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
           <form action="/api/auth/signout" method="post">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-white border border-rose-200 text-rose-600 py-3.5 rounded-2xl font-semibold text-sm hover:bg-rose-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-card border border-accent-500/20 text-accent-600 dark:text-accent-400 py-3.5 rounded-2xl font-semibold text-sm hover:bg-accent-500/10 transition-colors"
             >
               <LogOut className="w-4 h-4" />
               Cerrar Sesión
@@ -79,14 +79,14 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
       )}
 
       {activeTab === 'banks' && (
-        <section className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
-          <div className="flex items-center gap-3 p-5 border-b border-neutral-100">
-            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-blue-600" />
+        <section className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="flex items-center gap-3 p-5 border-b border-border">
+            <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1">
-              <h2 className="text-sm font-semibold text-neutral-900">Entidades Bancarias</h2>
-              <p className="text-xs text-neutral-400">{banks.length} banco{banks.length !== 1 ? 's' : ''}</p>
+              <h2 className="text-sm font-semibold text-foreground">Entidades Bancarias</h2>
+              <p className="text-xs text-muted-foreground">{banks.length} banco{banks.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <div className="p-5">
@@ -96,14 +96,14 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
       )}
 
       {activeTab === 'categories' && (
-        <section className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
-          <div className="flex items-center gap-3 p-5 border-b border-neutral-100">
+        <section className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="flex items-center gap-3 p-5 border-b border-border">
             <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
               <Tag className="w-4 h-4 text-amber-600" />
             </div>
             <div className="flex-1">
-              <h2 className="text-sm font-semibold text-neutral-900">Categorías</h2>
-              <p className="text-xs text-neutral-400">{categories.length} categoría{categories.length !== 1 ? 's' : ''}</p>
+              <h2 className="text-sm font-semibold text-foreground">Categorías</h2>
+              <p className="text-xs text-muted-foreground">{categories.length} categoría{categories.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <div className="p-5">

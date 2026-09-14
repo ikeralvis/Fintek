@@ -20,9 +20,9 @@ export default function RecentTransactionsList({ transactions }: { readonly tran
     if (transactions.length === 0) {
         return (
             <div>
-                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-3">Recientes</h3>
-                <div className="bg-white rounded-xl p-8 text-center border border-neutral-100">
-                    <p className="text-neutral-400 text-sm">Aún no hay movimientos</p>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recientes</h3>
+                <div className="bg-card rounded-xl p-8 text-center border border-border">
+                    <p className="text-muted-foreground text-sm">Aún no hay movimientos</p>
                 </div>
             </div>
         );
@@ -31,41 +31,41 @@ export default function RecentTransactionsList({ transactions }: { readonly tran
     return (
         <div>
             <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Recientes</h3>
-                <Link href="/dashboard/transacciones" className="text-xs font-semibold text-neutral-400 flex items-center gap-0.5 hover:text-neutral-600">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Recientes</h3>
+                <Link href="/dashboard/transacciones" className="text-xs font-semibold text-muted-foreground flex items-center gap-0.5 hover:text-foreground transition-colors">
                     Ver todo <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
             </div>
 
-            <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden divide-y divide-neutral-50">
+            <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
                 {transactions.map((t) => {
                     const categoryName = t.categories?.name || t.category || 'General';
 
                     return (
                         <div key={t.id} className="px-4 py-3 flex items-center gap-3">
                             <div
-                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                                style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : '#f5f5f5' }}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-muted/50"
+                                style={t.categories?.color ? { backgroundColor: `${t.categories.color}15` } : undefined}
                             >
                                 {t.categories?.icon ? (
                                     <CategoryIcon
                                         name={t.categories.icon}
                                         className="w-5 h-5"
-                                        style={{ color: t.categories.color || '#666' }}
+                                        style={{ color: t.categories.color || 'var(--muted-foreground)' }}
                                     />
                                 ) : t.type === 'expense' ? (
-                                    <ArrowDownRight className="w-4 h-4 text-rose-500" />
+                                    <ArrowDownRight className="w-4 h-4 text-accent-500 dark:text-accent-400" />
                                 ) : (
-                                    <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                                    <ArrowUpRight className="w-4 h-4 text-secondary-500 dark:text-secondary-400" />
                                 )}
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <p className="font-medium text-neutral-900 text-sm truncate">{categoryName}</p>
-                                <p className="text-xs text-neutral-400">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}</p>
+                                <p className="font-medium text-foreground text-sm truncate">{categoryName}</p>
+                                <p className="text-xs text-muted-foreground">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}</p>
                             </div>
 
-                            <p className={`font-semibold text-sm ${t.type === 'income' ? 'text-emerald-600' : 'text-neutral-900'}`}>
+                            <p className={`font-semibold text-sm tabular-nums shrink-0 ${t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-foreground'}`}>
                                 {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
                             </p>
                         </div>

@@ -158,24 +158,24 @@ export default function BudgetsPageClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+    <div className="min-h-screen bg-background pb-32 md:pb-8">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+      <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
-            <ArrowLeft className="w-5 h-5 text-neutral-700" />
+          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
-          <h1 className="text-lg font-semibold text-neutral-900">Presupuestos</h1>
+          <h1 className="text-lg font-semibold text-foreground">Presupuestos</h1>
           <button
             onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
-            className="p-2 bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-colors"
+            className="p-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -185,53 +185,53 @@ export default function BudgetsPageClient() {
       <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
 
         {/* Configurar mes: ingreso + colchón */}
-        <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <button
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-neutral-400" />
-              <span className="text-sm font-semibold text-neutral-900">Configurar mes</span>
-              <span className="text-xs text-neutral-400">(ingreso {fmt(income)} · colchón {fmt(cushion)})</span>
+              <Target className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">Configurar mes</span>
+              <span className="text-xs text-muted-foreground">(ingreso {fmt(income)} · colchón {fmt(cushion)})</span>
             </div>
-            <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
           </button>
           {isSettingsOpen && (
-            <div className="border-t border-neutral-100 p-4 space-y-3">
+            <div className="border-t border-border p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">Ingreso mensual</label>
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Ingreso mensual</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300 text-sm font-bold">€</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">€</span>
                     <input
                       type="number" step="0.01" placeholder={income.toFixed(2)}
                       value={incomeInput}
                       onChange={(e) => setIncomeInput(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-200 focus:bg-white"
+                      className="w-full bg-muted/60 border border-border rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:bg-card"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-1.5">Colchón extra</label>
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Colchón extra</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300 text-sm font-bold">€</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">€</span>
                     <input
                       type="number" step="0.01" placeholder={cushion.toFixed(2)}
                       value={cushionInput}
                       onChange={(e) => setCushionInput(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-200 focus:bg-white"
+                      className="w-full bg-muted/60 border border-border rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:bg-card"
                     />
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px] text-muted-foreground">
                 El ingreso lo fijas tú a mano (nómina, etc.). El colchón es un extra compartido: si te pasas en alguna categoría de gasto, el exceso se descuenta de aquí antes de que salte la alerta grande.
               </p>
               <button
                 onClick={handleSaveSettings}
                 disabled={savingSettings || (incomeInput === '' && cushionInput === '')}
-                className="w-full flex items-center justify-center gap-2 bg-neutral-900 text-white py-2.5 rounded-xl text-sm font-semibold disabled:bg-neutral-200 disabled:text-neutral-400"
+                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-xl text-sm font-semibold disabled:bg-muted disabled:text-muted-foreground"
               >
                 {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                 Guardar
@@ -241,21 +241,21 @@ export default function BudgetsPageClient() {
         </div>
 
         {/* Banda de ingreso */}
-        <div className="bg-white rounded-2xl border border-neutral-100 p-5">
+        <div className="bg-card rounded-2xl border border-border p-5">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-neutral-400 font-medium uppercase tracking-wide">Ingreso del Mes</p>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Ingreso del Mes</p>
             {income > 0 && (
-              <span className={`text-xs font-bold ${incomeFree >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span className={`text-xs font-bold ${incomeFree >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
                 {incomeFree >= 0 ? `${fmt(incomeFree)} libre` : `${fmt(Math.abs(incomeFree))} de más`}
               </span>
             )}
           </div>
-          <p className="text-3xl font-black tracking-tight text-neutral-900 font-mono mb-4">{fmt(income)}</p>
+          <p className="text-3xl font-black tracking-tight text-foreground font-mono mb-4">{fmt(income)}</p>
 
           {income > 0 ? (
             <>
               {/* Stacked band */}
-              <div className="h-8 bg-neutral-100 rounded-xl overflow-hidden flex">
+              <div className="h-8 bg-muted rounded-xl overflow-hidden flex">
                 {expenseBudgets.map(b => (
                   b.spent > 0 && (
                     <div
@@ -277,12 +277,12 @@ export default function BudgetsPageClient() {
                   )
                 ))}
                 {incomeFree > 0 && (
-                  <div style={{ width: `${pctFreeOfIncome}%` }} className="h-full shrink-0 bg-neutral-100 last:rounded-r-xl" />
+                  <div style={{ width: `${pctFreeOfIncome}%` }} className="h-full shrink-0 bg-muted last:rounded-r-xl" />
                 )}
               </div>
 
               {incomeOverflow > 0 && (
-                <p className="text-[11px] font-semibold text-rose-600 mt-1.5">
+                <p className="text-[11px] font-semibold text-accent-600 dark:text-accent-400 mt-1.5">
                   Te pasas del ingreso en {fmt(incomeOverflow)}
                 </p>
               )}
@@ -292,53 +292,53 @@ export default function BudgetsPageClient() {
                 {[...expenseBudgets, ...savingsBudgets].filter(b => b.spent > 0).map(b => (
                   <div key={b.id} className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: b.category.color, opacity: b.is_savings ? 0.55 : 1 }} />
-                    <span className="text-[11px] font-medium text-neutral-600">{b.category.name}</span>
-                    <span className="text-[11px] font-mono text-neutral-400">{income > 0 ? `${((b.spent / income) * 100).toFixed(0)}%` : ''}</span>
+                    <span className="text-[11px] font-medium text-muted-foreground">{b.category.name}</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">{income > 0 ? `${((b.spent / income) * 100).toFixed(0)}%` : ''}</span>
                   </div>
                 ))}
               </div>
 
               {/* Summary numbers */}
-              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-neutral-100">
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
                 <div className="text-center">
-                  <p className="text-sm font-black font-mono text-neutral-900">{pctSpentOfIncome.toFixed(0)}%</p>
-                  <p className="text-[10px] text-neutral-400 font-medium uppercase">Gastado</p>
+                  <p className="text-sm font-black font-mono text-foreground">{pctSpentOfIncome.toFixed(0)}%</p>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Gastado</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-black font-mono text-emerald-600">{pctSavedOfIncome.toFixed(0)}%</p>
-                  <p className="text-[10px] text-neutral-400 font-medium uppercase">Ahorrado</p>
+                  <p className="text-sm font-black font-mono tabular-nums text-secondary-600 dark:text-secondary-400">{pctSavedOfIncome.toFixed(0)}%</p>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Ahorrado</p>
                 </div>
                 <div className="text-center">
-                  <p className={`text-sm font-black font-mono ${incomeFree >= 0 ? 'text-neutral-900' : 'text-rose-600'}`}>{pctFreeOfIncome.toFixed(0)}%</p>
-                  <p className="text-[10px] text-neutral-400 font-medium uppercase">Libre</p>
+                  <p className={`text-sm font-black font-mono ${incomeFree >= 0 ? 'text-foreground' : 'text-accent-600 dark:text-accent-400'}`}>{pctFreeOfIncome.toFixed(0)}%</p>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Libre</p>
                 </div>
               </div>
             </>
           ) : (
-            <p className="text-xs text-neutral-400">Fija tu ingreso mensual en "Configurar mes" para ver el desglose.</p>
+            <p className="text-xs text-muted-foreground">Fija tu ingreso mensual en "Configurar mes" para ver el desglose.</p>
           )}
         </div>
 
         {/* Colchón */}
         {cushion > 0 && (
-          <div className={`rounded-2xl border p-4 ${cushionExceeded ? 'bg-rose-50 border-rose-100' : cushionUsed > 0 ? 'bg-amber-50 border-amber-100' : 'bg-white border-neutral-100'}`}>
+          <div className={`rounded-2xl border p-4 ${cushionExceeded ? 'bg-accent-500/10 border-accent-500/20' : cushionUsed > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-card border-border'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Shield className={`w-4 h-4 ${cushionExceeded ? 'text-rose-500' : cushionUsed > 0 ? 'text-amber-500' : 'text-neutral-400'}`} />
-                <span className="text-sm font-semibold text-neutral-900">Colchón</span>
+                <Shield className={`w-4 h-4 ${cushionExceeded ? 'text-accent-500 dark:text-accent-400' : cushionUsed > 0 ? 'text-amber-500 dark:text-amber-400' : 'text-muted-foreground'}`} />
+                <span className="text-sm font-semibold text-foreground">Colchón</span>
               </div>
-              <span className={`text-xs font-bold ${cushionExceeded ? 'text-rose-600' : cushionUsed > 0 ? 'text-amber-600' : 'text-neutral-500'}`}>
+              <span className={`text-xs font-bold ${cushionExceeded ? 'text-accent-600 dark:text-accent-400' : cushionUsed > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
                 {fmt(cushionUsed)} / {fmt(cushion)}
               </span>
             </div>
-            <div className="h-2.5 bg-neutral-100 rounded-full overflow-hidden">
+            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${cushionExceeded ? 'bg-rose-500' : cushionUsed > 0 ? 'bg-amber-400' : 'bg-neutral-200'}`}
+                className={`h-full rounded-full transition-all ${cushionExceeded ? 'bg-accent-500' : cushionUsed > 0 ? 'bg-amber-400' : 'bg-muted'}`}
                 style={{ width: `${Math.min(cushionPct, 100)}%` }}
               />
             </div>
             {cushionExceeded && (
-              <p className="text-xs font-semibold text-rose-600 mt-2 flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-accent-600 dark:text-accent-400 mt-2 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 Has agotado el colchón: {fmt(cushionOverflow)} sin cubrir este mes.
               </p>
@@ -347,34 +347,34 @@ export default function BudgetsPageClient() {
         )}
 
         {/* Global Progress Card */}
-        <div className="bg-white rounded-2xl border border-neutral-100 p-6">
+        <div className="bg-card rounded-2xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-xs text-neutral-400 font-medium uppercase tracking-wide">Presupuesto de Gastos</p>
-              <p className="text-3xl font-black tracking-tight text-neutral-900 font-mono">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Presupuesto de Gastos</p>
+              <p className="text-3xl font-black tracking-tight text-foreground font-mono">
                 {(totalBudget - totalSpent).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€
-                <span className="text-sm font-medium text-neutral-400 ml-2">disponible</span>
+                <span className="text-sm font-medium text-muted-foreground ml-2">disponible</span>
               </p>
             </div>
             <div className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-              globalProgress > 100 ? 'bg-rose-50 text-rose-600' :
-              globalProgress >= 80 ? 'bg-amber-50 text-amber-600' :
-              'bg-emerald-50 text-emerald-600'
+              globalProgress > 100 ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400' :
+              globalProgress >= 80 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+              'bg-secondary-500/10 text-secondary-600 dark:text-secondary-400'
             }`}>
               {globalProgress.toFixed(0)}% usado
             </div>
           </div>
-          <div className="h-2.5 bg-neutral-100 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
-                globalProgress > 100 ? 'bg-rose-500' :
+                globalProgress > 100 ? 'bg-accent-500' :
                 globalProgress >= 80 ? 'bg-amber-400' :
-                'bg-emerald-400'
+                'bg-secondary-500'
               }`}
               style={{ width: `${Math.min(globalProgress, 100)}%` }}
             />
           </div>
-          <div className="flex justify-between mt-2 text-[10px] font-medium text-neutral-400">
+          <div className="flex justify-between mt-2 text-[10px] font-medium text-muted-foreground">
             <span>Gastado: {totalSpent.toLocaleString('es-ES')}€</span>
             <span>Límite: {totalBudget.toLocaleString('es-ES')}€</span>
           </div>
@@ -385,10 +385,10 @@ export default function BudgetsPageClient() {
           <div className="space-y-2">
             {alerts.map(b => (
               <div key={`alert-${b.id}`} className={`rounded-xl p-3 flex items-center gap-3 border ${
-                b.status === 'exceeded' ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100'
+                b.status === 'exceeded' ? 'bg-accent-500/10 border-accent-500/20' : 'bg-amber-500/10 border-amber-500/20'
               }`}>
-                <AlertTriangle className={`w-4 h-4 shrink-0 ${b.status === 'exceeded' ? 'text-rose-500' : 'text-amber-500'}`} />
-                <p className={`text-xs font-medium flex-1 ${b.status === 'exceeded' ? 'text-rose-700' : 'text-amber-700'}`}>
+                <AlertTriangle className={`w-4 h-4 shrink-0 ${b.status === 'exceeded' ? 'text-accent-500 dark:text-accent-400' : 'text-amber-500 dark:text-amber-400'}`} />
+                <p className={`text-xs font-medium flex-1 ${b.status === 'exceeded' ? 'text-accent-700 dark:text-accent-400' : 'text-amber-700 dark:text-amber-400'}`}>
                   <span className="font-bold">{b.category.name}</span>
                   {b.status === 'exceeded'
                     ? ` — excedido en ${Math.abs(b.remaining).toLocaleString('es-ES')}€${cushion > 0 ? (b.remaining < 0 && !cushionExceeded ? ' (cubierto por el colchón)' : '') : ''}`
@@ -402,13 +402,13 @@ export default function BudgetsPageClient() {
 
         {/* Budget Cards */}
         {budgetData.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-12 text-center">
-            <Target className="w-12 h-12 text-neutral-200 mx-auto mb-3" />
-            <p className="text-neutral-500 font-medium mb-1">Sin presupuestos</p>
-            <p className="text-sm text-neutral-400 mb-4">Crea uno para controlar tus gastos por categoría</p>
+          <div className="bg-card rounded-2xl border border-dashed border-border p-12 text-center">
+            <Target className="w-12 h-12 text-muted-foreground/60 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium mb-1">Sin presupuestos</p>
+            <p className="text-sm text-muted-foreground mb-4">Crea uno para controlar tus gastos por categoría</p>
             <button
               onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
-              className="px-5 py-2.5 bg-neutral-900 text-white rounded-xl text-sm font-semibold"
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold"
             >
               Crear Presupuesto
             </button>
@@ -417,7 +417,7 @@ export default function BudgetsPageClient() {
           <>
             {expenseBudgets.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-1">Gastos</h3>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Gastos</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {expenseBudgets.map(b => (
                     <BudgetCard key={b.id} b={b} onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
@@ -428,7 +428,7 @@ export default function BudgetsPageClient() {
 
             {savingsBudgets.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
                   <PiggyBank className="w-3.5 h-3.5" /> Ahorro
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -455,7 +455,7 @@ export default function BudgetsPageClient() {
 
 function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: boolean; onEdit: () => void; onDelete: () => void }) {
   return (
-    <div className="bg-white rounded-2xl border border-neutral-100 p-4 group">
+    <div className="bg-card rounded-2xl border border-border p-4 group">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div
@@ -465,30 +465,30 @@ function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: bo
             <CategoryIcon name={b.category.icon} className="w-5 h-5" style={{ color: b.category.color }} />
           </div>
           <div>
-            <p className="text-sm font-semibold text-neutral-900">{b.category.name}</p>
-            <p className="text-xs text-neutral-400 font-mono">
+            <p className="text-sm font-semibold text-foreground">{b.category.name}</p>
+            <p className="text-xs text-muted-foreground font-mono">
               {b.spent.toLocaleString('es-ES')}€ / {b.amount.toLocaleString('es-ES')}€
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-          <button onClick={onEdit} className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-400">
+          <button onClick={onEdit} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground">
             <Pencil className="w-3.5 h-3.5" />
           </button>
-          <button onClick={onDelete} className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-400">
+          <button onClick={onDelete} className="p-1.5 hover:bg-accent-500/10 rounded-lg text-accent-500 dark:text-accent-400">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Progress */}
-      <div className="h-2 bg-neutral-100 rounded-full overflow-hidden mb-2">
+      <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
         <div
           className={`h-full rounded-full transition-all duration-500 ${
-            isSavings ? 'bg-emerald-500' :
-            b.status === 'exceeded' ? 'bg-rose-500' :
+            isSavings ? 'bg-secondary-500' :
+            b.status === 'exceeded' ? 'bg-accent-500' :
             b.status === 'warning' ? 'bg-amber-400' :
-            'bg-emerald-400'
+            'bg-secondary-500'
           }`}
           style={{ width: `${Math.min(b.percentage, 100)}%` }}
         />
@@ -496,14 +496,14 @@ function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: bo
 
       <div className="flex items-center justify-between">
         <span className={`text-[10px] font-bold ${
-          isSavings ? 'text-emerald-500' :
-          b.status === 'exceeded' ? 'text-rose-500' :
-          b.status === 'warning' ? 'text-amber-500' :
-          'text-emerald-500'
+          isSavings ? 'text-secondary-500 dark:text-secondary-400' :
+          b.status === 'exceeded' ? 'text-accent-500 dark:text-accent-400' :
+          b.status === 'warning' ? 'text-amber-500 dark:text-amber-400' :
+          'text-secondary-500 dark:text-secondary-400'
         }`}>
           {b.percentage.toFixed(0)}%
         </span>
-        <span className="text-[10px] font-medium text-neutral-400">
+        <span className="text-[10px] font-medium text-muted-foreground">
           {isSavings
             ? (b.remaining >= 0 ? `${b.remaining.toLocaleString('es-ES')}€ para el objetivo` : `${Math.abs(b.remaining).toLocaleString('es-ES')}€ de más ahorrado`)
             : (b.remaining >= 0 ? `${b.remaining.toLocaleString('es-ES')}€ libre` : `${Math.abs(b.remaining).toLocaleString('es-ES')}€ excedido`)

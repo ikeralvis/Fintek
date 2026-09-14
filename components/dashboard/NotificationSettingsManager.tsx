@@ -40,26 +40,26 @@ export default function NotificationSettingsManager({ initialSettings }: { initi
 
       <div className={`space-y-2 transition-opacity ${settings.push_enabled ? '' : 'opacity-40 pointer-events-none'}`}>
         {TOGGLES.map(t => (
-          <div key={t.key} className="bg-white border border-neutral-100 rounded-xl p-4 flex items-center gap-3">
+          <div key={t.key} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-neutral-900">{t.label}</p>
-              <p className="text-xs text-neutral-400">{t.description}</p>
+              <p className="text-sm font-semibold text-foreground">{t.label}</p>
+              <p className="text-xs text-muted-foreground">{t.description}</p>
             </div>
             <button
               onClick={() => persist({ [t.key]: !settings[t.key] } as Partial<Settings>)}
               disabled={isPending}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settings[t.key] ? 'bg-neutral-900' : 'bg-neutral-200'}`}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settings[t.key] ? 'bg-primary' : 'bg-muted'}`}
             >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings[t.key] ? 'translate-x-5' : ''}`} />
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-card rounded-full shadow transition-transform ${settings[t.key] ? 'translate-x-5' : ''}`} />
             </button>
           </div>
         ))}
 
         {settings.budget_alerts && (
-          <div className="bg-white border border-neutral-100 rounded-xl p-4">
+          <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-semibold text-neutral-900">Umbral de aviso</p>
-              <span className="text-sm font-bold text-neutral-900 font-mono">{settings.budget_threshold_percent}%</span>
+              <p className="text-sm font-semibold text-foreground">Umbral de aviso</p>
+              <span className="text-sm font-bold text-foreground font-mono">{settings.budget_threshold_percent}%</span>
             </div>
             <input
               type="range"
@@ -68,9 +68,9 @@ export default function NotificationSettingsManager({ initialSettings }: { initi
               step={5}
               value={settings.budget_threshold_percent}
               onChange={(e) => persist({ budget_threshold_percent: Number(e.target.value) })}
-              className="w-full accent-neutral-900"
+              className="w-full accent-primary"
             />
-            <p className="text-xs text-neutral-400 mt-1">Se avisa cuando el gasto de una categoría llega a este % de su presupuesto</p>
+            <p className="text-xs text-muted-foreground mt-1">Se avisa cuando el gasto de una categoría llega a este % de su presupuesto</p>
           </div>
         )}
       </div>

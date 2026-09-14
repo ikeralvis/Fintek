@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { Building2, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { deleteAccount } from '@/lib/actions/accounts';
 import { formatCurrency } from '@/lib/utils';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 type Account = {
   id: string;
@@ -32,7 +35,7 @@ export default function AccountCard({ account, monthlyIncome = 0, monthlyExpense
 
     setDeleting(true);
     const result = await deleteAccount(account.id);
-    
+
     if (result.error) {
       alert(result.error);
       setDeleting(false);
@@ -40,67 +43,72 @@ export default function AccountCard({ account, monthlyIncome = 0, monthlyExpense
     // Si no hay error, la página se recarga automáticamente por revalidatePath
   };
 
-  const balanceColor = account.current_balance >= 0 ? 'text-secondary-600' : 'text-accent-600';
-  const balanceBg = account.current_balance >= 0 ? 'bg-secondary-50' : 'bg-accent-50';
+  const isPositive = account.current_balance >= 0;
 
   return (
-    <div className="bg-white rounded-xl shadow-soft hover:shadow-medium transition-all p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center space-x-2 mb-1">
-            <Building2 className="h-5 w-5 text-primary-600" />
-            <h3 className="font-semibold text-neutral-900">{account.name}</h3>
+    <Card className="glass-card hover:shadow-medium transition-shadow">
+      <CardHeader className="flex-row items-start justify-between space-y-0 p-5 pb-0">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Building2 className="h-4 w-4" />
           </div>
-          <p className="text-sm text-neutral-500">{account.banks.name}</p>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-foreground">{account.name}</h3>
+            <p className="truncate text-xs text-muted-foreground">{account.banks.name}</p>
+          </div>
         </div>
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={handleDelete}
           disabled={deleting}
-          className="text-accent-500 hover:text-accent-700 p-2 rounded-lg hover:bg-accent-50 transition-colors disabled:opacity-50"
+          className="-mr-1.5 -mt-1.5 h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           title="Eliminar cuenta"
         >
           <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
+        </Button>
+      </CardHeader>
 
-      {/* Balance Actual */}
-      <div className={`${balanceBg} rounded-lg p-4 mb-4`}>
-        <p className="text-sm text-neutral-600 mb-1">Saldo Actual</p>
-        <p className={`text-3xl font-bold ${balanceColor}`}>
-          {formatCurrency(account.current_balance)}
-        </p>
-      </div>
-
-      {/* Stats del Mes */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <div className="flex items-center space-x-2 mb-1">
-            <TrendingUp className="h-4 w-4 text-secondary-600" />
-            <p className="text-xs text-neutral-600">Ingresos mes</p>
-          </div>
-          <p className="font-semibold text-secondary-600">
-            {formatCurrency(monthlyIncome)}
+      <CardContent className="space-y-4 p-5 pt-4">
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">Saldo actual</p>
+          <p
+            className={`text-3xl font-semibold tracking-tight tabular-nums ${
+              isPositive ? 'text-foreground' : 'text-destructive'
+            }`}
+          >
+            {formatCurrency(account.current_balance)}
           </p>
         </div>
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <div className="flex items-center space-x-2 mb-1">
-            <TrendingDown className="h-4 w-4 text-accent-600" />
-            <p className="text-xs text-neutral-600">Gastos mes</p>
-          </div>
-          <p className="font-semibold text-accent-600">
-            {formatCurrency(monthlyExpense)}
-          </p>
-        </div>
-      </div>
 
-      {/* Balance Inicial (pequeño) */}
-      <div className="mt-3 pt-3 border-t border-neutral-100">
-        <div className="flex items-center justify-between text-xs text-neutral-500">
-          <span>Saldo inicial:</span>
-          <span className="font-medium">{formatCurrency(account.initial_balance)}</span>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-muted/60 p-3">
+            <div className="mb-1 flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-secondary-600 dark:text-secondary-400" />
+              <span className="text-[11px] font-medium text-muted-foreground">Ingresos mes</span>
+            </div>
+            <p className="text-sm font-semibold tabular-nums text-secondary-600 dark:text-secondary-400">
+              {formatCurrency(monthlyIncome)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-muted/60 p-3">
+            <div className="mb-1 flex items-center gap-1.5">
+              <TrendingDown className="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" />
+              <span className="text-[11px] font-medium text-muted-foreground">Gastos mes</span>
+            </div>
+            <p className="text-sm font-semibold tabular-nums text-accent-600 dark:text-accent-400">
+              {formatCurrency(monthlyExpense)}
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <span className="text-xs text-muted-foreground">Saldo inicial</span>
+          <Badge variant="outline" className="font-mono font-normal">
+            {formatCurrency(account.initial_balance)}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

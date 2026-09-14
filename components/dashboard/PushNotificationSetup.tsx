@@ -95,31 +95,31 @@ export default function PushNotificationSetup({ initiallyEnabled }: { initiallyE
 
   if (!supported) {
     return (
-      <div className="bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-sm text-neutral-500">
+      <div className="bg-muted/60 border border-border rounded-xl p-4 text-sm text-muted-foreground">
         Tu navegador no soporta notificaciones push. Prueba desde Chrome, Edge o instalando la app en el móvil.
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'}`}>
+    <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-4">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${enabled ? 'bg-secondary-500/10 text-secondary-600 dark:text-secondary-400' : 'bg-muted text-muted-foreground'}`}>
         {enabled ? <Bell className="w-5 h-5" /> : <BellOff className="w-5 h-5" />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-neutral-900">Notificaciones push</p>
-        <p className="text-xs text-neutral-400">{enabled ? 'Activadas en este dispositivo' : 'Desactivadas en este dispositivo'}</p>
+        <p className="text-sm font-semibold text-foreground">Notificaciones push</p>
+        <p className="text-xs text-muted-foreground">{enabled ? 'Activadas en este dispositivo' : 'Desactivadas en este dispositivo'}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {enabled && (
-          <button onClick={handleTest} disabled={loading} className="p-2 rounded-lg text-neutral-400 hover:bg-neutral-100 transition-colors" title="Enviar prueba">
+          <button onClick={handleTest} disabled={loading} className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors" title="Enviar prueba">
             <Send className="w-4 h-4" />
           </button>
         )}
         <button
           onClick={enabled ? handleDisable : handleEnable}
           disabled={loading}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${enabled ? 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200' : 'bg-neutral-900 text-white hover:bg-neutral-800'}`}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${enabled ? 'bg-muted text-muted-foreground hover:bg-muted' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : enabled ? 'Desactivar' : 'Activar'}
         </button>
