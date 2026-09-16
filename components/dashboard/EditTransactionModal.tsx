@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { NumericInput } from '@/components/ui/numeric-input';
+import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
     id: string;
@@ -73,8 +74,11 @@ export default function EditTransactionModal({ transaction, categories, accounts
         return acc;
     }, {});
 
+    const parsedAmount = Number.parseFloat(amount) || 0;
+    const canSubmit = parsedAmount > 0 && !!accountId && !!categoryId;
+
     const handleSubmit = async () => {
-        if (!amount || !accountId || !categoryId) return;
+        if (!canSubmit) return;
         setLoading(true);
 
         try {
@@ -107,7 +111,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
 
     return (
         <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="max-w-md p-0 gap-0">
+            <DialogContent className="w-full sm:max-w-md p-0 gap-0">
                 <DialogHeader className="px-5 py-4 border-b border-border">
                     <DialogTitle>Editar Transacción</DialogTitle>
                 </DialogHeader>
@@ -123,22 +127,22 @@ export default function EditTransactionModal({ transaction, categories, accounts
 
                     {/* Amount */}
                     <div className="py-2 text-center">
-                        <div className="relative inline-flex items-center justify-center">
-                            <span className={cn(
-                                'mr-1 text-2xl font-semibold',
+                        <NumericInput
+                            value={amount}
+                            onValueChange={setAmount}
+                            placeholder="0,00"
+                            autoFocus
+                            currencySymbol="€"
+                            currencyClassName={cn(
+                                'text-2xl font-semibold',
                                 type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : 'text-secondary-500/60 dark:text-secondary-400/60'
-                            )}>€</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                className={cn(
-                                    'w-full max-w-[220px] bg-transparent text-center text-5xl font-semibold tabular-nums outline-none placeholder:text-muted-foreground/40',
-                                    type === 'expense' ? 'text-accent-600 dark:text-accent-400' : 'text-secondary-600 dark:text-secondary-400'
-                                )}
-                            />
-                        </div>
+                            )}
+                            wrapperClassName="mx-auto w-full max-w-[220px] justify-center"
+                            className={cn(
+                                'h-auto w-full border-none bg-transparent p-0 pr-8 text-center text-5xl font-semibold shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0',
+                                type === 'expense' ? 'text-accent-600 dark:text-accent-400' : 'text-secondary-600 dark:text-secondary-400'
+                            )}
+                        />
                     </div>
 
                     {/* Description & Date */}
@@ -178,7 +182,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
                                             {selectedAccount.banks?.logo_url ? (
                                                 <img src={selectedAccount.banks.logo_url} alt="" className="h-full w-full object-contain" />
                                             ) : (
-                                                selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                                selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="h-3 w-3" />
                                             )}
                                         </div>
                                         <span className="text-sm font-semibold text-foreground">{selectedAccount.name}</span>
@@ -209,13 +213,13 @@ export default function EditTransactionModal({ transaction, categories, accounts
                                                         {acc.banks?.logo_url ? (
                                                             <img src={acc.banks.logo_url} alt="" className="h-full w-full object-contain" />
                                                         ) : (
-                                                            acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                                            acc.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="h-3 w-3" />
                                                         )}
                                                     </div>
                                                     <div className="min-w-0 flex-1 text-left">
                                                         <p className={cn('truncate text-sm font-semibold', accountId === acc.id ? 'text-primary-foreground' : 'text-foreground')}>{acc.name}</p>
                                                         <p className={cn('text-xs tabular-nums', accountId === acc.id ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                                                            {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
+                                                            {formatCurrency(acc.current_balance)}
                                                         </p>
                                                     </div>
                                                 </button>
@@ -286,11 +290,22 @@ export default function EditTransactionModal({ transaction, categories, accounts
                     </div>
                 </div>
 
-                <DialogFooter className="border-t border-border px-5 py-4 sm:justify-stretch">
+                <DialogFooter className="border-t border-border px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-stretch sm:pb-4">
                     <Button variant="outline" onClick={onClose} className="flex-1">
                         Cancelar
                     </Button>
-                    <Button onClick={handleSubmit} disabled={loading || !amount || !accountId || !categoryId} className="flex-1">
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={loading || !canSubmit}
+                        className={cn(
+                            'flex-1 disabled:opacity-100',
+                            !canSubmit || loading
+                                ? 'bg-muted text-muted-foreground hover:bg-muted'
+                                : type === 'income'
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-600/90'
+                                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        )}
+                    >
                         {loading ? 'Guardando...' : 'Guardar'}
                     </Button>
                 </DialogFooter>

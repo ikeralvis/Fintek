@@ -27,14 +27,14 @@ export default async function ConfiguracionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-32 md:pb-8">
+    <div className="min-h-screen bg-background pb-32 md:pb-8">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-neutral-50/80 backdrop-blur-xl border-b border-neutral-100 px-5 py-4">
+      <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-neutral-100 transition-colors">
-            <ArrowLeft className="w-5 h-5 text-neutral-700" />
+          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
-          <h1 className="text-lg font-semibold text-neutral-900">Configuración</h1>
+          <h1 className="text-lg font-semibold text-foreground">Configuración</h1>
           <div className="w-9" />
         </div>
       </div>

@@ -15,9 +15,11 @@ import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine, Legend
 } from 'recharts';
+import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 type Account = {
   id: string;
@@ -50,7 +52,7 @@ type Props = {
   userId: string;
 };
 
-type Period = '7d' | '30d' | '90d' | 'all';
+type Period = '7d' | '30d' | '90d' | '1y' | 'all';
 
 export default function InvestmentsView({ accounts: initialAccounts, snapshots: initialSnapshots, contributions: initialContributions, userId }: Props) {
   const router = useRouter();
@@ -64,7 +66,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
   const [savedId, setSavedId] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>('30d');
   const [calMonth, setCalMonth] = useState(new Date());
-  const [activeTab, setActiveTab] = useState<'charts' | 'calendar'>('charts');
+  const [activeTab, setActiveTab] = useState<'position' | 'charts' | 'calendar'>('position');
   const [showPerAccount, setShowPerAccount] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [editingSnapshot, setEditingSnapshot] = useState<{ id: string; value: string } | null>(null);
@@ -74,9 +76,16 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
   const [contribDates, setContribDates] = useState<Record<string, string>>({});
   const [savingContribId, setSavingContribId] = useState<string | null>(null);
 
-  const ACCOUNT_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f43f5e', '#84cc16'];
+  const ACCOUNT_COLORS = ['#52525b', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f43f5e', '#84cc16'];
 
   const today = format(new Date(), 'yyyy-MM-dd');
+
+  const getPeriodStart = (p: Period) =>
+    p === '7d' ? subDays(new Date(), 7)
+    : p === '30d' ? subDays(new Date(), 30)
+    : p === '90d' ? subMonths(new Date(), 3)
+    : p === '1y' ? subMonths(new Date(), 12)
+    : new Date(2020, 0, 1);
 
   // --- Helpers ---
   // Snapshots por cuenta, ordenados por fecha, para poder "arrastrar" (forward-fill)
@@ -178,10 +187,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
 
   // --- Daily Changes (bar chart data) ---
   const dailyChangesData = useMemo(() => {
-    const periodStart = period === '7d' ? subDays(new Date(), 7)
-      : period === '30d' ? subDays(new Date(), 30)
-      : period === '90d' ? subMonths(new Date(), 3)
-      : new Date(2020, 0, 1);
+    const periodStart = getPeriodStart(period);
     const startStr = format(periodStart, 'yyyy-MM-dd');
 
     const filtered = sortedDates.filter(d => d >= startStr);
@@ -208,10 +214,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
 
   // --- Portfolio evolution (area chart data) ---
   const evolutionData = useMemo(() => {
-    const periodStart = period === '7d' ? subDays(new Date(), 7)
-      : period === '30d' ? subDays(new Date(), 30)
-      : period === '90d' ? subMonths(new Date(), 3)
-      : new Date(2020, 0, 1);
+    const periodStart = getPeriodStart(period);
     const startStr = format(periodStart, 'yyyy-MM-dd');
 
     return sortedDates
@@ -225,10 +228,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
 
   // --- Per-account evolution (para el toggle "por cuenta") ---
   const perAccountEvolutionData = useMemo(() => {
-    const periodStart = period === '7d' ? subDays(new Date(), 7)
-      : period === '30d' ? subDays(new Date(), 30)
-      : period === '90d' ? subMonths(new Date(), 3)
-      : new Date(2020, 0, 1);
+    const periodStart = getPeriodStart(period);
     const startStr = format(periodStart, 'yyyy-MM-dd');
 
     return sortedDates
@@ -413,6 +413,36 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
 
       <div className="max-w-6xl mx-auto px-5 py-6 space-y-5">
 
+        {/* Segmented control: Posición/Registro | Gráficos | Calendario */}
+        <div className="relative flex items-center bg-muted rounded-xl p-1">
+          {([
+            ['position', 'Posición'],
+            ['charts', 'Gráficos'],
+            ['calendar', 'Calendario'],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={cn(
+                'relative flex-1 rounded-lg py-2 text-sm font-semibold transition-colors',
+                activeTab === key ? 'text-foreground' : 'text-muted-foreground'
+              )}
+            >
+              {activeTab === key && (
+                <motion.span
+                  layoutId="investments-tab-segment"
+                  className="absolute inset-0 rounded-lg bg-card shadow-sm"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10">{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'position' && (
+        <>
+
         {/* Portfolio Total */}
         <div className="bg-card rounded-2xl border border-border p-5">
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Portfolio Total</p>
@@ -470,17 +500,21 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                 <div key={acc.id} className="bg-card rounded-2xl border border-border p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold text-white overflow-hidden shrink-0"
-                      style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || '#6366f1') }}>
+                      style={{ backgroundColor: acc.banks?.logo_url ? 'transparent' : (acc.banks?.color || '#52525b') }}>
                       {acc.banks?.logo_url ? <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" /> : acc.banks?.name?.substring(0, 2).toUpperCase() || '€'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{acc.name}</p>
                       <p className="text-lg font-black text-foreground font-mono">{fmt(latest?.value ?? acc.current_balance)}</p>
                     </div>
-                    {hasToday && <span className="text-[10px] font-bold text-secondary-600 dark:text-secondary-400 bg-secondary-500/10 px-2 py-0.5 rounded-full shrink-0">Hoy ✓</span>}
+                    {hasToday && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-secondary-600 dark:text-secondary-400 bg-secondary-500/10 px-2 py-0.5 rounded-full shrink-0">
+                        <Check className="w-3 h-3" /> Hoy
+                      </span>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="relative flex-1 min-w-[100px]">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-0">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">€</span>
                       <input type="number" step="0.01" placeholder={latest?.value?.toFixed(2) || '0.00'} value={inputValues[acc.id] || ''}
                         onChange={(e) => setInputValues(prev => ({ ...prev, [acc.id]: e.target.value }))}
@@ -489,9 +523,9 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                     </div>
                     <input type="date" value={inputDates[acc.id] || today}
                       onChange={(e) => setInputDates(prev => ({ ...prev, [acc.id]: e.target.value }))}
-                      className="bg-muted/60 border border-border rounded-xl px-2 py-2.5 text-xs font-medium text-foreground outline-none w-[120px] shrink-0" />
+                      className="shrink-0 w-[112px] bg-muted/60 border border-border rounded-xl px-2 py-2.5 text-xs font-medium text-foreground outline-none" />
                     <button onClick={() => handleSaveValue(acc.id)} disabled={!inputValues[acc.id] || savingId === acc.id}
-                      className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold disabled:bg-muted disabled:text-muted-foreground shrink-0">
+                      className="shrink-0 whitespace-nowrap px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold disabled:bg-muted disabled:text-muted-foreground">
                       {savingId === acc.id ? <Loader2 className="w-4 h-4 animate-spin" /> : savedId === acc.id ? <Check className="w-4 h-4" /> : 'OK'}
                     </button>
                   </div>
@@ -522,8 +556,8 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
               {accounts.map(acc => {
                 const accGain = (acc.current_balance ?? 0) - (acc.contributed_capital || 0);
                 return (
-                  <div key={acc.id} className="px-4 py-3 flex flex-wrap items-center gap-2">
-                    <div className="flex-1 min-w-[120px]">
+                  <div key={acc.id} className="px-4 py-3 space-y-2">
+                    <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{acc.name}</p>
                       <p className="text-[11px] text-muted-foreground">
                         Aportado {fmt(acc.contributed_capital || 0)}
@@ -534,26 +568,30 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                         )}
                       </p>
                     </div>
-                    <div className="relative w-24 shrink-0">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">€</span>
-                      <input
-                        type="number" step="0.01" placeholder={(acc.contributed_capital || 0).toFixed(2)}
-                        value={contribInputs[acc.id] || ''}
-                        onChange={(e) => setContribInputs(prev => ({ ...prev, [acc.id]: e.target.value }))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveContributed(acc.id); }}
-                        className="w-full bg-muted/60 border border-border rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
-                      />
+                    {/* Fila fija (sin wrap): el input de importe cede el espacio que le sobra a
+                        fecha + botón, así el check nunca "salta" a su propia línea. */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1 min-w-0">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">€</span>
+                        <input
+                          type="number" step="0.01" placeholder={(acc.contributed_capital || 0).toFixed(2)}
+                          value={contribInputs[acc.id] || ''}
+                          onChange={(e) => setContribInputs(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSaveContributed(acc.id); }}
+                          className="w-full bg-muted/60 border border-border rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
+                        />
+                      </div>
+                      <input type="date" value={contribDates[acc.id] || today}
+                        onChange={(e) => setContribDates(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                        className="shrink-0 w-[104px] bg-muted/60 border border-border rounded-lg px-2 py-1.5 text-[11px] font-medium text-foreground outline-none" />
+                      <button
+                        onClick={() => handleSaveContributed(acc.id)}
+                        disabled={!contribInputs[acc.id] || savingContribId === acc.id}
+                        className="shrink-0 whitespace-nowrap p-1.5 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground"
+                      >
+                        {savingContribId === acc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
-                    <input type="date" value={contribDates[acc.id] || today}
-                      onChange={(e) => setContribDates(prev => ({ ...prev, [acc.id]: e.target.value }))}
-                      className="bg-muted/60 border border-border rounded-lg px-2 py-1.5 text-[11px] font-medium text-foreground outline-none w-[110px] shrink-0" />
-                    <button
-                      onClick={() => handleSaveContributed(acc.id)}
-                      disabled={!contribInputs[acc.id] || savingContribId === acc.id}
-                      className="p-1.5 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground shrink-0"
-                    >
-                      {savingContribId === acc.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    </button>
                   </div>
                 );
               })}
@@ -625,17 +663,14 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
           )}
         </div>
 
-        {/* Tab toggle: Charts / Calendar */}
-        <div className="flex bg-muted rounded-xl p-0.5">
-          <button onClick={() => setActiveTab('charts')} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'charts' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>Gráficos</button>
-          <button onClick={() => setActiveTab('calendar')} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'calendar' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}>Calendario</button>
-        </div>
+        </>
+        )}
 
         {activeTab === 'charts' && (
           <>
             {/* Period Selector */}
             <div className="flex items-center gap-2">
-              {([['7d', '7D'], ['30d', '30D'], ['90d', '3M'], ['all', 'Todo']] as [Period, string][]).map(([key, label]) => (
+              {([['7d', '7D'], ['30d', '1M'], ['90d', '3M'], ['1y', '1A'], ['all', 'Todo']] as [Period, string][]).map(([key, label]) => (
                 <button key={key} onClick={() => setPeriod(key)} className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${period === key ? 'bg-primary text-primary-foreground' : 'bg-card border border-border text-muted-foreground'}`}>{label}</button>
               ))}
             </div>
@@ -700,8 +735,8 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                     <AreaChart data={evolutionData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gradPort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#52525b" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#52525b" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
@@ -709,7 +744,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                         domain={[(min: number) => Math.floor(min * 0.998), (max: number) => Math.ceil(max * 1.002)]} />
                       <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
                         formatter={(val: number | undefined) => [`${(val ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, 'Portfolio']} />
-                      <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} fill="url(#gradPort)" dot={evolutionData.length <= 10} />
+                      <Area type="monotone" dataKey="value" stroke="#52525b" strokeWidth={2} fill="url(#gradPort)" dot={evolutionData.length <= 10} />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}
@@ -720,18 +755,21 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
             {accounts.length > 1 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {accounts.map(acc => {
-                  const periodStart = period === '7d' ? subDays(new Date(), 7) : period === '30d' ? subDays(new Date(), 30) : period === '90d' ? subMonths(new Date(), 3) : new Date(2020, 0, 1);
+                  const periodStart = getPeriodStart(period);
                   const startStr = format(periodStart, 'yyyy-MM-dd');
                   const accData = snapshots.filter(s => s.account_id === acc.id && s.snapshot_date >= startStr)
                     .map(s => ({ label: format(parseISO(s.snapshot_date), 'd', { locale: es }), value: s.value }));
                   if (accData.length < 2) return null;
                   const change = accData[accData.length - 1].value - accData[0].value;
+                  const changePct = accData[0].value !== 0 ? (change / accData[0].value) * 100 : 0;
                   const isUp = change >= 0;
                   return (
                     <div key={acc.id} className="bg-card rounded-2xl border border-border p-4">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm font-semibold text-foreground truncate">{acc.name}</p>
-                        <span className={`text-xs font-bold ${isUp ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>{fmtShort(change)}</span>
+                        <span className={`text-xs font-bold tabular-nums ${isUp ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
+                          {fmtShort(change)} <span className="font-semibold opacity-70">({changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%)</span>
+                        </span>
                       </div>
                       <ResponsiveContainer width="100%" height={60}>
                         <AreaChart data={accData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
@@ -834,7 +872,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                         <span className="text-xs font-medium text-foreground">{format(parseISO(date), "EEEE d", { locale: es })}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground font-mono">{totalByDate[date]?.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{fmt(totalByDate[date] ?? 0)}</span>
                         <span className={`text-xs font-bold font-mono ${gain >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>{fmtShort(gain)}</span>
                       </div>
                     </div>

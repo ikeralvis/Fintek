@@ -3,36 +3,33 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    Home, List, Plus, Wallet, Menu, X, Calendar,
-    Target, Sparkles, PieChart, Settings, LogOut, CreditCard, TrendingUp,
-    Moon, Sun
+    Home, List, Plus, Wallet, Menu, X, RefreshCw,
+    Target, Sparkles, PieChart, Settings, CreditCard, TrendingUp,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useTheme } from 'next-themes';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export default function BottomNav() {
     const pathname = usePathname();
     const [isMoreOpen, setIsMoreOpen] = useState(false);
-    const { resolvedTheme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
-    const isDark = mounted && resolvedTheme === 'dark';
 
     const isActive = (path: string) => {
         return pathname === path || (path !== '/dashboard' && pathname.startsWith(path));
     };
+
+    // En "Mis Cuentas" el header ya tiene un único botón "+" para crear cuenta;
+    // el FAB central (que crea una transacción) queda oculto ahí para no duplicar la acción.
+    const showCenterFab = pathname !== '/dashboard/cuentas';
 
     const toggleMore = () => setIsMoreOpen(!isMoreOpen);
 
     // Menu items for "More" drawer - Only items not in main nav
     const menuItems = [
         { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: PieChart },
-        { name: 'Calendario', href: '/dashboard/calendario', icon: Calendar },
         { name: 'Inversiones', href: '/dashboard/inversiones', icon: TrendingUp },
         { name: 'Predicción IA', href: '/dashboard/analisis', icon: Sparkles },
         { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: Target },
-        { name: 'Suscripciones', href: '/dashboard/suscripciones', icon: Calendar },
+        { name: 'Suscripciones', href: '/dashboard/suscripciones', icon: RefreshCw },
         { name: 'Mi Cartera', href: '/dashboard/cartera', icon: CreditCard },
         { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
     ];
@@ -81,33 +78,6 @@ export default function BottomNav() {
                             ))}
                         </div>
 
-                        <div className="space-y-1.5">
-                            <button
-                                type="button"
-                                onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                                className="w-full flex items-center justify-between gap-3 p-3 bg-muted/60 rounded-xl text-foreground active:scale-[0.98] transition-all"
-                            >
-                                <span className="flex items-center gap-3">
-                                    {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                                    <span className="text-sm font-medium">{isDark ? 'Modo oscuro' : 'Modo claro'}</span>
-                                </span>
-                                <span className={cn(
-                                    'relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 ease-out',
-                                    isDark ? 'bg-primary' : 'bg-border'
-                                )}>
-                                    <span className={cn(
-                                        'absolute top-0.5 h-5 w-5 rounded-full bg-card shadow-soft transition-all duration-200 ease-out',
-                                        isDark ? 'left-4' : 'left-0.5'
-                                    )} />
-                                </span>
-                            </button>
-                            <form action="/api/auth/signout" method="post">
-                                <button type="submit" className="w-full flex items-center gap-3 p-3 bg-destructive/10 rounded-xl text-destructive active:scale-[0.98] transition-all">
-                                    <LogOut className="w-5 h-5" />
-                                    <span className="text-sm font-medium">Cerrar Sesión</span>
-                                </button>
-                            </form>
-                        </div>
                     </div>
                 </div>
             )}
@@ -138,17 +108,19 @@ export default function BottomNav() {
                     })}
 
                     {/* Center Action Button */}
-                    <div className="relative -top-5">
-                        <button
-                            onClick={() => {
-                                sessionStorage.setItem('previousPath', pathname);
-                                window.location.href = '/dashboard/transacciones/nueva';
-                            }}
-                            className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"
-                        >
-                            <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={2.5} />
-                        </button>
-                    </div>
+                    {showCenterFab && (
+                        <div className="relative -top-5">
+                            <button
+                                onClick={() => {
+                                    sessionStorage.setItem('previousPath', pathname);
+                                    window.location.href = '/dashboard/transacciones/nueva';
+                                }}
+                                className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"
+                            >
+                                <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={2.5} />
+                            </button>
+                        </div>
+                    )}
 
                     <Link
                         href="/dashboard/cuentas"

@@ -377,7 +377,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5">
+                <div className="flex-1 overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                     {/* STEP 1: Account + File */}
                     {step === 1 && (
                         <div className="space-y-5">
@@ -560,7 +560,7 @@ export default function ImportTransactionsModal({ accounts, categories, onClose,
                             {/* List */}
                             <div className="space-y-1.5 max-h-[42vh] overflow-y-auto">
                                 {visiblePreviews.length === 0 && (
-                                    <p className="text-center text-xs text-neutral-400 py-6">Nada que revisar aquí 🎉</p>
+                                    <p className="text-center text-xs text-neutral-400 py-6">Nada que revisar aquí</p>
                                 )}
                                 {visiblePreviews.map((p) => {
                                     const idx = previews.indexOf(p);

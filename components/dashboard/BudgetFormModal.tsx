@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Trash2, Check, PiggyBank, Sparkles } from 'lucide-react';
+import { Trash2, Check, PiggyBank, Sparkles, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { upsertBudget, deleteBudget } from '@/lib/actions/budgets';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-
-const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+import { NumericInput } from '@/components/ui/numeric-input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { formatCurrency as fmt } from '@/lib/utils';
 
 export default function BudgetFormModal({
     isOpen,
@@ -14,17 +15,21 @@ export default function BudgetFormModal({
     categories,
     existingBudget,
     averageByCategory = {},
+    existingCategoryIds = [],
 }: {
     isOpen: boolean;
     onClose: () => void;
     categories: any[];
     existingBudget?: any; // If passed, we are editing
     averageByCategory?: Record<string, number>;
+    /** Ids de categorías que ya tienen un presupuesto activo (se deshabilitan al crear uno nuevo). */
+    existingCategoryIds?: string[];
 }) {
     const [amount, setAmount] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [isSavings, setIsSavings] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -32,15 +37,17 @@ export default function BudgetFormModal({
                 setAmount(existingBudget.amount.toString());
                 setCategoryId(existingBudget.category_id);
                 setIsSavings(!!existingBudget.is_savings);
+                setIsCategoriesExpanded(false);
             } else {
                 setAmount('');
                 setCategoryId('');
                 setIsSavings(false);
+                setIsCategoriesExpanded(true);
             }
         }
     }, [isOpen, existingBudget]);
 
-    if (!isOpen) return null;
+    const selectedCategory = categories.find((c) => c.id === categoryId);
 
     const suggestedAverage = categoryId ? averageByCategory[categoryId] : undefined;
     const showSuggestion = !isSavings && suggestedAverage && suggestedAverage > 0 &&
@@ -72,45 +79,75 @@ export default function BudgetFormModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="w-full sm:max-w-md p-0 gap-0">
+                <DialogHeader className="px-5 py-4 border-b border-border">
+                    <DialogTitle>{existingBudget ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}</DialogTitle>
+                </DialogHeader>
 
-            <div className="relative w-full max-w-xs bg-card rounded-3xl p-5 shadow-2xl animate-fade-in-up">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-bold text-foreground">
-                        {existingBudget ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}
-                    </h3>
-                    <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-full text-muted-foreground">
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
+                <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                    {/* Category Select: mismo patrón accesible (colapsable + grid vertical) que el modal de Nueva Transacción */}
+                    <div className="bg-muted/40 border border-border rounded-2xl overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
+                            className="w-full p-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
+                        >
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Categoría</span>
+                            <div className="flex items-center gap-2 min-w-0">
+                                {selectedCategory ? (
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                                            style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : 'var(--muted)' }}
+                                        >
+                                            <CategoryIcon name={selectedCategory.icon} className="w-3.5 h-3.5" style={{ color: selectedCategory.color || 'var(--muted-foreground)' }} />
+                                        </div>
+                                        <span className="text-sm font-bold text-foreground truncate">{selectedCategory.name}</span>
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">Elegir…</span>
+                                )}
+                                {isCategoriesExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+                            </div>
+                        </button>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Category Select */}
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Categoría</label>
-                        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                            {categories.map((cat) => {
-                                const disabled = !!existingBudget && existingBudget.category_id !== cat.id;
-                                const selected = categoryId === cat.id;
-                                return (
-                                    <button
-                                        key={cat.id}
-                                        type="button"
-                                        onClick={() => setCategoryId(cat.id)}
-                                        disabled={disabled}
-                                        className={`px-2.5 py-1.5 rounded-full border flex items-center gap-1.5 transition-all ${selected
-                                                ? 'border-primary bg-primary text-primary-foreground'
-                                                : 'border-border bg-card hover:bg-muted/60 text-muted-foreground'
-                                            } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                    >
-                                        <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 shrink-0" />
-                                        <span className="text-[11px] font-semibold whitespace-nowrap">{cat.name}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {isCategoriesExpanded && (
+                            <div className="border-t border-border p-3 max-h-64 overflow-y-auto">
+                                <div className="grid grid-cols-4 gap-2">
+                                    {categories.map((cat) => {
+                                        const alreadyBudgeted = existingCategoryIds.includes(cat.id);
+                                        const disabled = existingBudget
+                                            ? existingBudget.category_id !== cat.id
+                                            : alreadyBudgeted;
+                                        const selected = categoryId === cat.id;
+                                        return (
+                                            <button
+                                                key={cat.id}
+                                                type="button"
+                                                onClick={() => { setCategoryId(cat.id); setIsCategoriesExpanded(false); }}
+                                                disabled={disabled}
+                                                title={!existingBudget && alreadyBudgeted ? `${cat.name} ya tiene un presupuesto` : undefined}
+                                                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all ${selected
+                                                        ? 'bg-primary'
+                                                        : 'hover:bg-muted bg-card'
+                                                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                            >
+                                                <div
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${selected ? 'scale-105' : ''}`}
+                                                    style={{ backgroundColor: cat.color ? `${cat.color}25` : 'var(--muted)' }}
+                                                >
+                                                    <CategoryIcon name={cat.icon} className="w-5 h-5" style={{ color: cat.color || 'var(--muted-foreground)' }} />
+                                                </div>
+                                                <span className={`w-full truncate text-center text-[10px] font-semibold leading-tight ${selected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                                                    {cat.name}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Savings toggle */}
@@ -137,17 +174,14 @@ export default function BudgetFormModal({
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
                             {isSavings ? 'Objetivo de Ahorro Mensual' : 'Límite Mensual'}
                         </label>
-                        <div className="relative">
-                            <input
-                                type="number"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                placeholder="0.00"
-                                className="w-full text-3xl font-black text-foreground bg-transparent border-none focus:outline-none focus:ring-0 placeholder:text-muted-foreground/60 p-0"
-                                autoFocus
-                            />
-                            <span className="absolute top-1/2 -translate-y-1/2 right-0 text-lg font-bold text-muted-foreground">€</span>
-                        </div>
+                        <NumericInput
+                            value={amount}
+                            onValueChange={setAmount}
+                            placeholder="0,00"
+                            autoFocus
+                            wrapperClassName="w-full"
+                            className="h-auto border-none bg-transparent p-0 pr-6 text-3xl font-black text-foreground shadow-none focus-visible:ring-0"
+                        />
                         {showSuggestion && (
                             <button
                                 type="button"
@@ -161,7 +195,7 @@ export default function BudgetFormModal({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-3 border-t border-border">
+                    <div className="flex gap-2 pt-3 border-t border-border pb-[max(0.25rem,env(safe-area-inset-bottom))]">
                         {existingBudget && (
                             <button
                                 type="button"
@@ -178,7 +212,7 @@ export default function BudgetFormModal({
                             className="flex-1 bg-primary text-primary-foreground font-bold text-sm py-3 rounded-xl hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {loading ? (
-                                <span className="animate-spin text-base">⏳</span>
+                                <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                                 <>
                                     <Check className="w-4 h-4" />
@@ -188,7 +222,7 @@ export default function BudgetFormModal({
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

@@ -141,7 +141,7 @@ export default function LoginPage() {
                 <input
                   id="remember"
                   type="checkbox"
-                  className="h-4 w-4 accent-primary-600 border-neutral-400 rounded cursor-pointer transition-all"
+                  className="h-4 w-4 appearance-auto accent-primary-600 border border-input bg-background rounded cursor-pointer transition-all"
                 />
                 <label htmlFor="remember" className="ml-2 block text-sm text-neutral-600 cursor-pointer">
                   Recordarme

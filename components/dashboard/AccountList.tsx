@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils';
 
 type Account = {
     id: string;
@@ -95,7 +96,7 @@ export default function AccountList({ accounts }: { accounts: Account[] }) {
                                     {acc.banks?.name || (isWallet ? 'Cartera' : 'Cuenta')}
                                 </p>
                                 <p className="text-lg font-semibold tracking-tight tabular-nums text-foreground">
-                                    {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
+                                    {formatCurrency(acc.current_balance)}
                                 </p>
 
                                 {isWallet && (

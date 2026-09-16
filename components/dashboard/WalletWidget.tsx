@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Wallet, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
 export default function WalletWidget({ walletAccount }: { walletAccount: any }) {
     const router = useRouter();
@@ -55,7 +56,7 @@ export default function WalletWidget({ walletAccount }: { walletAccount: any }) 
                 </div>
                 <div className="text-right">
                     <p className="text-2xl font-black tracking-tight tabular-nums">
-                        {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(walletAccount.current_balance)}
+                        {formatCurrency(walletAccount.current_balance)}
                     </p>
                 </div>
             </div>

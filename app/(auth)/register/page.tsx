@@ -195,7 +195,7 @@ export default function RegisterPage() {
                   id="terms"
                   type="checkbox"
                   required
-                  className="h-4 w-4 accent-primary-600 border-neutral-400 rounded mt-1 cursor-pointer transition-all"
+                  className="h-4 w-4 appearance-auto accent-primary-600 border border-input bg-background rounded mt-1 cursor-pointer transition-all"
                 />
                 <label htmlFor="terms" className="ml-2 block text-sm text-neutral-600 cursor-pointer">
                   Acepto los términos y condiciones y la política de privacidad

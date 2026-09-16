@@ -5,17 +5,16 @@ import { useDashboard } from '@/lib/DashboardContext';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Target, Plus, AlertTriangle, TrendingUp, Pencil, Trash2,
-  PiggyBank, ChevronRight, Shield, Check, Loader2
+  ArrowLeft, Target, Plus, AlertTriangle, Pencil, Trash2,
+  PiggyBank, Settings, Shield
 } from 'lucide-react';
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import BudgetFormModal from './BudgetFormModal';
+import BudgetSettingsModal from './BudgetSettingsModal';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getSpendingAnalysis } from '@/lib/actions/analysis';
-import { upsertBudgetSettings } from '@/lib/actions/budgets';
-import { toast } from 'sonner';
-
-const fmt = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+import { formatCurrency as fmt, cn } from '@/lib/utils';
 
 export default function BudgetsPageClient() {
   const { transactions, categories, userId } = useDashboard();
@@ -26,12 +25,8 @@ export default function BudgetsPageClient() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<any>(null);
-  const [predictionByCategory, setPredictionByCategory] = useState<Record<string, number>>({});
   const [averageByCategory, setAverageByCategory] = useState<Record<string, number>>({});
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [incomeInput, setIncomeInput] = useState('');
-  const [cushionInput, setCushionInput] = useState('');
-  const [savingSettings, setSavingSettings] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchBudgets = async () => {
@@ -47,13 +42,10 @@ export default function BudgetsPageClient() {
 
     getSpendingAnalysis().then(res => {
       if (res.data) {
-        const predictionMap: Record<string, number> = {};
         const averageMap: Record<string, number> = {};
         res.data.categories.forEach((c: any) => {
-          predictionMap[c.categoryId] = c.prediction;
           averageMap[c.categoryId] = c.average;
         });
-        setPredictionByCategory(predictionMap);
         setAverageByCategory(averageMap);
       }
     });
@@ -88,12 +80,11 @@ export default function BudgetsPageClient() {
         const remaining = b.amount - spent;
         const category = categoriesMap[b.category_id];
         const status = percentage > 100 ? 'exceeded' : percentage >= 80 ? 'warning' : 'safe';
-        const prediction = predictionByCategory[b.category_id];
 
-        return { ...b, spent, percentage, remaining, category, status, prediction };
+        return { ...b, spent, percentage, remaining, category, status };
       })
       .sort((a, b) => b.percentage - a.percentage);
-  }, [budgets, spendingMap, categoriesMap, predictionByCategory]);
+  }, [budgets, spendingMap, categoriesMap]);
 
   const expenseBudgets = useMemo(() => budgetData.filter(b => !b.is_savings), [budgetData]);
   const savingsBudgets = useMemo(() => budgetData.filter(b => b.is_savings), [budgetData]);
@@ -107,10 +98,20 @@ export default function BudgetsPageClient() {
   const income = settings?.monthly_income || 0;
   const cushion = settings?.cushion || 0;
   const totalOverage = expenseBudgets.reduce((acc, b) => acc + Math.max(0, b.spent - b.amount), 0);
-  const cushionUsed = Math.min(totalOverage, cushion);
-  const cushionOverflow = Math.max(0, totalOverage - cushion);
-  const cushionExceeded = totalOverage > cushion;
-  const cushionPct = cushion > 0 ? (cushionUsed / cushion) * 100 : (totalOverage > 0 ? 100 : 0);
+
+  // Bolsa de dinero no comprometido (ingreso menos presupuestos, ahorro y colchón) que absorbe
+  // en silencio los excesos pequeños antes de que lleguen a tocar el Colchón de Seguridad.
+  // Deliberadamente no se muestra en la UI: es un cálculo interno, no una métrica más.
+  const dineroLibre = Math.max(0, income - totalBudget - totalSaved - cushion);
+  const overageAfterFree = Math.max(0, totalOverage - dineroLibre);
+
+  // El Margen/Colchón solo mide una cosa: cuánto de ese resto (tras la bolsa libre) consume
+  // el colchón, y si llega a agotarlo.
+  const cushionUsed = Math.min(overageAfterFree, cushion);
+  const cushionOverflow = Math.max(0, overageAfterFree - cushion);
+  const cushionExceeded = overageAfterFree > cushion;
+  const cushionPct = cushion > 0 ? (cushionUsed / cushion) * 100 : (overageAfterFree > 0 ? 100 : 0);
+  const bufferCoversOverage = overageAfterFree > 0 && !cushionExceeded;
 
   const incomeAllocated = totalSpent + totalSaved;
   const incomeFree = income - incomeAllocated;
@@ -136,30 +137,33 @@ export default function BudgetsPageClient() {
     });
   };
 
-  const handleSaveSettings = async () => {
-    const newIncome = incomeInput === '' ? income : parseFloat(incomeInput);
-    const newCushion = cushionInput === '' ? cushion : parseFloat(cushionInput);
-    if (isNaN(newIncome) || newIncome < 0 || isNaN(newCushion) || newCushion < 0) return;
-
-    setSavingSettings(true);
-    const res = await upsertBudgetSettings(newIncome, newCushion);
-    setSavingSettings(false);
-
-    if (res.success) {
-      setSettings({ monthly_income: newIncome, cushion: newCushion });
-      setIncomeInput('');
-      setCushionInput('');
-      toast.success('Configuración del mes guardada');
-      router.refresh();
-    } else {
-      toast.error('Error al guardar: ' + res.error);
-    }
+  const handleSettingsSaved = (newIncome: number, newCushion: number) => {
+    setSettings({ monthly_income: newIncome, cushion: newCushion });
+    router.refresh();
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background pb-32 md:pb-8">
+        <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <Skeleton className="h-5 w-28" />
+            <div className="flex items-center gap-1">
+              <Skeleton className="h-9 w-9 rounded-xl" />
+              <Skeleton className="h-9 w-9 rounded-xl" />
+            </div>
+          </div>
+        </div>
+        <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
+          <Skeleton className="h-48 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -173,111 +177,57 @@ export default function BudgetsPageClient() {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
           <h1 className="text-lg font-semibold text-foreground">Presupuestos</h1>
-          <button
-            onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
-            className="p-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
+              title="Configurar mes"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
+              className="p-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+              title="Nuevo presupuesto"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
 
-        {/* Configurar mes: ingreso + colchón */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <button
-            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-semibold text-foreground">Configurar mes</span>
-              <span className="text-xs text-muted-foreground">(ingreso {fmt(income)} · colchón {fmt(cushion)})</span>
-            </div>
-            <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isSettingsOpen ? 'rotate-90' : ''}`} />
-          </button>
-          {isSettingsOpen && (
-            <div className="border-t border-border p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Ingreso mensual</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">€</span>
-                    <input
-                      type="number" step="0.01" placeholder={income.toFixed(2)}
-                      value={incomeInput}
-                      onChange={(e) => setIncomeInput(e.target.value)}
-                      className="w-full bg-muted/60 border border-border rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:bg-card"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Colchón extra</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">€</span>
-                    <input
-                      type="number" step="0.01" placeholder={cushion.toFixed(2)}
-                      value={cushionInput}
-                      onChange={(e) => setCushionInput(e.target.value)}
-                      className="w-full bg-muted/60 border border-border rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring focus:bg-card"
-                    />
-                  </div>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                El ingreso lo fijas tú a mano (nómina, etc.). El colchón es un extra compartido: si te pasas en alguna categoría de gasto, el exceso se descuenta de aquí antes de que salte la alerta grande.
-              </p>
-              <button
-                onClick={handleSaveSettings}
-                disabled={savingSettings || (incomeInput === '' && cushionInput === '')}
-                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-xl text-sm font-semibold disabled:bg-muted disabled:text-muted-foreground"
-              >
-                {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Guardar
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Banda de ingreso */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Ingreso del Mes</p>
-            {income > 0 && (
-              <span className={`text-xs font-bold ${incomeFree >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
-                {incomeFree >= 0 ? `${fmt(incomeFree)} libre` : `${fmt(Math.abs(incomeFree))} de más`}
-              </span>
-            )}
-          </div>
-          <p className="text-3xl font-black tracking-tight text-foreground font-mono mb-4">{fmt(income)}</p>
-
+        {/* Hero: patrimonio libre del mes */}
+        <div className="bg-card rounded-2xl border border-border p-6 text-center">
           {income > 0 ? (
             <>
-              {/* Stacked band */}
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">
+                {incomeFree >= 0 ? 'Disponible' : 'Sobregiro'}
+              </p>
+              <p className={cn(
+                'text-4xl font-black tracking-tight tabular-nums mb-1',
+                incomeFree >= 0 ? 'text-foreground' : 'text-accent-600 dark:text-accent-400'
+              )}>
+                {fmt(Math.abs(incomeFree))}
+              </p>
+              <p className="text-xs text-muted-foreground mb-5">de {fmt(income)} de ingreso este mes</p>
+
+              {/* Barra de 3 bloques: Gastado / Ahorrado / Libre */}
               <div className="h-8 bg-muted rounded-xl overflow-hidden flex">
-                {expenseBudgets.map(b => (
-                  b.spent > 0 && (
-                    <div
-                      key={b.id}
-                      style={{ width: `${(b.spent / income) * 100}%`, backgroundColor: b.category.color }}
-                      className="h-full shrink-0 first:rounded-l-xl"
-                      title={`${b.category.name}: ${fmt(b.spent)}`}
-                    />
-                  )
-                ))}
-                {savingsBudgets.map(b => (
-                  b.spent > 0 && (
-                    <div
-                      key={b.id}
-                      style={{ width: `${(b.spent / income) * 100}%`, backgroundColor: b.category.color, opacity: 0.55 }}
-                      className="h-full shrink-0"
-                      title={`${b.category.name} (ahorro): ${fmt(b.spent)}`}
-                    />
-                  )
-                ))}
-                {incomeFree > 0 && (
-                  <div style={{ width: `${pctFreeOfIncome}%` }} className="h-full shrink-0 bg-muted last:rounded-r-xl" />
+                {pctSpentOfIncome > 0 && (
+                  <div
+                    style={{ width: `${Math.min(pctSpentOfIncome, 100)}%` }}
+                    className={cn('h-full shrink-0', incomeOverflow > 0 ? 'bg-accent-500' : 'bg-foreground/70')}
+                    title={`Gastado: ${fmt(totalSpent)}`}
+                  />
+                )}
+                {pctSavedOfIncome > 0 && (
+                  <div
+                    style={{ width: `${Math.min(pctSavedOfIncome, Math.max(0, 100 - pctSpentOfIncome))}%` }}
+                    className="h-full shrink-0 bg-secondary-500"
+                    title={`Ahorrado: ${fmt(totalSaved)}`}
+                  />
                 )}
               </div>
 
@@ -287,60 +237,62 @@ export default function BudgetsPageClient() {
                 </p>
               )}
 
-              {/* Legend */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-                {[...expenseBudgets, ...savingsBudgets].filter(b => b.spent > 0).map(b => (
-                  <div key={b.id} className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: b.category.color, opacity: b.is_savings ? 0.55 : 1 }} />
-                    <span className="text-[11px] font-medium text-muted-foreground">{b.category.name}</span>
-                    <span className="text-[11px] font-mono text-muted-foreground">{income > 0 ? `${((b.spent / income) * 100).toFixed(0)}%` : ''}</span>
-                  </div>
-                ))}
-              </div>
-
               {/* Summary numbers */}
               <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
                 <div className="text-center">
-                  <p className="text-sm font-black font-mono text-foreground">{pctSpentOfIncome.toFixed(0)}%</p>
+                  <p className="text-sm font-black tabular-nums text-foreground">{pctSpentOfIncome.toFixed(0)}%</p>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase">Gastado</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-black font-mono tabular-nums text-secondary-600 dark:text-secondary-400">{pctSavedOfIncome.toFixed(0)}%</p>
+                  <p className="text-sm font-black tabular-nums text-secondary-600 dark:text-secondary-400">{pctSavedOfIncome.toFixed(0)}%</p>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase">Ahorrado</p>
                 </div>
-                <div className="text-center">
-                  <p className={`text-sm font-black font-mono ${incomeFree >= 0 ? 'text-foreground' : 'text-accent-600 dark:text-accent-400'}`}>{pctFreeOfIncome.toFixed(0)}%</p>
+                <div className={cn('text-center', incomeFree < 0 && 'text-accent-600 dark:text-accent-400')}>
+                  <p className="text-sm font-black tabular-nums">{pctFreeOfIncome.toFixed(0)}%</p>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase">Libre</p>
                 </div>
               </div>
             </>
           ) : (
-            <p className="text-xs text-muted-foreground">Fija tu ingreso mensual en "Configurar mes" para ver el desglose.</p>
+            <>
+              <Target className="w-10 h-10 text-muted-foreground/60 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground mb-3">Fija tu ingreso mensual para ver cuánto te queda libre</p>
+              <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold"
+              >
+                Configurar mes
+              </button>
+            </>
           )}
         </div>
 
-        {/* Colchón */}
+        {/* Margen de seguridad: solo mide cuánto del exceso de gasto consume el colchón */}
         {cushion > 0 && (
-          <div className={`rounded-2xl border p-4 ${cushionExceeded ? 'bg-accent-500/10 border-accent-500/20' : cushionUsed > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-card border-border'}`}>
+          <div className={`rounded-2xl border p-4 ${cushionExceeded ? 'bg-accent-500/10 border-accent-500/20' : bufferCoversOverage ? 'bg-amber-500/10 border-amber-500/20' : 'bg-card border-border'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Shield className={`w-4 h-4 ${cushionExceeded ? 'text-accent-500 dark:text-accent-400' : cushionUsed > 0 ? 'text-amber-500 dark:text-amber-400' : 'text-muted-foreground'}`} />
-                <span className="text-sm font-semibold text-foreground">Colchón</span>
+                <Shield className={`w-4 h-4 ${cushionExceeded ? 'text-accent-500 dark:text-accent-400' : bufferCoversOverage ? 'text-amber-500 dark:text-amber-400' : 'text-muted-foreground'}`} />
+                <span className="text-sm font-semibold text-foreground">Margen de seguridad</span>
               </div>
-              <span className={`text-xs font-bold ${cushionExceeded ? 'text-accent-600 dark:text-accent-400' : cushionUsed > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                {fmt(cushionUsed)} / {fmt(cushion)}
-              </span>
+              <span className="text-xs font-bold tabular-nums text-foreground">{fmt(cushionUsed)} / {fmt(cushion)}</span>
             </div>
             <div className="h-2.5 bg-muted rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${cushionExceeded ? 'bg-accent-500' : cushionUsed > 0 ? 'bg-amber-400' : 'bg-muted'}`}
+                className={`h-full rounded-full transition-all ${cushionExceeded ? 'bg-accent-500' : 'bg-amber-400'}`}
                 style={{ width: `${Math.min(cushionPct, 100)}%` }}
               />
             </div>
+            {bufferCoversOverage && (
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                {fmt(totalOverage)} de exceso absorbidos por tu Colchón de Seguridad.
+              </p>
+            )}
             {cushionExceeded && (
               <p className="text-xs font-semibold text-accent-600 dark:text-accent-400 mt-2 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                Has agotado el colchón: {fmt(cushionOverflow)} sin cubrir este mes.
+                Colchón agotado: {fmt(cushionOverflow)} de exceso sin cubrir este mes.
               </p>
             )}
           </div>
@@ -351,8 +303,8 @@ export default function BudgetsPageClient() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Presupuesto de Gastos</p>
-              <p className="text-3xl font-black tracking-tight text-foreground font-mono">
-                {(totalBudget - totalSpent).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€
+              <p className="text-3xl font-black tracking-tight tabular-nums text-foreground">
+                {fmt(totalBudget - totalSpent)}
                 <span className="text-sm font-medium text-muted-foreground ml-2">disponible</span>
               </p>
             </div>
@@ -375,28 +327,38 @@ export default function BudgetsPageClient() {
             />
           </div>
           <div className="flex justify-between mt-2 text-[10px] font-medium text-muted-foreground">
-            <span>Gastado: {totalSpent.toLocaleString('es-ES')}€</span>
-            <span>Límite: {totalBudget.toLocaleString('es-ES')}€</span>
+            <span>Gastado: {fmt(totalSpent)}</span>
+            <span>Límite: {fmt(totalBudget)}</span>
           </div>
         </div>
 
         {/* Alerts */}
         {alerts.length > 0 && (
           <div className="space-y-2">
-            {alerts.map(b => (
-              <div key={`alert-${b.id}`} className={`rounded-xl p-3 flex items-center gap-3 border ${
-                b.status === 'exceeded' ? 'bg-accent-500/10 border-accent-500/20' : 'bg-amber-500/10 border-amber-500/20'
-              }`}>
-                <AlertTriangle className={`w-4 h-4 shrink-0 ${b.status === 'exceeded' ? 'text-accent-500 dark:text-accent-400' : 'text-amber-500 dark:text-amber-400'}`} />
-                <p className={`text-xs font-medium flex-1 ${b.status === 'exceeded' ? 'text-accent-700 dark:text-accent-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                  <span className="font-bold">{b.category.name}</span>
-                  {b.status === 'exceeded'
-                    ? ` — excedido en ${Math.abs(b.remaining).toLocaleString('es-ES')}€${cushion > 0 ? (b.remaining < 0 && !cushionExceeded ? ' (cubierto por el colchón)' : '') : ''}`
-                    : ` — al ${b.percentage.toFixed(0)}% del límite`
-                  }
-                </p>
-              </div>
-            ))}
+            {alerts.map(b => {
+              // El exceso de una categoría solo es alerta CRÍTICA (roja) si, tras la absorción
+              // silenciosa de la bolsa libre, sigue superando el Colchón. Si la bolsa libre ya
+              // lo cubre, no se atribuye nada al Colchón (queda intacto, sin aviso).
+              const isCritical = b.status === 'exceeded' && cushionExceeded;
+              const absorbedNote = b.status === 'exceeded' && !cushionExceeded && overageAfterFree > 0
+                ? ' (absorbido por tu Colchón de Seguridad)'
+                : '';
+
+              return (
+                <div key={`alert-${b.id}`} className={`rounded-xl p-3 flex items-center gap-3 border ${
+                  isCritical ? 'bg-accent-500/10 border-accent-500/20' : 'bg-amber-500/10 border-amber-500/20'
+                }`}>
+                  <AlertTriangle className={`w-4 h-4 shrink-0 ${isCritical ? 'text-accent-500 dark:text-accent-400' : 'text-amber-500 dark:text-amber-400'}`} />
+                  <p className={`text-xs font-medium flex-1 ${isCritical ? 'text-accent-700 dark:text-accent-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                    <span className="font-bold">{b.category.name}</span>
+                    {b.status === 'exceeded'
+                      ? ` — excedido en ${fmt(Math.abs(b.remaining))}${absorbedNote}`
+                      : ` — al ${b.percentage.toFixed(0)}% del límite`
+                    }
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -448,6 +410,15 @@ export default function BudgetsPageClient() {
         categories={categories}
         existingBudget={editingBudget}
         averageByCategory={averageByCategory}
+        existingCategoryIds={budgets.map(b => b.category_id)}
+      />
+
+      <BudgetSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        income={income}
+        cushion={cushion}
+        onSaved={handleSettingsSaved}
       />
     </div>
   );
@@ -466,8 +437,8 @@ function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: bo
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">{b.category.name}</p>
-            <p className="text-xs text-muted-foreground font-mono">
-              {b.spent.toLocaleString('es-ES')}€ / {b.amount.toLocaleString('es-ES')}€
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {fmt(b.spent)} / {fmt(b.amount)}
             </p>
           </div>
         </div>
@@ -505,18 +476,11 @@ function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: bo
         </span>
         <span className="text-[10px] font-medium text-muted-foreground">
           {isSavings
-            ? (b.remaining >= 0 ? `${b.remaining.toLocaleString('es-ES')}€ para el objetivo` : `${Math.abs(b.remaining).toLocaleString('es-ES')}€ de más ahorrado`)
-            : (b.remaining >= 0 ? `${b.remaining.toLocaleString('es-ES')}€ libre` : `${Math.abs(b.remaining).toLocaleString('es-ES')}€ excedido`)
+            ? (b.remaining >= 0 ? `${fmt(b.remaining)} para el objetivo` : `${fmt(Math.abs(b.remaining))} de más ahorrado`)
+            : (b.remaining >= 0 ? `${fmt(b.remaining)} libre` : `${fmt(Math.abs(b.remaining))} excedido`)
           }
         </span>
       </div>
-
-      {!isSavings && b.prediction > b.amount && (
-        <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-violet-500 bg-violet-50 rounded-lg px-2 py-1.5">
-          <TrendingUp className="w-3 h-3 shrink-0" />
-          IA estima que gastarás ~{Math.round(b.prediction).toLocaleString('es-ES')}€ este mes, por encima del límite
-        </div>
-      )}
     </div>
   );
 }

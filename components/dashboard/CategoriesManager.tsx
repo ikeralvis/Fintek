@@ -5,6 +5,7 @@ import { Plus, Trash2, Tag, AlertCircle, Pencil, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CategoryIcon, { AVAILABLE_ICONS, iconLabels } from '@/components/ui/CategoryIcon';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type Category = {
   id: string;
@@ -233,9 +234,9 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 rounded-lg p-2 flex items-center gap-2">
-            <AlertCircle className="h-3.5 w-3.5 text-red-600 shrink-0" />
-            <p className="text-xs text-red-800">{error}</p>
+          <div className="bg-accent-500/10 border border-accent-500/20 rounded-lg p-2 flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-accent-600 dark:text-accent-400 shrink-0" />
+            <p className="text-xs text-accent-700 dark:text-accent-400">{error}</p>
           </div>
         )}
       </form>
@@ -252,81 +253,91 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
           ) : (
             categories.map(category => (
               <div key={category.id} className="flex items-center justify-between p-4 bg-card rounded-xl border border-border group">
-                {editingId === category.id ? (
-                  <div className="flex-1 space-y-3">
-                    <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg font-medium" />
-
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setEditUseEmoji(false); setEditIcon('cart'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${!editUseEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>Iconos</button>
-                      <button type="button" onClick={() => { setEditUseEmoji(true); setEditIcon('💰'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${editUseEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>Emojis</button>
-                    </div>
-
-                    <button type="button" onClick={() => setShowEditIconPicker(!showEditIconPicker)} className="w-12 h-12 rounded-xl border border-border flex items-center justify-center" style={{ backgroundColor: `${editColor}15` }}>
-                      <CategoryIcon name={editIcon} className="w-5 h-5" style={{ color: editColor }} />
-                    </button>
-
-                    {showEditIconPicker && (
-                      <div className="p-2 bg-muted/60 rounded-lg border border-border grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
-                        {editUseEmoji ? (
-                          SUGGESTED_EMOJIS.map(emoji => (
-                            <button key={emoji} type="button" onClick={() => { setEditIcon(emoji); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center text-lg hover:bg-muted ${editIcon === emoji ? 'bg-primary text-primary-foreground' : ''}`}>
-                              {emoji}
-                            </button>
-                          ))
-                        ) : (
-                          AVAILABLE_ICONS.map(code => (
-                            <button key={code} type="button" onClick={() => { setEditIcon(code); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center hover:bg-muted ${editIcon === code ? 'bg-primary' : ''}`}>
-                              <CategoryIcon name={code} className={`w-4 h-4 ${editIcon === code ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {CATEGORY_COLORS.map(c => (
-                        <button key={c} type="button" onClick={() => setEditColor(c)} className={`w-6 h-6 rounded-full ${editColor === c ? 'ring-2 ring-offset-1 ring-primary' : ''}`} style={{ backgroundColor: c }}>
-                          {editColor === c && <Check className="w-3 h-3 text-white mx-auto" />}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button onClick={handleUpdateCategory} disabled={loading} className="flex-1 bg-primary text-primary-foreground py-2 rounded-lg text-sm font-bold">Guardar</button>
-                      <button onClick={() => { setEditingId(null); setShowEditIconPicker(false); }} className="flex-1 bg-muted text-foreground py-2 rounded-lg text-sm font-bold">Cancelar</button>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${category.color || '#3B82F6'}15` }}>
+                    <CategoryIcon name={category.icon} className="w-5 h-5" style={{ color: category.color || '#3B82F6' }} />
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${category.color || '#3B82F6'}15` }}>
-                        <CategoryIcon name={category.icon} className="w-5 h-5" style={{ color: category.color || '#3B82F6' }} />
-                      </div>
-                      <span className="font-bold text-foreground">{category.name}</span>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => startEditing(category)}
-                        className="p-2 text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 rounded-xl shadow-sm transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(category.id, category.name)}
-                        className="p-2 text-accent-700 dark:text-accent-400 bg-accent-500/15 border border-accent-500/20 hover:bg-accent-500/25 rounded-xl shadow-sm transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
-                )}
+                  <span className="font-bold text-foreground">{category.name}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => startEditing(category)}
+                    className="p-2 text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 rounded-xl shadow-sm transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(category.id, category.name)}
+                    className="p-2 text-accent-700 dark:text-accent-400 bg-accent-500/15 border border-accent-500/20 hover:bg-accent-500/25 rounded-xl shadow-sm transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
+
+      {/* Edición: Bottom Sheet (idéntico patrón al resto de la app) */}
+      <Dialog open={!!editingId} onOpenChange={(open) => { if (!open) { setEditingId(null); setShowEditIconPicker(false); } }}>
+        <DialogContent className="w-full sm:max-w-md p-0 gap-0">
+          <DialogHeader className="px-5 py-4 border-b border-border">
+            <DialogTitle>Editar Categoría</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-4">
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full px-3 py-2.5 border border-border rounded-xl bg-muted/60 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setEditUseEmoji(false); setEditIcon('cart'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${!editUseEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>Iconos</button>
+              <button type="button" onClick={() => { setEditUseEmoji(true); setEditIcon('💰'); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${editUseEmoji ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>Emojis</button>
+            </div>
+
+            <button type="button" onClick={() => setShowEditIconPicker(!showEditIconPicker)} className="w-12 h-12 rounded-xl border border-border flex items-center justify-center" style={{ backgroundColor: `${editColor}15` }}>
+              <CategoryIcon name={editIcon} className="w-5 h-5" style={{ color: editColor }} />
+            </button>
+
+            {showEditIconPicker && (
+              <div className="p-2 bg-muted/60 rounded-lg border border-border grid grid-cols-8 gap-1 max-h-40 overflow-y-auto">
+                {editUseEmoji ? (
+                  SUGGESTED_EMOJIS.map(emoji => (
+                    <button key={emoji} type="button" onClick={() => { setEditIcon(emoji); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center text-lg hover:bg-muted ${editIcon === emoji ? 'bg-primary text-primary-foreground' : ''}`}>
+                      {emoji}
+                    </button>
+                  ))
+                ) : (
+                  AVAILABLE_ICONS.map(code => (
+                    <button key={code} type="button" onClick={() => { setEditIcon(code); setShowEditIconPicker(false); }} className={`w-8 h-8 rounded flex items-center justify-center hover:bg-muted ${editIcon === code ? 'bg-primary' : ''}`}>
+                      <CategoryIcon name={code} className={`w-4 h-4 ${editIcon === code ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORY_COLORS.map(c => (
+                <button key={c} type="button" onClick={() => setEditColor(c)} className={`w-6 h-6 rounded-full ${editColor === c ? 'ring-2 ring-offset-1 ring-primary' : ''}`} style={{ backgroundColor: c }}>
+                  {editColor === c && <Check className="w-3 h-3 text-white mx-auto" />}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+              <button onClick={handleUpdateCategory} disabled={loading} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-bold disabled:opacity-50">Guardar</button>
+              <button onClick={() => { setEditingId(null); setShowEditIconPicker(false); }} className="flex-1 bg-muted text-foreground py-2.5 rounded-lg text-sm font-bold">Cancelar</button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

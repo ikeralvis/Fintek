@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Check, Calendar, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { X, Check, Calendar, ChevronDown, ChevronUp, Search, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { createTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import { NumericInput } from '@/components/ui/numeric-input';
+import { cn } from '@/lib/utils';
 
 type Account = {
   id: string;
@@ -265,7 +267,8 @@ export default function TransactionForm({ accounts, categories }: Props) {
     return acc;
   }, {});
 
-  const canSubmit = amount && accountId && (type === 'transfer' ? toAccountId : categoryId);
+  const parsedAmount = Number.parseFloat(amount) || 0;
+  const canSubmit = parsedAmount > 0 && accountId && (type === 'transfer' ? toAccountId : categoryId);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -347,7 +350,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-[100] flex flex-col animate-slide-up">
+    <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-background animate-slide-up sm:static sm:h-auto sm:max-h-[90vh] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-strong">
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-border">
         <button
@@ -384,18 +387,16 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
           {/* AMOUNT INPUT */}
           <div className="text-center py-4">
-            <div className="relative inline-flex items-center justify-center">
-              <span className={`text-3xl font-semibold mr-1 ${type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : type === 'income' ? 'text-secondary-500/60 dark:text-secondary-400/60' : 'text-primary/50'}`}>€</span>
-              <input
-                ref={amountRef}
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className={`bg-transparent text-5xl font-semibold tabular-nums placeholder-muted-foreground focus:outline-none w-full text-center max-w-[240px] ${type === 'expense' ? 'text-accent-600 dark:text-accent-400' : type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-primary'}`}
-              />
-            </div>
+            <NumericInput
+              ref={amountRef}
+              value={amount}
+              onValueChange={setAmount}
+              placeholder="0,00"
+              currencySymbol="€"
+              currencyClassName={`text-2xl font-semibold ${type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : type === 'income' ? 'text-secondary-500/60 dark:text-secondary-400/60' : 'text-primary/50'}`}
+              wrapperClassName="mx-auto w-full max-w-[240px] justify-center"
+              className={`h-auto w-full border-none bg-transparent p-0 pr-8 text-center text-5xl font-semibold shadow-none placeholder:text-muted-foreground focus-visible:ring-0 ${type === 'expense' ? 'text-accent-600 dark:text-accent-400' : type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-primary'}`}
+            />
           </div>
 
           {/* DESCRIPTION WITH AUTOCOMPLETE + DATE */}
@@ -495,7 +496,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                       {selectedAccount.banks?.logo_url ? (
                         <img src={selectedAccount.banks.logo_url} alt="" className="w-full h-full object-contain" />
                       ) : (
-                        selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                        selectedAccount.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="w-3 h-3" />
                       )}
                     </div>
                     <span className="text-sm font-bold text-foreground">{selectedAccount.name}</span>
@@ -527,7 +528,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                             {acc.banks?.logo_url ? (
                               <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
                             ) : (
-                              acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                              acc.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="w-3 h-3" />
                             )}
                           </div>
                           <div className="flex-1 text-left min-w-0">
@@ -564,7 +565,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                         {selectedToAccount.banks?.logo_url ? (
                           <img src={selectedToAccount.banks.logo_url} alt="" className="w-full h-full object-contain" />
                         ) : (
-                          selectedToAccount.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                          selectedToAccount.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="w-3 h-3" />
                         )}
                       </div>
                       <span className="text-sm font-bold text-foreground">{selectedToAccount.name}</span>
@@ -598,7 +599,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                                 {acc.banks?.logo_url ? (
                                   <img src={acc.banks.logo_url} alt="" className="w-full h-full object-contain" />
                                 ) : (
-                                  acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                  acc.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="w-3 h-3" />
                                 )}
                               </div>
                               <div className="flex-1 text-left min-w-0">
@@ -681,11 +682,18 @@ export default function TransactionForm({ accounts, categories }: Props) {
       </div>
 
       {/* FOOTER */}
-      <div className="p-4 border-t border-border bg-card/90 backdrop-blur-sm pb-8">
+      <div className="p-4 border-t border-border bg-card/90 backdrop-blur-sm pb-[max(2rem,env(safe-area-inset-bottom))]">
         <button
           onClick={handleSubmit}
           disabled={loading || !canSubmit}
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted py-3.5 rounded-2xl font-bold text-base shadow-lg shadow-primary/10 transition-all active:scale-[0.98]"
+          className={cn(
+            'w-full py-3.5 rounded-2xl font-bold text-base transition-all active:scale-[0.98]',
+            loading || !canSubmit
+              ? 'bg-muted text-muted-foreground shadow-none'
+              : type === 'income'
+                ? 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-lg shadow-emerald-600/20'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/10'
+          )}
         >
           {loading ? 'Guardando...' : `Añadir ${type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : 'Transferencia'}`}
         </button>

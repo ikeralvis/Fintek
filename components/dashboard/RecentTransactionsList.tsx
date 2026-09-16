@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import { formatCurrency } from '@/lib/utils';
 
 type Transaction = {
     id: string;
@@ -15,6 +16,14 @@ type Transaction = {
     category?: string;
     categories?: { name: string, icon?: string, color?: string } | null;
 };
+
+/** "Categoría · Concepto" — combina categoría y título en una sola línea legible. */
+function categoryAndTitle(categoryName: string, description?: string): string {
+    const title = description?.trim();
+    return title && title.toLowerCase() !== categoryName.toLowerCase()
+        ? `${categoryName} · ${title}`
+        : categoryName;
+}
 
 export default function RecentTransactionsList({ transactions }: { readonly transactions: Transaction[] }) {
     if (transactions.length === 0) {
@@ -61,12 +70,12 @@ export default function RecentTransactionsList({ transactions }: { readonly tran
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <p className="font-medium text-foreground text-sm truncate">{categoryName}</p>
+                                <p className="font-medium text-foreground text-sm truncate">{categoryAndTitle(categoryName, t.description)}</p>
                                 <p className="text-xs text-muted-foreground">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}</p>
                             </div>
 
-                            <p className={`font-semibold text-sm tabular-nums shrink-0 ${t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-foreground'}`}>
-                                {t.type === 'income' ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
+                            <p className={`font-semibold text-sm tabular-nums shrink-0 ${t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
+                                {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                             </p>
                         </div>
                     );

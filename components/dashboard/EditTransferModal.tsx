@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Check, X, Landmark } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { NumericInput } from '@/components/ui/numeric-input';
+import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
     id: string;
@@ -126,7 +127,7 @@ export default function EditTransferModal({ transaction, categories, accounts, o
                                 {selected.banks?.logo_url ? (
                                     <img src={selected.banks.logo_url} alt="" className="h-full w-full object-contain" />
                                 ) : (
-                                    selected.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                    selected.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="h-3 w-3" />
                                 )}
                             </div>
                             <span className="text-sm font-semibold text-foreground">{selected.name}</span>
@@ -159,13 +160,13 @@ export default function EditTransferModal({ transaction, categories, accounts, o
                                                 {acc.banks?.logo_url ? (
                                                     <img src={acc.banks.logo_url} alt="" className="h-full w-full object-contain" />
                                                 ) : (
-                                                    acc.banks?.name?.substring(0, 2).toUpperCase() || '💰'
+                                                    acc.banks?.name?.substring(0, 2).toUpperCase() || <Landmark className="h-3 w-3" />
                                                 )}
                                             </div>
                                             <div className="min-w-0 flex-1 text-left">
                                                 <p className={cn('truncate text-sm font-semibold', isSelected ? 'text-primary-foreground' : 'text-foreground')}>{acc.name}</p>
                                                 <p className={cn('text-xs tabular-nums', isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-                                                    {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(acc.current_balance)}
+                                                    {formatCurrency(acc.current_balance)}
                                                 </p>
                                             </div>
                                             {isSelected && <Check className="h-4 w-4 shrink-0" />}
@@ -182,7 +183,7 @@ export default function EditTransferModal({ transaction, categories, accounts, o
 
     return (
         <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="max-w-md p-0 gap-0">
+            <DialogContent className="w-full sm:max-w-md p-0 gap-0">
                 <DialogHeader className="px-5 py-4 border-b border-border">
                     <DialogTitle>Editar Transferencia</DialogTitle>
                 </DialogHeader>
@@ -194,16 +195,16 @@ export default function EditTransferModal({ transaction, categories, accounts, o
 
                     {/* Amount */}
                     <div className="py-2 text-center">
-                        <div className="relative inline-flex items-center justify-center">
-                            <span className="mr-1 text-2xl font-semibold text-primary/50">€</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                className="w-full max-w-[220px] bg-transparent text-center text-5xl font-semibold tabular-nums text-primary outline-none placeholder:text-muted-foreground/40"
-                            />
-                        </div>
+                        <NumericInput
+                            value={amount}
+                            onValueChange={setAmount}
+                            placeholder="0,00"
+                            autoFocus
+                            currencySymbol="€"
+                            currencyClassName="text-2xl font-semibold text-primary/50"
+                            wrapperClassName="mx-auto w-full max-w-[220px] justify-center"
+                            className="h-auto w-full border-none bg-transparent p-0 pr-8 text-center text-5xl font-semibold text-primary shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0"
+                        />
                     </div>
 
                     {/* Description & Date */}
@@ -300,7 +301,7 @@ export default function EditTransferModal({ transaction, categories, accounts, o
                     </div>
                 </div>
 
-                <DialogFooter className="border-t border-border px-5 py-4 sm:justify-stretch">
+                <DialogFooter className="border-t border-border px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-stretch sm:pb-4">
                     <Button variant="outline" onClick={onClose} className="flex-1">
                         Cancelar
                     </Button>

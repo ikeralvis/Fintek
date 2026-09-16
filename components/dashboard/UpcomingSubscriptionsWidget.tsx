@@ -7,6 +7,7 @@ import { CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/DashboardContext';
+import { formatCurrency } from '@/lib/utils';
 
 type Subscription = {
   id: string;
@@ -60,7 +61,7 @@ export default function UpcomingSubscriptionsWidget() {
                   {isToday ? 'Hoy' : `${format(parseISO(sub.next_payment_date), 'd MMM', { locale: es })}${daysUntil > 0 && daysUntil <= 7 ? ` · en ${daysUntil}d` : ''}`}
                 </p>
               </div>
-              <span className="text-sm font-bold text-foreground font-mono tabular-nums shrink-0">{Number(sub.amount).toFixed(2)}€</span>
+              <span className="text-sm font-bold text-foreground font-mono tabular-nums shrink-0">{formatCurrency(Number(sub.amount))}</span>
             </div>
           );
         })}

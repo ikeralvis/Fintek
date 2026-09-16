@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import {
-    AreaChart, Area, PieChart, Pie, Cell,
-    XAxis, YAxis, Tooltip,
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, Tooltip, ReferenceLine,
     ResponsiveContainer
 } from 'recharts';
 import {
@@ -20,11 +20,14 @@ import {
 import jsPDF from 'jspdf';
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import { formatCurrency } from '@/lib/utils';
 
 const COLORS = [
-    '#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6',
+    '#52525b', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6',
     '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#84cc16'
 ];
+const OTROS_COLOR = '#a1a1aa';
+const OTROS_THRESHOLD_PCT = 3;
 
 type PeriodType = 'month' | 'year';
 
@@ -153,9 +156,20 @@ export default function StatisticsView({ initialTransactions, accounts, categori
         const incomeChange = prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0;
         const expenseChange = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : 0;
 
-        const pieData = categoryArray
+        const rawPieData = categoryArray
             .filter(c => c.expense > 0)
-            .map(c => ({ name: c.name, value: c.expense, color: c.color }));
+            .map(c => ({ name: c.name, value: c.expense, color: c.color }))
+            .sort((a, b) => b.value - a.value);
+
+        // Agrupa automáticamente las categorías por debajo del 3% del gasto total bajo "Otros"
+        // para que la leyenda del donut no se llene de porciones minúsculas.
+        const pieThreshold = totalExpense * (OTROS_THRESHOLD_PCT / 100);
+        const pieBig = rawPieData.filter(c => c.value >= pieThreshold);
+        const pieSmall = rawPieData.filter(c => c.value < pieThreshold);
+        const pieOtrosTotal = pieSmall.reduce((sum, c) => sum + c.value, 0);
+        const pieData = pieOtrosTotal > 0
+            ? [...pieBig, { name: 'Otros', value: pieOtrosTotal, color: OTROS_COLOR }]
+            : pieBig;
 
         return {
             monthlyData: Object.values(monthlyData),
@@ -435,51 +449,62 @@ export default function StatisticsView({ initialTransactions, accounts, categori
 
                 {/* Charts - Side by side on desktop */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    {/* Income vs Expense AreaChart */}
+                    {/* Income vs Expense: barras agrupadas (más fiables al tacto que una línea fina) */}
                     <div className="bg-card rounded-2xl p-5 border border-border">
                         <h3 className="text-sm font-bold text-foreground mb-4">Ingresos vs Gastos</h3>
                         <ResponsiveContainer width="100%" height={220}>
-                            <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="gradExpense" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
-                                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
+                            <BarChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={2}>
                                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} interval={periodType === 'month' ? 4 : 0} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
+                                    cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
                                 />
-                                <Area type="monotone" dataKey="income" name="Ingresos" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" dot={stats.chartData.length <= 2} />
-                                <Area type="monotone" dataKey="expense" name="Gastos" stroke="#f43f5e" strokeWidth={2} fill="url(#gradExpense)" dot={stats.chartData.length <= 2} />
-                            </AreaChart>
+                                <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                                <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                            </BarChart>
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Balance Evolution */}
+                    {/* Balance Evolution: sombreado rojo/rosa suave al entrar en negativo */}
                     <div className="bg-card rounded-2xl p-5 border border-border">
                         <h3 className="text-sm font-bold text-foreground mb-4">Evolución del Balance{periodType === 'month' ? ' (acumulado)' : ''}</h3>
                         <ResponsiveContainer width="100%" height={220}>
                             <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
-                                    <linearGradient id="gradBalance" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                    </linearGradient>
+                                    {(() => {
+                                        const balanceValues = stats.chartData.map(d => d.balance);
+                                        const balanceMax = Math.max(0, ...balanceValues);
+                                        const balanceMin = Math.min(0, ...balanceValues);
+                                        const zeroOffset = balanceMax - balanceMin > 0 ? balanceMax / (balanceMax - balanceMin) : 1;
+                                        return (
+                                            <linearGradient id="gradBalance" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset={0} stopColor="#3f3f46" stopOpacity={0.18} />
+                                                <stop offset={zeroOffset} stopColor="#3f3f46" stopOpacity={0.02} />
+                                                <stop offset={zeroOffset} stopColor="#f43f5e" stopOpacity={0.12} />
+                                                <stop offset={1} stopColor="#f43f5e" stopOpacity={0.32} />
+                                            </linearGradient>
+                                        );
+                                    })()}
                                 </defs>
                                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} interval={periodType === 'month' ? 4 : 0} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} domain={['dataMin', 'dataMax']} />
+                                <ReferenceLine y={0} stroke="#e4e4e7" />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
                                     formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}
                                 />
-                                <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#gradBalance)" dot={stats.chartData.length <= 2} />
+                                <Area
+                                    type="monotone"
+                                    dataKey="balance"
+                                    stroke="#3f3f46"
+                                    strokeWidth={2}
+                                    fillOpacity={1}
+                                    fill="url(#gradBalance)"
+                                    dot={stats.chartData.length <= 2}
+                                    activeDot={{ r: 5 }}
+                                />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -515,15 +540,20 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="flex-1 w-full space-y-2 max-h-40 overflow-y-auto">
-                                    {stats.pieData.slice(0, 8).map((item: any, i: number) => (
-                                        <div key={item.name} className="flex items-center justify-between text-xs">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
-                                                <span className="font-medium text-foreground truncate">{item.name}</span>
+                                    {stats.pieData.map((item: any, i: number) => {
+                                        const pct = stats.totals.expense > 0 ? (item.value / stats.totals.expense) * 100 : 0;
+                                        return (
+                                            <div key={item.name} className="flex items-center justify-between text-xs">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color || COLORS[i % COLORS.length] }} />
+                                                    <span className="font-medium text-foreground truncate">{item.name}</span>
+                                                </div>
+                                                <span className="font-bold tabular-nums text-foreground shrink-0 ml-2">
+                                                    {formatCurrency(item.value)} · {pct.toFixed(1)}%
+                                                </span>
                                             </div>
-                                            <span className="font-bold text-foreground shrink-0 ml-2">{formatCompact(item.value)}€</span>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, Star, Trash2,
     ChevronLeft, ChevronRight,
-    Calendar, Pencil, Database, Loader2
+    Calendar, Database, Loader2
 } from 'lucide-react';
 import { format, parseISO, isSameDay, subMonths, addMonths, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -17,9 +17,9 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import EditTransactionModal from './EditTransactionModal';
 import EditTransferModal from './EditTransferModal';
 import ImportTransactionsModal from './ImportTransactionsModal';
-import SwipeToDeleteRow from './SwipeToDeleteRow';
+import SwipeActionRow from './SwipeActionRow';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
     id: string;
@@ -64,6 +64,14 @@ type Props = {
 };
 
 const HISTORY_PAGE_SIZE = 100;
+
+/** "Categoría · Concepto" — combina categoría y título en una sola línea legible. */
+function categoryAndTitle(categoryName: string, description?: string) {
+    const title = description?.trim();
+    return title && title.toLowerCase() !== categoryName.toLowerCase()
+        ? `${categoryName} · ${title}`
+        : categoryName;
+}
 
 export default function AccountDetailView({ account, initialTransactions, categories, accounts }: Props) {
     const router = useRouter();
@@ -303,7 +311,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
 
             <div className="px-5 space-y-4 max-w-4xl mx-auto pt-5">
                 {/* Card compacta: balance + mini-badges + resplandor ambiental del color de cuenta */}
-                <div className="glass-card relative overflow-hidden rounded-2xl p-4">
+                <div className="bg-card border border-border/50 relative overflow-hidden rounded-2xl p-4">
                     <div
                         className="pointer-events-none absolute inset-0 opacity-[0.08] dark:opacity-[0.14]"
                         style={{ backgroundImage: `linear-gradient(to bottom right, ${themeColor}, transparent 70%)` }}
@@ -421,7 +429,13 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                         const showAsIncome = t.type === 'income' || isIncoming;
 
                                         return (
-                                            <SwipeToDeleteRow key={rowKey} onDelete={() => handleDeleteTransaction(t)} disabled={deletingId === t.id} className="bg-card px-4 py-3 flex items-center gap-3 group">
+                                            <SwipeActionRow
+                                                key={rowKey}
+                                                onEdit={() => setEditingTransaction(t)}
+                                                onDelete={() => handleDeleteTransaction(t)}
+                                                disabled={deletingId === t.id}
+                                                className="bg-card px-4 py-3 flex items-center gap-3"
+                                            >
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                                                     style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#4f46e515' : 'var(--muted)') }}
@@ -433,40 +447,21 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                                     />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-foreground text-sm truncate">{categoryName}</p>
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        {isTransfer ? (isIncoming ? 'Transferencia recibida' : 'Transferencia enviada') : t.description || 'Sin descripción'}
+                                                    <p className="font-medium text-foreground text-sm truncate">
+                                                        {isTransfer ? categoryName : categoryAndTitle(categoryName, t.description)}
                                                     </p>
+                                                    {isTransfer && (
+                                                        <p className="text-xs text-muted-foreground truncate">
+                                                            {isIncoming ? 'Transferencia recibida' : 'Transferencia enviada'}
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                <p className={`font-semibold text-sm font-mono tabular-nums shrink-0 ${
-                                                    isTransfer ? 'text-primary' : (showAsIncome ? 'text-secondary-600 dark:text-secondary-400' : 'text-foreground')
+                                                <p className={`font-semibold text-sm tabular-nums shrink-0 ${
+                                                    isTransfer ? 'text-primary' : (showAsIncome ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400')
                                                 }`}>
-                                                    {showAsIncome ? '+' : '-'}{new Intl.NumberFormat('es-ES').format(t.amount)}€
+                                                    {showAsIncome ? '+' : '-'}{formatCurrency(t.amount)}
                                                 </p>
-                                                <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => setEditingTransaction(t)}
-                                                        className="h-7 w-7 bg-muted text-primary hover:bg-primary/10"
-                                                    >
-                                                        <Pencil className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDeleteTransaction(t)}
-                                                        disabled={deletingId === t.id}
-                                                        className="h-7 w-7 bg-muted text-destructive hover:bg-destructive/10"
-                                                    >
-                                                        {deletingId === t.id ? (
-                                                            <div className="w-3.5 h-3.5 border-2 border-destructive border-t-transparent rounded-full animate-spin" />
-                                                        ) : (
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            </SwipeToDeleteRow>
+                                            </SwipeActionRow>
                                         );
                                     })}
                                 </div>

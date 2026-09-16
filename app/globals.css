@@ -17,7 +17,7 @@
     --popover: #ffffff;
     --popover-foreground: #18181b;
 
-    --primary: #334155;
+    --primary: #18181b;
     --primary-foreground: #ffffff;
 
     --secondary: #f4f4f5;
@@ -31,11 +31,11 @@
 
     --border: rgba(0, 0, 0, 0.05);
     --input: rgba(0, 0, 0, 0.08);
-    --ring: #64748b;
+    --ring: #52525b;
 
     /* Glassmorphism sutil */
-    --glass-bg: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(0, 0, 0, 0.06);
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(0, 0, 0, 0.1);
   }
 
   .dark {
@@ -49,8 +49,8 @@
     --popover: #18181b;
     --popover-foreground: #f4f4f5;
 
-    --primary: #cbd5e1;
-    --primary-foreground: #0f172a;
+    --primary: #e4e4e7;
+    --primary-foreground: #18181b;
 
     --secondary: #27272a;
     --secondary-foreground: #f4f4f5;
@@ -63,10 +63,10 @@
 
     --border: rgba(255, 255, 255, 0.1);
     --input: rgba(255, 255, 255, 0.12);
-    --ring: #94a3b8;
+    --ring: #a1a1aa;
 
-    --glass-bg: rgba(9, 9, 11, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(9, 9, 11, 0.95);
+    --glass-border: rgba(255, 255, 255, 0.14);
   }
 
   /* Tamaño de fuente base: más legible en móviles */
@@ -117,13 +117,13 @@
   }
 
   ::selection {
-    background-color: #e2e8f0;
-    color: #1e293b;
+    background-color: #e4e4e7;
+    color: #27272a;
   }
 
   .dark ::selection {
-    background-color: #334155;
-    color: #f1f5f9;
+    background-color: #3f3f46;
+    color: #f4f4f5;
   }
 
   /* Fix para inputs y botones */
@@ -189,10 +189,10 @@ button[type="submit"],
 
 button[type="submit"]:hover,
 .btn-primary:hover {
-  background-color: #1e293b !important;
+  background-color: #27272a !important;
 }
 
 .dark button[type="submit"]:hover,
 .dark .btn-primary:hover {
-  background-color: #e2e8f0 !important;
+  background-color: #f4f4f5 !important;
 }

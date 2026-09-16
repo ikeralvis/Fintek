@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useDashboard } from '@/lib/DashboardContext';
-import { ArrowLeft, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Wallet, ChevronDown, Star } from 'lucide-react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'motion/react';
 import CreateAccountButton from './CreateAccountButton';
+import { formatCurrency } from '@/lib/utils';
 
 type Bank = {
     id: string;
@@ -14,26 +16,12 @@ type Bank = {
 };
 
 export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }) {
-    const { accounts, transactions } = useDashboard();
+    const { accounts } = useDashboard();
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
     const { groupedAccounts, totalBalance } = useMemo(() => {
-        const firstDayOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
-
-        const yearTx = transactions.filter(t => t.transaction_date >= firstDayOfYear);
-        const statsByAccount: Record<string, { income: number; expense: number }> = {};
-
-        yearTx.forEach(t => {
-            if (!statsByAccount[t.account_id]) {
-                statsByAccount[t.account_id] = { income: 0, expense: 0 };
-            }
-            if (t.type === 'income') statsByAccount[t.account_id].income += t.amount;
-            else if (t.type === 'expense') statsByAccount[t.account_id].expense += t.amount;
-        });
-
         const enhanced = accounts.map(acc => ({
             ...acc,
-            yearlyIncome: statsByAccount[acc.id]?.income || 0,
-            yearlyExpense: statsByAccount[acc.id]?.expense || 0,
             bankName: acc.banks?.name || 'Otros',
             bankColor: acc.banks?.color || '#6B7280',
         }));
@@ -48,13 +36,11 @@ export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }
         const totalBalance = enhanced.reduce((sum, acc) => sum + acc.current_balance, 0);
 
         return { groupedAccounts: grouped, totalBalance };
-    }, [accounts, transactions]);
+    }, [accounts]);
 
-    const formatCurrency = (amount: number) =>
-        new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
-
-    const formatNumber = (amount: number) =>
-        new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(amount);
+    const toggleGroup = (bankName: string) => {
+        setCollapsed(prev => ({ ...prev, [bankName]: !prev[bankName] }));
+    };
 
     return (
         <div className="min-h-screen bg-background pb-32 md:pb-8">
@@ -73,77 +59,87 @@ export default function AccountsPageClient({ banks }: { readonly banks: Bank[] }
                 {/* Total Balance */}
                 <div className="bg-card rounded-2xl p-6 border border-border">
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Balance Total</p>
-                    <p className="text-3xl font-black tracking-tight text-foreground font-mono">{formatCurrency(totalBalance)}</p>
+                    <p className="text-3xl font-black tracking-tight text-foreground tabular-nums">{formatCurrency(totalBalance)}</p>
                     <p className="text-xs text-muted-foreground mt-2">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''} activa{accounts.length !== 1 ? 's' : ''}</p>
                 </div>
 
-                {/* Accounts Bento Grid by Bank */}
+                {/* Accounts grouped by bank entity */}
                 <div className="space-y-4">
-                    {Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => (
-                        <div key={bankName} className="bg-card rounded-2xl border border-border overflow-hidden">
-                            {/* Bank Header */}
-                            <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
-                                <div
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white overflow-hidden shrink-0"
-                                    style={{ backgroundColor: bankAccounts[0].banks?.logo_url ? 'transparent' : bankAccounts[0].bankColor }}
+                    {Object.entries(groupedAccounts).map(([bankName, bankAccounts]) => {
+                        const isCollapsed = collapsed[bankName];
+                        return (
+                            <div key={bankName} className="bg-card rounded-2xl border border-border overflow-hidden">
+                                {/* Bank Header (toggle) */}
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup(bankName)}
+                                    className="flex w-full items-center gap-3 px-5 py-3.5 border-b border-border text-left hover:bg-muted/40 transition-colors"
+                                    aria-expanded={!isCollapsed}
                                 >
-                                    {bankAccounts[0].banks?.logo_url ? (
-                                        <img src={bankAccounts[0].banks.logo_url} alt="" className="w-full h-full object-contain" />
-                                    ) : (
-                                        bankName.substring(0, 2).toUpperCase()
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <h2 className="text-sm font-semibold text-foreground">{bankName}</h2>
-                                    <p className="text-xs text-muted-foreground">{bankAccounts.length} cuenta{bankAccounts.length !== 1 ? 's' : ''}</p>
-                                </div>
-                                <p className="text-sm font-bold text-foreground font-mono">
-                                    {formatCurrency(bankAccounts.reduce((sum, a) => sum + a.current_balance, 0))}
-                                </p>
-                            </div>
-
-                            {/* Accounts Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-                                {bankAccounts.map((acc) => (
-                                    <Link
-                                        key={acc.id}
-                                        href={`/dashboard/cuentas/${acc.id}`}
-                                        className="p-4 hover:bg-muted/60 transition-colors group"
+                                    <div
+                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white overflow-hidden shrink-0"
+                                        style={{ backgroundColor: bankAccounts[0].banks?.logo_url ? 'transparent' : bankAccounts[0].bankColor }}
                                     >
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="text-sm font-semibold text-foreground">{acc.name}</h3>
-                                                {acc.is_favorite && <span className="text-amber-400 text-xs">★</span>}
-                                            </div>
-                                            <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                                                {acc.type === 'checking' ? 'Corriente' :
-                                                 acc.type === 'savings' ? 'Ahorro' :
-                                                 acc.type === 'investment' ? 'Inversión' :
-                                                 acc.type === 'wallet' ? 'Cartera' : acc.type}
-                                            </span>
-                                        </div>
-
-                                        <p className="text-2xl font-black text-foreground font-mono tracking-tight mb-3">
-                                            {formatCurrency(acc.current_balance)}
-                                        </p>
-
-                                        {(acc.yearlyIncome > 0 || acc.yearlyExpense > 0) && (
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex items-center gap-1 text-xs">
-                                                    <TrendingUp className="w-3 h-3 text-secondary-500 dark:text-secondary-400" />
-                                                    <span className="text-secondary-600 dark:text-secondary-400 font-medium font-mono tabular-nums">+{formatNumber(acc.yearlyIncome)}€</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 text-xs">
-                                                    <TrendingDown className="w-3 h-3 text-accent-500 dark:text-accent-400" />
-                                                    <span className="text-accent-500 dark:text-accent-400 font-medium font-mono tabular-nums">-{formatNumber(acc.yearlyExpense)}€</span>
-                                                </div>
-                                            </div>
+                                        {bankAccounts[0].banks?.logo_url ? (
+                                            <img src={bankAccounts[0].banks.logo_url} alt="" className="w-full h-full object-contain" />
+                                        ) : (
+                                            bankName.substring(0, 2).toUpperCase()
                                         )}
-                                    </Link>
-                                ))}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h2 className="text-sm font-semibold text-foreground">{bankName}</h2>
+                                        <p className="text-xs text-muted-foreground">{bankAccounts.length} cuenta{bankAccounts.length !== 1 ? 's' : ''}</p>
+                                    </div>
+                                    <p className="text-sm font-bold text-foreground tabular-nums">
+                                        {formatCurrency(bankAccounts.reduce((sum, a) => sum + a.current_balance, 0))}
+                                    </p>
+                                    <ChevronDown
+                                        className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
+                                    />
+                                </button>
+
+                                {/* Accounts Grid */}
+                                <AnimatePresence initial={false}>
+                                    {!isCollapsed && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+                                                {bankAccounts.map((acc) => (
+                                                    <Link
+                                                        key={acc.id}
+                                                        href={`/dashboard/cuentas/${acc.id}`}
+                                                        className="p-4 hover:bg-muted/60 transition-colors"
+                                                    >
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <h3 className="text-sm font-semibold text-foreground">{acc.name}</h3>
+                                                                {acc.is_favorite && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                                                            </div>
+                                                            <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                                                                {acc.type === 'checking' ? 'Corriente' :
+                                                                 acc.type === 'savings' ? 'Ahorro' :
+                                                                 acc.type === 'investment' ? 'Inversión' :
+                                                                 acc.type === 'wallet' ? 'Cartera' : acc.type}
+                                                            </span>
+                                                        </div>
+
+                                                        <p className="text-2xl font-black text-foreground tabular-nums tracking-tight">
+                                                            {formatCurrency(acc.current_balance)}
+                                                        </p>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {accounts.length === 0 && (
                         <div className="text-center py-16">

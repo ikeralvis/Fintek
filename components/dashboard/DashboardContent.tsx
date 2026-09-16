@@ -133,11 +133,10 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
 
   return (
     <div className="min-h-screen bg-background pb-32 md:pb-8">
-      <div className="px-5 pt-8 pb-6 md:max-w-6xl md:mx-auto flex items-start justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground font-medium">Hola,</p>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">{firstName}</h1>
-        </div>
+      <div className="px-5 pt-8 pb-6 md:max-w-6xl md:mx-auto flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight leading-none">
+          Hola, {firstName}
+        </h1>
         <button
           onClick={() => setIsCustomizeOpen(true)}
           className="p-2.5 rounded-xl bg-card border border-border text-muted-foreground hover:bg-muted transition-colors"

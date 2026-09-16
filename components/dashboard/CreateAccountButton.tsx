@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Wallet, CreditCard, Check } from 'lucide-react';
+import { Plus, X, Wallet, CreditCard, Check, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 type Bank = {
   id: string;
@@ -60,10 +61,11 @@ export default function CreateAccountButton({ banks }: Props) {
       setInitialBalance('');
       setIsFavorite(false);
       setIsOpen(false);
+      toast.success('Cuenta creada correctamente');
       router.refresh();
     } catch (err) {
       console.error('Error creating account:', err);
-      alert('Error al crear la cuenta');
+      toast.error('Error al crear la cuenta');
     } finally {
       setLoading(false);
     }
@@ -232,8 +234,9 @@ export default function CreateAccountButton({ banks }: Props) {
                 <button
                   type="submit"
                   disabled={loading || !name || !bankId || !initialBalance}
-                  className="w-full bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed py-4 rounded-2xl font-bold text-base transition-all active:scale-[0.98]"
+                  className="w-full bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed py-4 rounded-2xl font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                 >
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                   {loading ? 'Creando...' : 'Crear Cuenta'}
                 </button>
               </div>
