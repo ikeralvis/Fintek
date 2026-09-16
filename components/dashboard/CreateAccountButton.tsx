@@ -76,23 +76,24 @@ export default function CreateAccountButton({ banks }: Props) {
     return (
       <button
         onClick={() => router.push('/dashboard/configuracion')}
-        className="p-2 rounded-full hover:bg-neutral-200 transition-colors"
+        className="flex items-center gap-1.5 rounded-xl bg-muted px-3.5 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/80 shrink-0"
         title="Configura bancos primero"
       >
-        <Plus className="w-5 h-5 text-neutral-400" strokeWidth={2} />
+        <Plus className="w-4 h-4" strokeWidth={2.5} />
+        <span>Añadir Cuenta</span>
       </button>
     );
   }
 
   return (
     <>
-      {/* Botón pequeño + */}
+      {/* Botón + con texto: mismo patrón de píldora sólida que el resto de acciones "+" de la app */}
       <button
         onClick={() => setIsOpen(true)}
-        className="px-3 py-2 rounded-xl flex items-center gap-1.5 hover:bg-neutral-200 transition-colors"
+        className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 shrink-0"
         title="Nueva cuenta"
       >
-        <Plus className="w-5 h-5 text-neutral-900" strokeWidth={2} />
+        <Plus className="w-4 h-4" strokeWidth={2.5} />
         <span>Añadir Cuenta</span>
       </button>
 
