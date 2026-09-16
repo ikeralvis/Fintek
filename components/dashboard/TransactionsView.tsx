@@ -296,7 +296,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
             <div className="px-5 space-y-6 max-w-6xl mx-auto">
                 {/* Summary Card */}
-                <div className="bg-card rounded-2xl border border-border p-5">
+                <div className="bg-card rounded-2xl border border-border p-5 mt-2">
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Balance del período</p>

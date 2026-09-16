@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { upsertBudget, deleteBudget } from '@/lib/actions/budgets';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { NumericInput } from '@/components/ui/numeric-input';
+import { CategoryPicker } from '@/components/ui/category-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatCurrency as fmt } from '@/lib/utils';
 
@@ -113,39 +114,16 @@ export default function BudgetFormModal({
                         </button>
 
                         {isCategoriesExpanded && (
-                            <div className="border-t border-border p-3 max-h-64 overflow-y-auto">
-                                <div className="grid grid-cols-4 gap-2">
-                                    {categories.map((cat) => {
-                                        const alreadyBudgeted = existingCategoryIds.includes(cat.id);
-                                        const disabled = existingBudget
-                                            ? existingBudget.category_id !== cat.id
-                                            : alreadyBudgeted;
-                                        const selected = categoryId === cat.id;
-                                        return (
-                                            <button
-                                                key={cat.id}
-                                                type="button"
-                                                onClick={() => { setCategoryId(cat.id); setIsCategoriesExpanded(false); }}
-                                                disabled={disabled}
-                                                title={!existingBudget && alreadyBudgeted ? `${cat.name} ya tiene un presupuesto` : undefined}
-                                                className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all ${selected
-                                                        ? 'bg-primary'
-                                                        : 'hover:bg-muted bg-card'
-                                                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                            >
-                                                <div
-                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${selected ? 'scale-105' : ''}`}
-                                                    style={{ backgroundColor: cat.color ? `${cat.color}25` : 'var(--muted)' }}
-                                                >
-                                                    <CategoryIcon name={cat.icon} className="w-5 h-5" style={{ color: cat.color || 'var(--muted-foreground)' }} />
-                                                </div>
-                                                <span className={`w-full truncate text-center text-[10px] font-semibold leading-tight ${selected ? 'text-primary-foreground' : 'text-foreground'}`}>
-                                                    {cat.name}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                            <div className="border-t border-border p-3 max-h-72 overflow-y-auto">
+                                <CategoryPicker
+                                    categories={categories}
+                                    selectedId={categoryId}
+                                    onSelect={(id) => { setCategoryId(id); setIsCategoriesExpanded(false); }}
+                                    isDisabled={(id) => existingBudget ? existingBudget.category_id !== id : existingCategoryIds.includes(id)}
+                                    disabledTitle={(id) => (!existingBudget && existingCategoryIds.includes(id))
+                                        ? `${categories.find((c) => c.id === id)?.name} ya tiene un presupuesto`
+                                        : undefined}
+                                />
                             </div>
                         )}
                     </div>

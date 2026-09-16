@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { subMonths, startOfMonth as startOfMonthFn, endOfMonth, format } from 'date-fns';
 import { useDashboard } from '@/lib/DashboardContext';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   ArrowLeft, Target, Plus, AlertTriangle, Pencil, Trash2,
-  PiggyBank, Settings, Shield
+  PiggyBank, Settings, Shield, Sparkles, Loader2, X
 } from 'lucide-react';
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -14,10 +16,11 @@ import BudgetFormModal from './BudgetFormModal';
 import BudgetSettingsModal from './BudgetSettingsModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getSpendingAnalysis } from '@/lib/actions/analysis';
+import { upsertBudget, getHandledRolloverKeys, recordRolloverAction, type RolloverAction } from '@/lib/actions/budgets';
 import { formatCurrency as fmt, cn } from '@/lib/utils';
 
 export default function BudgetsPageClient() {
-  const { transactions, categories, userId } = useDashboard();
+  const { transactions, categories, accounts, userId, setTransactions } = useDashboard();
   const router = useRouter();
   const supabase = createClient();
   const [budgets, setBudgets] = useState<any[]>([]);
@@ -119,6 +122,110 @@ export default function BudgetsPageClient() {
   const pctSavedOfIncome = income > 0 ? (totalSaved / income) * 100 : 0;
   const pctFreeOfIncome = income > 0 ? Math.max(0, (incomeFree / income) * 100) : 0;
   const incomeOverflow = Math.max(0, incomeAllocated - income);
+
+  // --- Smart Budgets: detección de sobrante del mes anterior (rollover / auto-ahorro) ---
+  const lastMonthDate = subMonths(now, 1);
+  const lastMonthStart = format(startOfMonthFn(lastMonthDate), 'yyyy-MM-dd');
+  const lastMonthEnd = format(endOfMonth(lastMonthDate), 'yyyy-MM-dd');
+  const lastMonthKey = format(lastMonthDate, 'yyyy-MM');
+
+  const lastMonthSpendMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions.forEach(t => {
+      const countsTowardBudget = t.type === 'expense' || t.type === 'transfer';
+      if (countsTowardBudget && t.transaction_date >= lastMonthStart && t.transaction_date <= lastMonthEnd && t.category_id) {
+        map[t.category_id] = (map[t.category_id] || 0) + t.amount;
+      }
+    });
+    return map;
+  }, [transactions, lastMonthStart, lastMonthEnd]);
+
+  // Qué sobrantes de mes anterior ya se resolvieron (rollover/auto-ahorro/ignorado),
+  // persistido en Supabase (budget_rollover_actions) para que el estado sea el mismo en
+  // cualquier dispositivo del usuario en vez de depender del localStorage del navegador.
+  const [handledSurplusKeys, setHandledSurplusKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getHandledRolloverKeys().then(res => setHandledSurplusKeys(new Set(res.data)));
+  }, [userId]);
+
+  const markSurplusHandled = async (candidate: { key: string; categoryId: string; surplus: number }, action: RolloverAction) => {
+    // Optimista: refleja el estado al instante y confirma contra el servidor en paralelo.
+    setHandledSurplusKeys(prev => new Set(prev).add(candidate.key));
+    const res = await recordRolloverAction(candidate.categoryId, lastMonthKey, action, candidate.surplus);
+    if (res.error) {
+      toast.error('No se pudo guardar el estado del sobrante: ' + res.error);
+    }
+  };
+
+  const surplusCandidates = useMemo(() => {
+    return expenseBudgets
+      .map(b => {
+        const lastSpent = lastMonthSpendMap[b.category_id];
+        if (lastSpent === undefined) return null; // sin actividad el mes pasado: nada que detectar
+        const surplus = b.amount - lastSpent;
+        if (surplus < 1) return null;
+        const key = `${b.category_id}:${lastMonthKey}`;
+        if (handledSurplusKeys.has(key)) return null;
+        return { key, categoryId: b.category_id, category: b.category, amount: b.amount, surplus };
+      })
+      .filter((x): x is { key: string; categoryId: string; category: any; amount: number; surplus: number } => x !== null);
+  }, [expenseBudgets, lastMonthSpendMap, lastMonthKey, handledSurplusKeys]);
+
+  const [processingSurplusKey, setProcessingSurplusKey] = useState<string | null>(null);
+
+  const handleRollover = async (candidate: { key: string; categoryId: string; category: any; amount: number; surplus: number }) => {
+    setProcessingSurplusKey(candidate.key);
+    const newAmount = candidate.amount + candidate.surplus;
+    const res = await upsertBudget(candidate.categoryId, newAmount, false);
+    setProcessingSurplusKey(null);
+    if (res.success) {
+      setBudgets(prev => prev.map(b => b.category_id === candidate.categoryId ? { ...b, amount: newAmount } : b));
+      markSurplusHandled(candidate, 'rollover');
+      toast.success(`+${fmt(candidate.surplus)} añadidos al límite de ${candidate.category.name} este mes`);
+    } else {
+      toast.error('Error al aplicar el rollover: ' + res.error);
+    }
+  };
+
+  const handleAutoSavings = async (candidate: { key: string; categoryId: string; category: any; amount: number; surplus: number }) => {
+    const savingsTarget = savingsBudgets[0];
+    if (!savingsTarget) {
+      toast.error('Crea antes un presupuesto de Ahorro para poder mover el sobrante');
+      return;
+    }
+    const defaultAccount = accounts[0];
+    if (!defaultAccount) {
+      toast.error('No se encontró una cuenta donde registrar el movimiento');
+      return;
+    }
+    setProcessingSurplusKey(candidate.key);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No autorizado');
+
+      const { data, error } = await supabase.from('transactions').insert([{
+        user_id: user.id,
+        account_id: defaultAccount.id,
+        category_id: savingsTarget.category_id,
+        amount: candidate.surplus,
+        description: `Auto-ahorro: sobrante de ${candidate.category.name}`,
+        type: 'expense',
+        transaction_date: format(now, 'yyyy-MM-dd'),
+      }]).select().single();
+
+      if (error) throw error;
+
+      setTransactions([...transactions, data]);
+      markSurplusHandled(candidate, 'auto_savings');
+      toast.success(`${fmt(candidate.surplus)} movidos a ${savingsTarget.category.name}`);
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Error al mover el sobrante a ahorro: ' + (err.message || ''));
+    } finally {
+      setProcessingSurplusKey(null);
+    }
+  };
 
   const alerts = budgetData.filter(b => !b.is_savings && (b.status === 'warning' || b.status === 'exceeded'));
 
@@ -266,6 +373,55 @@ export default function BudgetsPageClient() {
             </>
           )}
         </div>
+
+        {/* Smart Budgets: sobrante detectado del mes anterior — rollover o auto-ahorro a 1 tap */}
+        {surplusCandidates.length > 0 && (
+          <div className="space-y-2">
+            {surplusCandidates.map(c => {
+              const isProcessing = processingSurplusKey === c.key;
+              return (
+                <div key={c.key} className="rounded-2xl border border-secondary-500/20 bg-secondary-500/10 p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-xl bg-secondary-500/15 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Presupuesto sobrante detectado</p>
+                      <p className="text-xs text-muted-foreground">
+                        Te sobraron <span className="font-semibold tabular-nums text-secondary-700 dark:text-secondary-400">{fmt(c.surplus)}</span> en {c.category.name} el mes pasado
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => markSurplusHandled(c, 'dismissed')}
+                      className="shrink-0 p-1 -m-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                      title="Ignorar"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRollover(c)}
+                      disabled={isProcessing}
+                      className="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Sumar a este mes
+                    </button>
+                    <button
+                      onClick={() => handleAutoSavings(c)}
+                      disabled={isProcessing}
+                      className="flex-1 py-2 rounded-xl bg-secondary-500 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Mover a Ahorro
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Margen de seguridad: solo mide cuánto del exceso de gasto consume el colchón */}
         {cushion > 0 && (

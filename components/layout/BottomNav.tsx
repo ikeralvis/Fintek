@@ -17,10 +17,6 @@ export default function BottomNav() {
         return pathname === path || (path !== '/dashboard' && pathname.startsWith(path));
     };
 
-    // En "Mis Cuentas" el header ya tiene un único botón "+" para crear cuenta;
-    // el FAB central (que crea una transacción) queda oculto ahí para no duplicar la acción.
-    const showCenterFab = pathname !== '/dashboard/cuentas';
-
     const toggleMore = () => setIsMoreOpen(!isMoreOpen);
 
     // Menu items for "More" drawer - Only items not in main nav
@@ -107,20 +103,18 @@ export default function BottomNav() {
                         );
                     })}
 
-                    {/* Center Action Button */}
-                    {showCenterFab && (
-                        <div className="relative -top-5">
-                            <button
-                                onClick={() => {
-                                    sessionStorage.setItem('previousPath', pathname);
-                                    window.location.href = '/dashboard/transacciones/nueva';
-                                }}
-                                className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"
-                            >
-                                <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={2.5} />
-                            </button>
-                        </div>
-                    )}
+                    {/* Center Action Button: siempre visible, en cualquier pantalla del bottom nav */}
+                    <div className="relative -top-5">
+                        <button
+                            onClick={() => {
+                                sessionStorage.setItem('previousPath', pathname);
+                                window.location.href = '/dashboard/transacciones/nueva';
+                            }}
+                            className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"
+                        >
+                            <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={2.5} />
+                        </button>
+                    </div>
 
                     <Link
                         href="/dashboard/cuentas"

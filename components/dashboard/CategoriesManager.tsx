@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2, Tag, AlertCircle, Pencil, Check } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Trash2, Tag, AlertCircle, Pencil, Check, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CategoryIcon, { AVAILABLE_ICONS, iconLabels } from '@/components/ui/CategoryIcon';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { groupCategories } from '@/lib/categoryGroups';
 
 type Category = {
   id: string;
@@ -71,8 +72,10 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
   const [editColor, setEditColor] = useState('');
   const [showEditIconPicker, setShowEditIconPicker] = useState(false);
   const [editUseEmoji, setEditUseEmoji] = useState(false);
+  const [listQuery, setListQuery] = useState('');
 
   const supabase = createClient();
+  const groupedList = useMemo(() => groupCategories(categories, listQuery), [categories, listQuery]);
 
   const handleAddCategory = async (categoryName: string, icon?: string, color?: string) => {
     setError('');
@@ -243,42 +246,67 @@ export default function CategoriesManager({ initialCategories, userId }: Props) 
 
       {/* Categories List */}
       <div>
-        <h3 className="font-bold text-foreground mb-3">Mis Categorías ({categories.length})</h3>
-        <div className="space-y-2">
-          {categories.length === 0 ? (
-            <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
-              <Tag className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground font-medium">No tienes categorías</p>
-            </div>
-          ) : (
-            categories.map(category => (
-              <div key={category.id} className="flex items-center justify-between p-4 bg-card rounded-xl border border-border group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${category.color || '#3B82F6'}15` }}>
-                    <CategoryIcon name={category.icon} className="w-5 h-5" style={{ color: category.color || '#3B82F6' }} />
-                  </div>
-                  <span className="font-bold text-foreground">{category.name}</span>
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => startEditing(category)}
-                    className="p-2 text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 rounded-xl shadow-sm transition-colors"
-                    title="Editar"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCategory(category.id, category.name)}
-                    className="p-2 text-accent-700 dark:text-accent-400 bg-accent-500/15 border border-accent-500/20 hover:bg-accent-500/25 rounded-xl shadow-sm transition-colors"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="font-bold text-foreground">Mis Categorías ({categories.length})</h3>
+        </div>
+
+        {categories.length > 8 && (
+          <div className="relative mb-3">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={listQuery}
+              onChange={(e) => setListQuery(e.target.value)}
+              placeholder="Buscar categoría..."
+              className="w-full rounded-xl border border-border bg-muted/60 py-2.5 pl-9 pr-3 text-sm font-medium text-foreground placeholder-muted-foreground outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        )}
+
+        {categories.length === 0 ? (
+          <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
+            <Tag className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-muted-foreground font-medium">No tienes categorías</p>
+          </div>
+        ) : groupedList.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Sin resultados para "{listQuery}"</p>
+        ) : (
+          <div className="space-y-4">
+            {groupedList.map(({ group, items }) => (
+              <div key={group}>
+                <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{group}</p>
+                <div className="space-y-2">
+                  {items.map(category => (
+                    <div key={category.id} className="flex items-center justify-between p-4 bg-card rounded-xl border border-border group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${category.color || '#3B82F6'}15` }}>
+                          <CategoryIcon name={category.icon} className="w-5 h-5" style={{ color: category.color || '#3B82F6' }} />
+                        </div>
+                        <span className="font-bold text-foreground">{category.name}</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => startEditing(category)}
+                          className="p-2 text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 rounded-xl shadow-sm transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(category.id, category.name)}
+                          className="p-2 text-accent-700 dark:text-accent-400 bg-accent-500/15 border border-accent-500/20 hover:bg-accent-500/25 rounded-xl shadow-sm transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Edición: Bottom Sheet (idéntico patrón al resto de la app) */}

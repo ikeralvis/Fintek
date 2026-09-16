@@ -95,3 +95,50 @@ export async function deleteBudget(budgetId: string) {
     revalidatePath('/dashboard/presupuestos');
     return { success: true };
 }
+
+// --- Smart Budgets: sobrante de mes anterior (Rollover / Auto-Ahorro) ---
+// Persistido en Supabase (tabla budget_rollover_actions) en vez de localStorage, para que
+// el estado sea el mismo en cualquier dispositivo del usuario, no solo en el navegador local.
+
+export type RolloverAction = 'rollover' | 'auto_savings' | 'dismissed';
+
+/** Claves `categoryId:monthKey` ya resueltas (para no repetir el aviso de sobrante). */
+export async function getHandledRolloverKeys(): Promise<{ data: string[]; error?: string }> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: [], error: 'No autorizado' };
+
+    const { data, error } = await supabase
+        .from('budget_rollover_actions')
+        .select('category_id, month_key')
+        .eq('user_id', user.id);
+
+    if (error) {
+        console.error('Error fetching rollover actions:', error);
+        return { data: [], error: error.message };
+    }
+
+    return { data: (data || []).map(r => `${r.category_id}:${r.month_key}`) };
+}
+
+/** Registra qué se hizo con el sobrante de una categoría en un mes concreto. */
+export async function recordRolloverAction(categoryId: string, monthKey: string, action: RolloverAction, surplus: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autorizado' };
+
+    const { error } = await supabase
+        .from('budget_rollover_actions')
+        .upsert(
+            { user_id: user.id, category_id: categoryId, month_key: monthKey, action, surplus },
+            { onConflict: 'user_id,category_id,month_key' }
+        );
+
+    if (error) {
+        console.error('Error recording rollover action:', error);
+        return { error: error.message };
+    }
+
+    revalidatePath('/dashboard/presupuestos');
+    return { success: true };
+}

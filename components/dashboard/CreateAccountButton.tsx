@@ -89,10 +89,11 @@ export default function CreateAccountButton({ banks }: Props) {
       {/* Botón pequeño + */}
       <button
         onClick={() => setIsOpen(true)}
-        className="p-2 rounded-full hover:bg-neutral-200 transition-colors"
+        className="px-3 py-2 rounded-xl flex items-center gap-1.5 hover:bg-neutral-200 transition-colors"
         title="Nueva cuenta"
       >
         <Plus className="w-5 h-5 text-neutral-900" strokeWidth={2} />
+        <span>Añadir Cuenta</span>
       </button>
 
       {/* Modal a pantalla completa usando Portal */}

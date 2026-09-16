@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Check, Calendar, ChevronDown, ChevronUp, Search, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { createTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { NumericInput } from '@/components/ui/numeric-input';
+import { CategoryPicker } from '@/components/ui/category-picker';
+import { useDashboard } from '@/lib/DashboardContext';
+import { SUGGESTIONS, findCategoryByName, matchCategoryFromText, type Suggestion } from '@/lib/transactionSuggestions';
+import { getFrequentCategoryIds } from '@/lib/frequentCategories';
 import { cn } from '@/lib/utils';
 
 type Account = {
@@ -32,109 +36,10 @@ type Props = {
   categories: Category[];
 };
 
-type Suggestion = {
-  label: string;
-  description: string;
-  category: string;
-  amount?: number;
-  type?: 'expense' | 'income';
-};
-
-const SUGGESTIONS: Suggestion[] = [
-  // Alimentación / Supermercado
-  { label: 'Mercadona', description: 'Mercadona', category: 'Alimentación', type: 'expense' },
-  { label: 'Lidl', description: 'Lidl', category: 'Alimentación', type: 'expense' },
-  { label: 'Carrefour', description: 'Carrefour', category: 'Alimentación', type: 'expense' },
-  { label: 'Eroski', description: 'Eroski', category: 'Alimentación', type: 'expense' },
-  { label: 'Aldi', description: 'Aldi', category: 'Alimentación', type: 'expense' },
-  { label: 'Dia', description: 'Dia', category: 'Alimentación', type: 'expense' },
-  { label: 'BM', description: 'BM Supermercados', category: 'Supermercado', type: 'expense' },
-  { label: 'Compra semanal', description: 'Compra semanal', category: 'Alimentación', type: 'expense' },
-
-  // Restauración / Bar
-  { label: 'Starbucks', description: 'Starbucks', category: 'Starbucks', type: 'expense' },
-  { label: 'Café', description: 'Café', category: 'Bar', type: 'expense' },
-  { label: 'Restaurante', description: 'Restaurante', category: 'Restaurantes', type: 'expense' },
-  { label: 'Cena', description: 'Cena fuera', category: 'Restaurantes', type: 'expense' },
-  { label: 'Comida', description: 'Comida fuera', category: 'Restauración', type: 'expense' },
-  { label: 'Bar', description: 'Bar', category: 'Bar', type: 'expense' },
-  { label: 'Pintxos', description: 'Pintxos', category: 'Bar', type: 'expense' },
-  { label: 'McDonald\'s', description: 'McDonald\'s', category: 'Restauración', type: 'expense' },
-  { label: 'Burger King', description: 'Burger King', category: 'Restauración', type: 'expense' },
-
-  // Transporte
-  { label: 'Gasolina', description: 'Gasolina', category: 'Transporte', type: 'expense' },
-  { label: 'Bus', description: 'Autobús', category: 'Transporte', type: 'expense' },
-  { label: 'Metro', description: 'Metro', category: 'Transporte', type: 'expense' },
-  { label: 'Taxi', description: 'Taxi', category: 'Transporte', type: 'expense' },
-  { label: 'Uber', description: 'Uber', category: 'Transporte', type: 'expense' },
-  { label: 'Cabify', description: 'Cabify', category: 'Transporte', type: 'expense' },
-  { label: 'Parking', description: 'Parking', category: 'Transporte', type: 'expense' },
-  { label: 'Tren', description: 'Tren', category: 'Transporte', type: 'expense' },
-
-  // Suscripciones
-  { label: 'Netflix', description: 'Netflix', category: 'Suscripciones', amount: 17.99, type: 'expense' },
-  { label: 'Spotify', description: 'Spotify', category: 'Suscripciones', amount: 10.99, type: 'expense' },
-  { label: 'HBO', description: 'HBO Max', category: 'Suscripciones', amount: 8.99, type: 'expense' },
-  { label: 'Amazon Prime', description: 'Amazon Prime', category: 'Suscripciones', amount: 4.99, type: 'expense' },
-  { label: 'Disney+', description: 'Disney+', category: 'Suscripciones', amount: 8.99, type: 'expense' },
-  { label: 'YouTube Premium', description: 'YouTube Premium', category: 'Suscripciones', amount: 11.99, type: 'expense' },
-  { label: 'iCloud', description: 'iCloud', category: 'Suscripciones', amount: 0.99, type: 'expense' },
-  { label: 'ChatGPT', description: 'ChatGPT Plus', category: 'Suscripciones', amount: 20.00, type: 'expense' },
-  { label: 'Gimnasio', description: 'Gimnasio', category: 'Deportes', type: 'expense' },
-
-  // Servicios
-  { label: 'Luz', description: 'Factura luz', category: 'Servicios', type: 'expense' },
-  { label: 'Agua', description: 'Factura agua', category: 'Servicios', type: 'expense' },
-  { label: 'Gas', description: 'Factura gas', category: 'Servicios', type: 'expense' },
-  { label: 'Internet', description: 'Internet/Fibra', category: 'Servicios', type: 'expense' },
-  { label: 'Teléfono', description: 'Factura teléfono', category: 'Servicios', type: 'expense' },
-  { label: 'Seguro', description: 'Seguro', category: 'Servicios', type: 'expense' },
-
-  // Ocio
-  { label: 'Cine', description: 'Cine', category: 'Ocio', type: 'expense' },
-
-  // Salud
-  { label: 'Farmacia', description: 'Farmacia', category: 'Salud', type: 'expense' },
-  { label: 'Médico', description: 'Médico', category: 'Salud', type: 'expense' },
-  { label: 'Dentista', description: 'Dentista', category: 'Salud', type: 'expense' },
-
-  // Tecnología
-  { label: 'Amazon', description: 'Amazon', category: 'Tecnología', type: 'expense' },
-  { label: 'Apple', description: 'Apple', category: 'Tecnología', type: 'expense' },
-
-  // Compras / Ropa
-  { label: 'Zara', description: 'Zara', category: 'Ropa', type: 'expense' },
-  { label: 'Primark', description: 'Primark', category: 'Ropa', type: 'expense' },
-  { label: 'H&M', description: 'H&M', category: 'Ropa', type: 'expense' },
-  { label: 'Compras', description: 'Compras', category: 'Compras', type: 'expense' },
-
-  // Viajes / Hoteles
-  { label: 'Hotel', description: 'Hotel', category: 'Hoteles', type: 'expense' },
-  { label: 'Vuelo', description: 'Vuelo', category: 'Viajes', type: 'expense' },
-  { label: 'Airbnb', description: 'Airbnb', category: 'Hoteles', type: 'expense' },
-
-  // Peluquería
-  { label: 'Peluquería', description: 'Peluquería', category: 'Pelu', type: 'expense' },
-  { label: 'Pelu', description: 'Peluquería', category: 'Pelu', type: 'expense' },
-
-  // Ingresos
-  { label: 'Nómina', description: 'Nómina', category: 'Nomina', type: 'income' },
-  { label: 'Bizum', description: 'Bizum recibido', category: 'Bizum', type: 'income' },
-  { label: 'Transferencia', description: 'Transferencia recibida', category: 'Transferencia', type: 'income' },
-  { label: 'Beca', description: 'Beca', category: 'Beca', type: 'income' },
-  { label: 'Ingreso efectivo', description: 'Ingreso en efectivo', category: 'Ingreso efectivo', type: 'income' },
-  { label: 'Intereses', description: 'Intereses cuenta', category: 'Intereses', type: 'income' },
-  { label: 'Redondeo', description: 'Redondeo', category: 'Redondeo', type: 'income' },
-
-  // Ahorro
-  { label: 'Ahorro', description: 'Aportación ahorro', category: 'Ahorro', type: 'expense' },
-  { label: 'Aportación', description: 'Aportación mensual', category: 'Aportacion mensual', type: 'expense' },
-];
-
 export default function TransactionForm({ accounts, categories }: Props) {
   const router = useRouter();
   const supabase = createClient();
+  const { transactions } = useDashboard();
   const [loading, setLoading] = useState(false);
 
   const [amount, setAmount] = useState('');
@@ -156,6 +61,9 @@ export default function TransactionForm({ accounts, categories }: Props) {
   const descriptionRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  // Recuerda si la categoría actual la puso la auto-categorización (para no pisar una
+  // elección manual del usuario mientras sigue escribiendo el concepto).
+  const autoCategoryIdRef = useRef<string | null>(null);
 
   // Focus amount on mount
   useEffect(() => {
@@ -185,17 +93,24 @@ export default function TransactionForm({ accounts, categories }: Props) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const findCategoryByName = useCallback((name: string): Category | undefined => {
-    const lower = name.toLowerCase();
-    return categories.find(c => c.name.toLowerCase() === lower);
-  }, [categories]);
-
   const handleDescriptionChange = (value: string) => {
     setDescription(value);
+
+    // Auto-categorización en tiempo real: si la categoría actual está vacía o la puso esta
+    // misma auto-detección, cada pulsación intenta encontrar la categoría que mejor encaja
+    // con lo que se lleva escrito, sin esperar a que el usuario elija una sugerencia.
+    if (!categoryId || categoryId === autoCategoryIdRef.current) {
+      const match = matchCategoryFromText(value, categories);
+      if (match && match.id !== categoryId) {
+        setCategoryId(match.id);
+        autoCategoryIdRef.current = match.id;
+      }
+    }
+
     if (value.length >= 2) {
       const query = value.toLowerCase();
       const matches = SUGGESTIONS.filter(s => {
-        const hasCategory = findCategoryByName(s.category);
+        const hasCategory = findCategoryByName(categories, s.category);
         if (!hasCategory) return false;
         return (
           s.label.toLowerCase().includes(query) ||
@@ -217,9 +132,10 @@ export default function TransactionForm({ accounts, categories }: Props) {
     setShowSuggestions(false);
 
     // Auto-fill category
-    const matchedCat = findCategoryByName(suggestion.category);
+    const matchedCat = findCategoryByName(categories, suggestion.category);
     if (matchedCat) {
       setCategoryId(matchedCat.id);
+      autoCategoryIdRef.current = matchedCat.id;
       setIsCategoriesExpanded(false);
     }
 
@@ -257,6 +173,10 @@ export default function TransactionForm({ accounts, categories }: Props) {
   };
 
   const selectedCategory = categories.find(c => c.id === categoryId);
+  const frequentCategoryIds = useMemo(
+    () => (type === 'transfer' ? [] : getFrequentCategoryIds(transactions, type, 5)),
+    [transactions, type]
+  );
   const selectedAccount = accounts.find(a => a.id === accountId);
   const selectedToAccount = accounts.find(a => a.id === toAccountId);
 
@@ -275,6 +195,10 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
     setLoading(true);
 
+    // Si se eligió categoría pero se dejó el título vacío, el nombre de la categoría hace
+    // de título por defecto en vez de guardar la transacción sin concepto.
+    const finalDescription = description.trim() || selectedCategory?.name || '';
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
@@ -285,7 +209,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
           toAccountId,
           categoryId: categoryId || undefined,
           amount: Number.parseFloat(amount),
-          description: description || 'Transferencia',
+          description: finalDescription || 'Transferencia',
           transactionDate: date
         });
 
@@ -296,7 +220,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
           account_id: accountId,
           category_id: categoryId,
           amount: Number.parseFloat(amount),
-          description,
+          description: finalDescription,
           type,
           transaction_date: date
         }]);
@@ -346,6 +270,9 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
   const handleSelectCategory = (id: string) => {
     setCategoryId(id);
+    // Elección manual y explícita: deja de auto-recategorizar mientras el usuario siga
+    // escribiendo, para no pisar lo que acaba de elegir.
+    autoCategoryIdRef.current = null;
     setIsCategoriesExpanded(false);
   };
 
@@ -423,7 +350,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
                   className="absolute top-full left-0 right-0 mt-1.5 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden"
                 >
                   {filteredSuggestions.map((suggestion, idx) => {
-                    const matchedCat = findCategoryByName(suggestion.category);
+                    const matchedCat = findCategoryByName(categories, suggestion.category);
                     return (
                       <button
                         key={`${suggestion.label}-${idx}`}
@@ -647,33 +574,13 @@ export default function TransactionForm({ accounts, categories }: Props) {
               </button>
 
               {isCategoriesExpanded && (
-                <div className="border-t border-border p-3 max-h-72 overflow-y-auto">
-                  <div className="grid grid-cols-4 gap-2">
-                    {categories.map(cat => (
-                      <button
-                        key={cat.id}
-                        onClick={() => handleSelectCategory(cat.id)}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${categoryId === cat.id
-                            ? 'bg-primary'
-                            : 'hover:bg-muted bg-muted/40'
-                          }`}
-                      >
-                        <div
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${categoryId === cat.id ? 'scale-105' : ''}`}
-                          style={{ backgroundColor: cat.color ? `${cat.color}25` : '#f0f0f0' }}
-                        >
-                          <CategoryIcon
-                            name={cat.icon}
-                            className="w-6 h-6"
-                            style={{ color: cat.color || '#666' }}
-                          />
-                        </div>
-                        <span className={`text-[10px] font-semibold truncate w-full text-center leading-tight ${categoryId === cat.id ? 'text-primary-foreground' : 'text-foreground'}`}>
-                          {cat.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="border-t border-border p-3">
+                  <CategoryPicker
+                    categories={categories}
+                    selectedId={categoryId}
+                    onSelect={handleSelectCategory}
+                    frequentIds={frequentCategoryIds}
+                  />
                 </div>
               )}
           </div>

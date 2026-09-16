@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { NumericInput } from '@/components/ui/numeric-input';
+import { CategoryPicker } from '@/components/ui/category-picker';
+import { useDashboard } from '@/lib/DashboardContext';
+import { matchCategoryFromText } from '@/lib/transactionSuggestions';
+import { getFrequentCategoryIds } from '@/lib/frequentCategories';
 import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
@@ -51,6 +55,7 @@ type Props = {
 export default function EditTransactionModal({ transaction, categories, accounts, onClose, onSaved }: Props) {
     const router = useRouter();
     const supabase = createClient();
+    const { transactions } = useDashboard();
     const [loading, setLoading] = useState(false);
 
     const [amount, setAmount] = useState(transaction.amount.toString());
@@ -62,9 +67,33 @@ export default function EditTransactionModal({ transaction, categories, accounts
 
     const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
     const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
+    // Igual que en Nueva Transacción: recuerda si la categoría actual la puso la
+    // auto-categorización, para no pisar una elección manual mientras se sigue escribiendo.
+    const autoCategoryIdRef = useRef<string | null>(null);
 
     const selectedCategory = categories.find(c => c.id === categoryId);
+    const frequentCategoryIds = useMemo(
+        () => getFrequentCategoryIds(transactions, type, 5),
+        [transactions, type]
+    );
     const selectedAccount = accounts.find(a => a.id === accountId);
+
+    const handleDescriptionChange = (value: string) => {
+        setDescription(value);
+        if (!categoryId || categoryId === autoCategoryIdRef.current) {
+            const match = matchCategoryFromText(value, categories);
+            if (match && match.id !== categoryId) {
+                setCategoryId(match.id);
+                autoCategoryIdRef.current = match.id;
+            }
+        }
+    };
+
+    const handleSelectCategory = (id: string) => {
+        setCategoryId(id);
+        autoCategoryIdRef.current = null;
+        setIsCategoriesExpanded(false);
+    };
 
     // Agrupar cuentas por banco
     const groupedAccounts = accounts.reduce((acc: any, account) => {
@@ -81,6 +110,9 @@ export default function EditTransactionModal({ transaction, categories, accounts
         if (!canSubmit) return;
         setLoading(true);
 
+        // Si se deja el título vacío, el nombre de la categoría elegida hace de título por defecto.
+        const finalDescription = description.trim() || selectedCategory?.name || '';
+
         try {
             const newAmount = Number.parseFloat(amount);
 
@@ -89,7 +121,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
                 .from('transactions')
                 .update({
                     amount: newAmount,
-                    description,
+                    description: finalDescription,
                     type,
                     category_id: categoryId,
                     account_id: accountId,
@@ -151,7 +183,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
                             type="text"
                             placeholder="Descripción"
                             value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            onChange={(e) => handleDescriptionChange(e.target.value)}
                             className="flex-1 rounded-xl border border-border bg-muted/60 px-3 py-2.5 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:bg-card focus:ring-2 focus:ring-ring"
                         />
                         <div className="relative">
@@ -259,32 +291,12 @@ export default function EditTransactionModal({ transaction, categories, accounts
                         </button>
                         {isCategoriesExpanded && (
                             <div className="max-h-72 overflow-y-auto border-t border-border p-3">
-                                <div className="grid grid-cols-4 gap-2">
-                                    {categories.map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => { setCategoryId(cat.id); setIsCategoriesExpanded(false); }}
-                                            className={cn(
-                                                'flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all',
-                                                categoryId === cat.id ? 'bg-primary' : 'bg-card/50 hover:bg-card'
-                                            )}
-                                        >
-                                            <div
-                                                className={cn('flex h-12 w-12 items-center justify-center rounded-xl', categoryId === cat.id && 'scale-105')}
-                                                style={{ backgroundColor: cat.color ? `${cat.color}25` : 'var(--muted)' }}
-                                            >
-                                                <CategoryIcon
-                                                    name={cat.icon}
-                                                    className="h-6 w-6"
-                                                    style={{ color: cat.color || 'var(--muted-foreground)' }}
-                                                />
-                                            </div>
-                                            <span className={cn('w-full truncate text-center text-[10px] font-semibold leading-tight', categoryId === cat.id ? 'text-primary-foreground' : 'text-foreground')}>
-                                                {cat.name}
-                                            </span>
-                                        </button>
-                                    ))}
-                                </div>
+                                <CategoryPicker
+                                    categories={categories}
+                                    selectedId={categoryId}
+                                    onSelect={handleSelectCategory}
+                                    frequentIds={frequentCategoryIds}
+                                />
                             </div>
                         )}
                     </div>
