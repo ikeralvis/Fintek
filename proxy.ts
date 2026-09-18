@@ -65,3 +65,12 @@ export default async function proxy(request: NextRequest) {
 
   return response
 }
+
+// Sin esto, el middleware corre en TODA petición (incluidos sitemap.xml, robots.txt,
+// opengraph-image, _next/static y cualquier asset público), disparando una llamada a
+// Supabase por cada una. Se excluye lo que nunca necesita comprobación de sesión.
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon\\.ico|icon\\.png|apple-icon\\.png|manifest\\.json|sw\\.js|sitemap\\.xml|robots\\.txt|opengraph-image|google.*\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp|csv|xls)$).*)',
+  ],
+}

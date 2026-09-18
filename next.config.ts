@@ -36,6 +36,17 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      {
+        // Defensa en profundidad: además del `robots: { index: false }` en
+        // app/dashboard/layout.tsx, esta cabecera cubre cualquier respuesta (incluida una
+        // no-HTML) y a rastreadores que no respeten la metadata del documento.
+        source: "/dashboard/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
     ];
   },
 };

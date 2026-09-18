@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import DashboardNav from '@/components/layout/DashboardNav';
@@ -6,6 +7,14 @@ import BottomNav from '@/components/layout/BottomNav';
 import CommandSearch from '@/components/dashboard/CommandSearch';
 import { DashboardProvider } from '@/lib/DashboardContext';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// Todo lo que cuelga de /dashboard vive detrás de login y es distinto por usuario: no aporta
+// nada indexar/rastrear, y podría filtrar en resultados de búsqueda que existe contenido
+// financiero privado. `next.config.ts` añade además la cabecera X-Robots-Tag como defensa en
+// profundidad (cubre respuestas no-HTML y el caso de que algún rastreador ignore esta metadata).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 /** Shell estático: se pinta al instante (nav + esqueleto) sin esperar a los datos. */
 function DashboardShellFallback() {

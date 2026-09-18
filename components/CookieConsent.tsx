@@ -7,41 +7,47 @@ import { Cookie } from 'lucide-react';
 
 const CONSENT_KEY = 'fintek:cookieConsent';
 
-type Consent = 'accepted' | 'rejected';
-
-function loadConsent(): Consent | null {
+function hasAcknowledged(): boolean {
   try {
-    const raw = window.localStorage.getItem(CONSENT_KEY);
-    return raw === 'accepted' || raw === 'rejected' ? raw : null;
+    // Acepta el valor histórico ('accepted'/'rejected', de cuando el banner pedía una
+    // decisión) además del nuevo 'acknowledged': ambos significan "ya lo vio", y como el
+    // banner ahora es puramente informativo (solo hay cookies técnicas, no hace falta
+    // consentimiento por Art. 22 LSSI-CE) no hay que volver a preguntar a nadie que ya
+    // interactuó con la versión anterior.
+    return window.localStorage.getItem(CONSENT_KEY) !== null;
   } catch {
-    return null;
+    return false;
   }
 }
 
-/** Banner discreto de consentimiento de cookies, theme-aware (usa los tokens de la app, no colores fijos). */
+/**
+ * Aviso discreto e informativo sobre cookies, theme-aware. FinTek solo usa cookies técnicas
+ * (sesión de Supabase Auth) y localStorage para preferencias de interfaz — nada que requiera
+ * pedir consentimiento — así que esto es un aviso de transparencia, no un muro de permisos.
+ */
 export default function CookieConsent() {
-  const [consent, setConsent] = useState<Consent | null>('accepted'); // evita flash en SSR; se corrige en el efecto
+  const [acknowledged, setAcknowledged] = useState(true); // evita flash en SSR; se corrige en el efecto
 
   useEffect(() => {
-    setConsent(loadConsent());
+    setAcknowledged(hasAcknowledged());
   }, []);
 
-  const decide = (value: Consent) => {
-    setConsent(value);
-    try { window.localStorage.setItem(CONSENT_KEY, value); } catch { /* ignore */ }
+  const dismiss = () => {
+    setAcknowledged(true);
+    try { window.localStorage.setItem(CONSENT_KEY, 'acknowledged'); } catch { /* ignore */ }
   };
 
   return (
     <AnimatePresence>
-      {consent === null && (
+      {!acknowledged && (
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-x-4 z-[100] bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-4 md:inset-x-auto md:right-4 md:max-w-sm"
+          className="fixed inset-x-4 z-100 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-4 md:inset-x-auto md:right-4 md:max-w-sm"
           role="dialog"
-          aria-label="Consentimiento de cookies"
+          aria-label="Aviso de cookies"
         >
           <div className="rounded-2xl border border-border bg-card shadow-strong p-4">
             <div className="flex items-start gap-3">
@@ -49,27 +55,19 @@ export default function CookieConsent() {
                 <Cookie className="w-4 h-4 text-muted-foreground" />
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Usamos cookies propias esenciales para que la app funcione y, con tu permiso, para medir el uso.
-                Puedes leer más en nuestra{' '}
+                Solo usamos cookies técnicas esenciales (tu sesión) y preferencias guardadas en tu navegador.
+                Nada de analítica ni publicidad. Más detalle en nuestra{' '}
                 <Link href="/cookies" className="text-foreground font-semibold underline underline-offset-2">
                   política de cookies
                 </Link>.
               </p>
             </div>
-            <div className="flex items-center gap-2 mt-3">
-              <button
-                onClick={() => decide('rejected')}
-                className="flex-1 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
-              >
-                Rechazar
-              </button>
-              <button
-                onClick={() => decide('accepted')}
-                className="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
-              >
-                Aceptar
-              </button>
-            </div>
+            <button
+              onClick={dismiss}
+              className="mt-3 w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+            >
+              Entendido
+            </button>
           </div>
         </motion.div>
       )}

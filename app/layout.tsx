@@ -6,9 +6,37 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import CookieConsent from "@/components/CookieConsent";
 import "./globals.css";
 
+const SITE_URL = "https://fintek-app.vercel.app";
+const SITE_NAME = "FinTek";
+const SITE_DESCRIPTION = "Gestiona tus cuentas, presupuestos e inversiones en un solo sitio. Sin conectar tu banco, sin ceder tus credenciales a nadie.";
+
 export const metadata: Metadata = {
-  title: "Fintek - Gestor Financiero Personal",
-  description: "Gestiona tus finanzas personales de forma simple y eficiente",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "FinTek — Gestor Financiero Personal",
+    template: "%s — FinTek",
+  },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: "FinTek — Gestor Financiero Personal",
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "FinTek" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FinTek — Gestor Financiero Personal",
+    description: SITE_DESCRIPTION,
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 
   manifest: "/manifest.json",
   // Referencia explícita a los iconos propios de la app (generados con scripts/generate-icons.mjs
