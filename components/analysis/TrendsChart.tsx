@@ -71,7 +71,7 @@ export default function TrendsChart({ categories, weeklyPattern }: Props) {
                             <Tooltip
                                 cursor={{ fill: 'var(--muted)' }}
                                 contentStyle={{ borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--card)', fontSize: '11px' }}
-                                formatter={(val: number | undefined) => [`${new Intl.NumberFormat('es-ES').format(val ?? 0)}€`, 'Previsto']}
+                                formatter={(val) => [`${new Intl.NumberFormat('es-ES').format(Number(val ?? 0))}€`, 'Previsto']}
                             />
                             <Bar dataKey="prediction" radius={[6, 6, 0, 0]} maxBarSize={32}>
                                 {topCategories.map((c) => (
@@ -92,7 +92,7 @@ export default function TrendsChart({ categories, weeklyPattern }: Props) {
                             <Tooltip
                                 cursor={{ fill: 'var(--muted)' }}
                                 contentStyle={{ borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--card)', fontSize: '11px' }}
-                                formatter={(_: number | undefined, __: string | undefined, item: any) => [item.payload.isPeak ? 'Día de mayor gasto' : 'Gasto relativo', item.payload.day]}
+                                formatter={(_val, _name, item: any) => [item.payload.isPeak ? 'Día de mayor gasto' : 'Gasto relativo', item.payload.day]}
                             />
                             <Bar dataKey="level" radius={[6, 6, 0, 0]} maxBarSize={28}>
                                 {weekdayData.map((d) => (

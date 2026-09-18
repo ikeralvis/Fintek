@@ -33,7 +33,7 @@ export default async function PredictionCard() {
 
                         <div className="flex items-baseline gap-2 mb-1">
                             <span className="text-sm font-medium text-neutral-800">Gasto estimado:</span>
-                            <span className="text-3xl font-black text-neutral-900">{displayAmount}</span>
+                            <span className="text-3xl font-black text-neutral-900 tabular-nums">{displayAmount}</span>
                         </div>
 
                         <p className="text-xs font-medium text-orange-900/70">

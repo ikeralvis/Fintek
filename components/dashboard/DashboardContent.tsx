@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Settings2, X, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
+import { format, isSameMonth, parseISO } from 'date-fns';
 import { useDashboard } from '@/lib/DashboardContext';
 import NetWorthCard from './NetWorthCard';
 import QuickActions from './QuickActions';
@@ -9,6 +10,7 @@ import AccountList from './AccountList';
 import RecentTransactionsList from './RecentTransactionsList';
 import WalletWidget from './WalletWidget';
 import UpcomingSubscriptionsWidget from './UpcomingSubscriptionsWidget';
+import AlertsBell from './AlertsBell';
 
 type WidgetId = 'netWorth' | 'quickActions' | 'recentTransactions' | 'accounts' | 'wallet' | 'upcomingSubscriptions';
 type Column = 'main' | 'side';
@@ -88,12 +90,15 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
   };
 
   const now = new Date();
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const monthKey = format(now, 'yyyy-MM');
 
   const { totalBalance, monthlyIncome, monthlyExpense, recentTransactions, walletAccount, bankAccounts } = useMemo(() => {
     const totalBalance = accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
 
-    const monthTx = transactions.filter(t => t.transaction_date >= firstDayOfMonth);
+    // Mismo criterio que /movimientos (TransactionsView en modo "mes"): isSameMonth
+    // acota al mes en curso completo (no solo desde el día 1 hacia adelante), para
+    // que la cifra de Ingresos sea idéntica en ambas pantallas.
+    const monthTx = transactions.filter(t => isSameMonth(parseISO(t.transaction_date), now));
     const monthlyIncome = monthTx.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const monthlyExpense = monthTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
@@ -102,7 +107,8 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
     const bankAccounts = accounts.filter(a => a.type !== 'wallet');
 
     return { totalBalance, monthlyIncome, monthlyExpense, recentTransactions, walletAccount, bankAccounts };
-  }, [accounts, transactions, firstDayOfMonth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, transactions, monthKey]);
 
   const renderWidget = (id: WidgetId) => {
     switch (id) {
@@ -137,13 +143,16 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
         <h1 className="text-2xl font-bold text-foreground tracking-tight leading-none">
           Hola, {firstName}
         </h1>
-        <button
-          onClick={() => setIsCustomizeOpen(true)}
-          className="p-2.5 rounded-xl bg-card border border-border text-muted-foreground hover:bg-muted transition-colors"
-          title="Personalizar inicio"
-        >
-          <Settings2 className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <AlertsBell />
+          <button
+            onClick={() => setIsCustomizeOpen(true)}
+            className="p-2.5 rounded-xl bg-card border border-border text-muted-foreground hover:bg-muted transition-colors"
+            title="Personalizar inicio"
+          >
+            <Settings2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="px-5 md:max-w-6xl md:mx-auto">

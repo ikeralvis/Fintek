@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-    XAxis, YAxis, Tooltip, ReferenceLine,
-    ResponsiveContainer
+    XAxis, YAxis, ReferenceLine
 } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
     format, subMonths, addMonths, startOfMonth, endOfMonth,
     parseISO, startOfYear, eachMonthOfInterval, eachDayOfInterval, isValid, isWithinInterval
@@ -28,6 +29,15 @@ const COLORS = [
 ];
 const OTROS_COLOR = '#a1a1aa';
 const OTROS_THRESHOLD_PCT = 3;
+
+const incomeExpenseConfig: ChartConfig = {
+    income: { label: 'Ingresos', color: '#10b981' },
+    expense: { label: 'Gastos', color: '#f43f5e' },
+};
+
+const balanceConfig: ChartConfig = {
+    balance: { label: 'Balance', color: '#3f3f46' },
+};
 
 type PeriodType = 'month' | 'year';
 
@@ -182,6 +192,10 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             txCount: filteredTxs.length
         };
     }, [initialTransactions, periodType, currentDate]);
+
+    const pieConfig: ChartConfig = useMemo(() => Object.fromEntries(
+        stats.pieData.map((c: any, i: number) => [c.name, { label: c.name, color: c.color || COLORS[i % COLORS.length] }])
+    ), [stats.pieData]);
 
     const handleExportPDF = () => {
         setExporting(true);
@@ -378,8 +392,19 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                         <button onClick={() => navigatePeriod(-1)} className="p-1.5 hover:bg-muted rounded-lg">
                             <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                         </button>
-                        <span className="text-sm font-medium text-foreground min-w-[110px] text-center capitalize">
-                            {periodLabel}
+                        <span className="relative inline-block min-w-[110px] h-5 overflow-hidden text-center">
+                            <AnimatePresence mode="wait" initial={false}>
+                                <motion.span
+                                    key={periodLabel}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -6 }}
+                                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                                    className="absolute inset-x-0 text-sm font-medium text-foreground capitalize"
+                                >
+                                    {periodLabel}
+                                </motion.span>
+                            </AnimatePresence>
                         </span>
                         <button onClick={() => navigatePeriod(1)} className="p-1.5 hover:bg-muted rounded-lg">
                             <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -387,6 +412,15 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     </div>
                 </div>
 
+                {/* Contenido del período: se reanima con un fundido + leve ascenso al cambiar
+                    de mes/año, en vez de un corte instantáneo de todas las cifras. */}
+                <motion.div
+                    key={`${periodType}-${periodLabel}`}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    className="space-y-5"
+                >
                 {/* Summary Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div className="bg-card rounded-2xl p-4 border border-border">
@@ -452,25 +486,34 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                     {/* Income vs Expense: barras agrupadas (más fiables al tacto que una línea fina) */}
                     <div className="bg-card rounded-2xl p-5 border border-border">
                         <h3 className="text-sm font-bold text-foreground mb-4">Ingresos vs Gastos</h3>
-                        <ResponsiveContainer width="100%" height={220}>
+                        <ChartContainer config={incomeExpenseConfig} className="h-[220px]">
                             <BarChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={2}>
-                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} interval={periodType === 'month' ? 4 : 0} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
-                                    cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                                    formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, '']}
+                                <defs>
+                                    <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
+                                    </linearGradient>
+                                    <linearGradient id="gradExpense" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.9} />
+                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.5} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} interval={periodType === 'month' ? 4 : 0} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                                <ChartTooltip
+                                    cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
+                                    content={<ChartTooltipContent formatter={(val) => `${formatCompact(val)}€`} />}
                                 />
-                                <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={18} />
-                                <Bar dataKey="expense" name="Gastos" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                                <Bar dataKey="income" name="Ingresos" fill="url(#gradIncome)" radius={[3, 3, 0, 0]} maxBarSize={18} animationDuration={500} animationEasing="ease-out" />
+                                <Bar dataKey="expense" name="Gastos" fill="url(#gradExpense)" radius={[3, 3, 0, 0]} maxBarSize={18} animationDuration={500} animationEasing="ease-out" />
                             </BarChart>
-                        </ResponsiveContainer>
+                        </ChartContainer>
                     </div>
 
                     {/* Balance Evolution: sombreado rojo/rosa suave al entrar en negativo */}
                     <div className="bg-card rounded-2xl p-5 border border-border">
                         <h3 className="text-sm font-bold text-foreground mb-4">Evolución del Balance{periodType === 'month' ? ' (acumulado)' : ''}</h3>
-                        <ResponsiveContainer width="100%" height={220}>
+                        <ChartContainer config={balanceConfig} className="h-[220px]">
                             <AreaChart data={stats.chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <defs>
                                     {(() => {
@@ -480,33 +523,35 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                         const zeroOffset = balanceMax - balanceMin > 0 ? balanceMax / (balanceMax - balanceMin) : 1;
                                         return (
                                             <linearGradient id="gradBalance" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset={0} stopColor="#3f3f46" stopOpacity={0.18} />
-                                                <stop offset={zeroOffset} stopColor="#3f3f46" stopOpacity={0.02} />
-                                                <stop offset={zeroOffset} stopColor="#f43f5e" stopOpacity={0.12} />
-                                                <stop offset={1} stopColor="#f43f5e" stopOpacity={0.32} />
+                                                <stop offset={0} stopColor="#3f3f46" stopOpacity={0.4} />
+                                                <stop offset={zeroOffset} stopColor="#3f3f46" stopOpacity={0.05} />
+                                                <stop offset={zeroOffset} stopColor="#f43f5e" stopOpacity={0.1} />
+                                                <stop offset={1} stopColor="#f43f5e" stopOpacity={0.4} />
                                             </linearGradient>
                                         );
                                     })()}
                                 </defs>
-                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a1a1aa' }} interval={periodType === 'month' ? 4 : 0} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#d4d4d8' }} domain={['dataMin', 'dataMax']} />
-                                <ReferenceLine y={0} stroke="#e4e4e7" />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e4e4e7', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', fontSize: '12px' }}
-                                    formatter={(val: number | undefined) => [`${val !== undefined ? formatCompact(val) : '0'}€`, 'Balance']}
+                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} interval={periodType === 'month' ? 4 : 0} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} domain={['dataMin', 'dataMax']} />
+                                <ReferenceLine y={0} stroke="var(--border)" />
+                                <ChartTooltip
+                                    content={<ChartTooltipContent formatter={(val) => `${formatCompact(val)}€`} />}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="balance"
+                                    name="Balance"
                                     stroke="#3f3f46"
                                     strokeWidth={2}
                                     fillOpacity={1}
                                     fill="url(#gradBalance)"
                                     dot={stats.chartData.length <= 2}
                                     activeDot={{ r: 5 }}
+                                    animationDuration={600}
+                                    animationEasing="ease-out"
                                 />
                             </AreaChart>
-                        </ResponsiveContainer>
+                        </ChartContainer>
                     </div>
                 </div>
 
@@ -517,7 +562,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                             <h3 className="text-sm font-bold text-foreground mb-4">Distribución de Gastos</h3>
                             <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <div className="w-40 h-40 relative shrink-0">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ChartContainer config={pieConfig} className="h-full">
                                         <PieChart>
                                             <Pie
                                                 data={stats.pieData}
@@ -527,17 +572,18 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                                 outerRadius={60}
                                                 paddingAngle={2}
                                                 dataKey="value"
+                                                animationDuration={500}
+                                                animationEasing="ease-out"
                                             >
                                                 {stats.pieData.map((entry: any, i: number) => (
                                                     <Cell key={entry.name} fill={entry.color || COLORS[i % COLORS.length]} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip
-                                                contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                                                formatter={(val: number | undefined) => [`${formatCompact(val ?? 0)}€`, '']}
+                                            <ChartTooltip
+                                                content={<ChartTooltipContent hideLabel formatter={(val) => `${formatCompact(val)}€`} />}
                                             />
                                         </PieChart>
-                                    </ResponsiveContainer>
+                                    </ChartContainer>
                                 </div>
                                 <div className="flex-1 w-full space-y-2 max-h-40 overflow-y-auto">
                                     {stats.pieData.map((item: any, i: number) => {
@@ -592,7 +638,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                                             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full rounded-full transition-all"
-                                                    style={{ width: `${percentage}%`, backgroundColor: isIncome ? '#10b981' : cat.color }}
+                                                    style={{ width: `${percentage}%`, backgroundColor: cat.color }}
                                                 />
                                             </div>
                                         </div>
@@ -606,6 +652,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
                 <div className="text-center py-4 text-xs text-muted-foreground">
                     {stats.txCount} transacciones en este período
                 </div>
+                </motion.div>
             </div>
         </div>
     );

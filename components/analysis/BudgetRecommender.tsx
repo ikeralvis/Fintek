@@ -41,7 +41,7 @@ export default function BudgetRecommender({ data }: Props) {
                             </div>
                             <div className="text-right">
                                 <span className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-0.5">ESTIMADO</span>
-                                <span className="text-2xl font-bold text-neutral-900 tracking-tighter">
+                                <span className="text-2xl font-bold text-neutral-900 tabular-nums">
                                     {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cat.predictedNextMonth)}
                                 </span>
                             </div>
@@ -59,7 +59,7 @@ export default function BudgetRecommender({ data }: Props) {
                                     </defs>
                                     <Tooltip
                                         contentStyle={{ borderRadius: '12px', border: '1px solid #e5e5e5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        formatter={(value: number | undefined) => [value !== undefined ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value) : '€0.00', 'Gasto']}
+                                        formatter={(value) => [new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value ?? 0)), 'Gasto']}
                                         labelStyle={{ display: 'none' }}
                                     />
                                     <Area

@@ -93,7 +93,7 @@ export default function BudgetsView({ initialBudgets, currentExpenses, categorie
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                     <div className="relative z-10">
                         <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Disponible del Mes</p>
-                        <h2 className="text-4xl font-black mb-6">
+                        <h2 className="text-4xl font-black tabular-nums mb-6">
                             {new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(totalRemaining)}
                             <span className="text-sm font-medium text-white/50 ml-2">de {new Intl.NumberFormat('es-ES').format(totalBudget)}€</span>
                         </h2>

@@ -38,7 +38,10 @@ const DialogContent = React.forwardRef<
         // Desktop (sm+): diálogo centrado clásico con zoom + fade sutil.
         'fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 rounded-t-3xl border border-border bg-card p-6 text-card-foreground shadow-strong duration-300 ease-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
         'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:slide-in-from-bottom-0',
-        'max-h-[90vh] overflow-y-auto',
+        // dvh (no vh) para que la altura máxima se reduzca cuando el teclado nativo aparece
+        // (junto con interactiveWidget: 'resizes-content' en el viewport), así el sheet nunca
+        // queda tapado y el contenedor sigue siendo desplazable hasta el botón de guardar.
+        'max-h-[90dvh] overflow-y-auto overscroll-contain',
         className
       )}
       {...props}

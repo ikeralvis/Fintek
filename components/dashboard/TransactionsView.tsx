@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, ChevronLeft, ChevronRight, X, Database, CalendarRange } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import { format, parseISO, isSameDay, isSameMonth, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
@@ -91,6 +91,20 @@ export default function TransactionsView({ initialTransactions, accounts, catego
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    // Dirección del último cambio de mes (1 = siguiente, -1 = anterior), para que la
+    // transición del label y el gesto de swipe se sientan consistentes entre sí.
+    const [monthDirection, setMonthDirection] = useState<1 | -1>(1);
+
+    const navigateMonth = (dir: 1 | -1) => {
+        setMonthDirection(dir);
+        setCurrentDate(prev => (dir > 0 ? addMonths(prev, 1) : subMonths(prev, 1)));
+    };
+
+    const SWIPE_MONTH_THRESHOLD = 60;
+    const handleMonthSwipeEnd = (_: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
+        if (info.offset.x <= -SWIPE_MONTH_THRESHOLD) navigateMonth(1);
+        else if (info.offset.x >= SWIPE_MONTH_THRESHOLD) navigateMonth(-1);
+    };
 
     const periodOptions: SelectSheetOption[] = useMemo(() => {
         const months: SelectSheetOption[] = Array.from({ length: MONTH_HISTORY }, (_, i) => {
@@ -250,20 +264,33 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
                     {/* Selector temporal + segmented control de tipo */}
                     <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 md:mx-0 md:px-0">
+                        {/* Selector de mes: sin drag propio (el swipe vive en la tarjeta de resumen);
+                            el cruce de texto ocurre solo dentro del botón, al pulsar las flechas. */}
                         <div className="flex items-center gap-1 bg-card border border-border rounded-xl px-1 py-1 shrink-0">
                             {viewMode === 'month' && (
-                                <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-1.5 hover:bg-muted rounded-lg">
+                                <button onClick={() => navigateMonth(-1)} className="p-1.5 hover:bg-muted rounded-lg">
                                     <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                                 </button>
                             )}
                             <button
                                 onClick={() => setIsPeriodSheetOpen(true)}
-                                className="px-2 text-sm font-semibold text-foreground min-w-[92px] text-center capitalize hover:text-primary transition-colors"
+                                className="relative h-7 min-w-[92px] overflow-hidden px-2 text-center hover:text-primary transition-colors"
                             >
-                                {viewMode === 'all' ? 'Todo el histórico' : format(currentDate, 'MMM yyyy', { locale: es })}
+                                <AnimatePresence mode="wait" initial={false}>
+                                    <motion.span
+                                        key={periodValue}
+                                        initial={{ opacity: 0, x: monthDirection * 14 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: monthDirection * -14 }}
+                                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                        className="absolute inset-0 flex items-center justify-center whitespace-nowrap text-sm font-semibold text-foreground capitalize"
+                                    >
+                                        {viewMode === 'all' ? 'Todo el histórico' : format(currentDate, 'MMM yyyy', { locale: es })}
+                                    </motion.span>
+                                </AnimatePresence>
                             </button>
                             {viewMode === 'month' && (
-                                <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-1.5 hover:bg-muted rounded-lg">
+                                <button onClick={() => navigateMonth(1)} className="p-1.5 hover:bg-muted rounded-lg">
                                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                                 </button>
                             )}
@@ -275,7 +302,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                     key={seg.value}
                                     onClick={() => setTypeFilter(seg.value)}
                                     className={cn(
-                                        'relative min-w-[64px] rounded-lg py-1.5 text-xs font-semibold transition-colors',
+                                        'relative min-w-[48px] sm:min-w-[64px] rounded-lg px-2 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold transition-colors',
                                         typeFilter === seg.value ? 'text-foreground' : 'text-muted-foreground'
                                     )}
                                 >
@@ -294,9 +321,23 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                 </div>
             </div>
 
-            <div className="px-5 space-y-6 max-w-6xl mx-auto">
-                {/* Summary Card */}
-                <div className="bg-card rounded-2xl border border-border p-5 mt-2">
+            <motion.div
+                key={`${periodValue}-${typeFilter}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="px-5 space-y-6 max-w-6xl mx-auto"
+            >
+                {/* Summary Card: también admite swipe horizontal para cambiar de mes */}
+                <motion.div
+                    className="bg-card rounded-2xl border border-border p-5 mt-2"
+                    drag={viewMode === 'month' ? 'x' : false}
+                    dragDirectionLock
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.5}
+                    onDragEnd={handleMonthSwipeEnd}
+                    style={{ touchAction: 'pan-y' }}
+                >
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Balance del período</p>
@@ -313,7 +354,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                             <p className="text-lg font-semibold tabular-nums text-accent-700 dark:text-accent-400">{formatCurrency(totalExpense > 0 ? -totalExpense : 0)}</p>
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Transaction List */}
                 <div className="space-y-5">
@@ -328,13 +369,14 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                     {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM yyyy', { locale: es })}
                                 </h3>
                                 <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
-                                    {groupedTransactions[date].map(t => {
+                                    {groupedTransactions[date].map((t, idx, arr) => {
                                         const isTransfer = t.type === 'transfer';
                                         const categoryName = t.categories?.name || t.category || (isTransfer ? 'Transferencia' : 'General');
                                         const accountName = accounts.find(a => a.id === t.account_id)?.name || t.accounts?.name || 'Cuenta';
                                         const destinationName = t.related_account_id
                                             ? accounts.find(a => a.id === t.related_account_id)?.name || 'Cuenta destino'
                                             : null;
+                                        const edge = arr.length === 1 ? 'both' : idx === 0 ? 'top' : idx === arr.length - 1 ? 'bottom' : 'none';
 
                                         return (
                                             <SwipeActionRow
@@ -342,6 +384,7 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                                 onEdit={() => setEditingTransaction(t)}
                                                 onDelete={() => handleDeleteTransaction(t)}
                                                 disabled={deletingId === t.id}
+                                                edge={edge}
                                                 className="bg-card px-4 py-3 flex items-center gap-3"
                                             >
                                                 {/* Category Icon */}
@@ -377,8 +420,19 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                             </div>
                         ))
                     )}
+
+                    {/* Acceso rápido al mes anterior: evita volver arriba para seguir explorando */}
+                    {viewMode === 'month' && (
+                        <button
+                            onClick={() => navigateMonth(-1)}
+                            className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl border border-dashed border-border text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                        >
+                            Ver movimientos de {format(subMonths(currentDate, 1), 'MMMM', { locale: es })}
+                            <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                    )}
                 </div>
-            </div>
+            </motion.div>
 
             {/* Period SelectSheet */}
             <SelectSheet

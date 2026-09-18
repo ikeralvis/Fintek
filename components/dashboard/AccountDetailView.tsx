@@ -420,13 +420,14 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                     {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM', { locale: es })}
                                 </h4>
                                 <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
-                                    {txs.map(t => {
+                                    {txs.map((t, idx, arr) => {
                                         const rowKey = `${t.id}-${t.isIncomingTransfer ? 'in' : 'out'}`;
                                         const categoryName = t.categories?.name || t.category || (t.type === 'transfer' ? 'Transferencia' : 'General');
                                         const icon = t.categories?.icon;
                                         const isTransfer = t.type === 'transfer';
                                         const isIncoming = t.isIncomingTransfer;
                                         const showAsIncome = t.type === 'income' || isIncoming;
+                                        const edge = arr.length === 1 ? 'both' : idx === 0 ? 'top' : idx === arr.length - 1 ? 'bottom' : 'none';
 
                                         return (
                                             <SwipeActionRow
@@ -434,6 +435,7 @@ export default function AccountDetailView({ account, initialTransactions, catego
                                                 onEdit={() => setEditingTransaction(t)}
                                                 onDelete={() => handleDeleteTransaction(t)}
                                                 disabled={deletingId === t.id}
+                                                edge={edge}
                                                 className="bg-card px-4 py-3 flex items-center gap-3"
                                             >
                                                 <div

@@ -277,7 +277,7 @@ export default function TransactionForm({ accounts, categories }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-background animate-slide-up sm:static sm:h-auto sm:max-h-[90vh] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-strong">
+    <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-background animate-slide-up sm:static sm:h-auto sm:max-h-[90dvh] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-strong">
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-border">
         <button

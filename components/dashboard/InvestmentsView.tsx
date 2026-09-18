@@ -12,14 +12,15 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell, ReferenceLine, Legend
+  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis,
+  Cell, ReferenceLine, Legend
 } from 'recharts';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 type Account = {
   id: string;
@@ -245,6 +246,12 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
       });
   }, [snapshots, period, sortedDates, accounts, accountSnapshotsSorted]);
 
+  const dailyChangeConfig: ChartConfig = { realGain: { label: 'Rendimiento real' } };
+  const portfolioConfig: ChartConfig = { value: { label: 'Portfolio', color: '#52525b' } };
+  const perAccountConfig: ChartConfig = useMemo(() => Object.fromEntries(
+    accounts.map((acc, i) => [acc.id, { label: acc.name, color: ACCOUNT_COLORS[i % ACCOUNT_COLORS.length] }])
+  ), [accounts]);
+
   // --- Calendar data ---
   const calendarGains = useMemo(() => {
     const gains: Record<string, number> = {};
@@ -446,13 +453,13 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
         {/* Portfolio Total */}
         <div className="bg-card rounded-2xl border border-border p-5">
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Portfolio Total</p>
-          <p className="text-4xl font-black tracking-tight text-foreground font-mono">{fmt(totalValue)}</p>
+          <p className="text-4xl font-black tracking-tight tabular-nums text-foreground font-mono">{fmt(totalValue)}</p>
 
           {totalContributed > 0 && (
             <div className="mt-3 pt-3 border-t border-border">
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide mb-1">Rendimiento real</p>
               <div className="flex items-baseline gap-2">
-                <p className={`text-2xl font-black font-mono ${realGain >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>{fmtShort(realGain)}</p>
+                <p className={`text-2xl font-black font-mono tabular-nums ${realGain >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>{fmtShort(realGain)}</p>
                 <span className={`text-sm font-bold ${realGain >= 0 ? 'text-secondary-600 dark:text-secondary-400' : 'text-accent-600 dark:text-accent-400'}`}>
                   {realGainPct >= 0 ? '+' : ''}{realGainPct.toFixed(2)}%
                 </span>
@@ -516,7 +523,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1 min-w-0">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">€</span>
-                      <input type="number" step="0.01" placeholder={latest?.value?.toFixed(2) || '0.00'} value={inputValues[acc.id] || ''}
+                      <input type="number" step="0.01" inputMode="decimal" pattern="[0-9]*" placeholder={latest?.value?.toFixed(2) || '0.00'} value={inputValues[acc.id] || ''}
                         onChange={(e) => setInputValues(prev => ({ ...prev, [acc.id]: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSaveValue(acc.id); }}
                         className="w-full bg-muted/60 border border-border rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-medium text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-ring focus:bg-card outline-none" />
@@ -574,7 +581,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                       <div className="relative flex-1 min-w-0">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">€</span>
                         <input
-                          type="number" step="0.01" placeholder={(acc.contributed_capital || 0).toFixed(2)}
+                          type="number" step="0.01" inputMode="decimal" pattern="[0-9]*" placeholder={(acc.contributed_capital || 0).toFixed(2)}
                           value={contribInputs[acc.id] || ''}
                           onChange={(e) => setContribInputs(prev => ({ ...prev, [acc.id]: e.target.value }))}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleSaveContributed(acc.id); }}
@@ -629,7 +636,7 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                         <div className="relative w-28 shrink-0">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold">€</span>
                           <input
-                            type="number" step="0.01" autoFocus value={editingSnapshot.value}
+                            type="number" step="0.01" inputMode="decimal" pattern="[0-9]*" autoFocus value={editingSnapshot.value}
                             onChange={(e) => setEditingSnapshot({ id: s.id, value: e.target.value })}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateSnapshot(s); }}
                             className="w-full bg-muted/60 border border-border rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
@@ -680,28 +687,31 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
               <div className="bg-card rounded-2xl border border-border p-5">
                 <h3 className="text-sm font-semibold text-foreground mb-1">Ganancia / Pérdida Diaria</h3>
                 <p className="text-xs text-muted-foreground mb-4">Diferencia vs. día anterior</p>
-                <ResponsiveContainer width="100%" height={180}>
+                <ChartContainer config={dailyChangeConfig} className="h-[180px]">
                   <BarChart data={dailyChangesData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#d4d4d8' }} />
-                    <ReferenceLine y={0} stroke="#e4e4e7" />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                      formatter={(val: number | undefined, name: string | undefined, item: any) => {
-                        const contribution = item?.payload?.contribution ?? 0;
-                        if (contribution !== 0) {
-                          return [`${fmtShort(val ?? 0)}  ·  Aportación ${fmtShort(contribution)}`, 'Rendimiento real'];
-                        }
-                        return [fmtShort(val ?? 0), 'Rendimiento real'];
-                      }}
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                    <ReferenceLine y={0} stroke="var(--border)" />
+                    <ChartTooltip
+                      cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
+                      content={
+                        <ChartTooltipContent
+                          formatter={(val, _name, entry) => {
+                            const contribution = entry?.payload?.contribution ?? 0;
+                            return contribution !== 0
+                              ? <>{fmtShort(val)} <span className="opacity-60">· Aportación {fmtShort(contribution)}</span></>
+                              : fmtShort(val);
+                          }}
+                        />
+                      }
                     />
-                    <Bar dataKey="realGain" radius={[3, 3, 0, 0]} maxBarSize={24}>
+                    <Bar dataKey="realGain" name="Rendimiento real" radius={[3, 3, 0, 0]} maxBarSize={24} animationDuration={500} animationEasing="ease-out">
                       {dailyChangesData.map((entry, i) => (
                         <Cell key={i} fill={entry.realGain >= 0 ? '#10b981' : '#f43f5e'} />
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               </div>
             )}
 
@@ -718,35 +728,33 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                   )}
                 </div>
                 {showPerAccount && accounts.length > 1 ? (
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ChartContainer config={perAccountConfig} className="h-[220px]">
                     <LineChart data={perAccountEvolutionData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#d4d4d8' }} />
-                      <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                        formatter={(val: number | undefined, name: string | undefined) => [`${(val ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, accounts.find(a => a.id === name)?.name || name || '']} />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(val) => `${val.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`} />} />
                       <Legend wrapperStyle={{ fontSize: '10px' }} formatter={(value: string) => accounts.find(a => a.id === value)?.name || value} />
                       {accounts.map((acc, i) => (
-                        <Line key={acc.id} type="monotone" dataKey={acc.id} name={acc.id} stroke={ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]} strokeWidth={2} dot={perAccountEvolutionData.length <= 10} />
+                        <Line key={acc.id} type="monotone" dataKey={acc.id} name={acc.id} stroke={ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]} strokeWidth={2} dot={perAccountEvolutionData.length <= 10} animationDuration={600} animationEasing="ease-out" />
                       ))}
                     </LineChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 ) : (
-                  <ResponsiveContainer width="100%" height={180}>
+                  <ChartContainer config={portfolioConfig} className="h-[180px]">
                     <AreaChart data={evolutionData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gradPort" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#52525b" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#52525b" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#52525b" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#52525b" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#a1a1aa' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#d4d4d8' }}
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9 }}
                         domain={[(min: number) => Math.floor(min * 0.998), (max: number) => Math.ceil(max * 1.002)]} />
-                      <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #e4e4e7', fontSize: '11px' }}
-                        formatter={(val: number | undefined) => [`${(val ?? 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`, 'Portfolio']} />
-                      <Area type="monotone" dataKey="value" stroke="#52525b" strokeWidth={2} fill="url(#gradPort)" dot={evolutionData.length <= 10} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(val) => `${val.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€`} />} />
+                      <Area type="monotone" dataKey="value" name="Portfolio" stroke="#52525b" strokeWidth={2} fill="url(#gradPort)" dot={evolutionData.length <= 10} animationDuration={600} animationEasing="ease-out" />
                     </AreaChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 )}
               </div>
             )}
@@ -771,13 +779,13 @@ export default function InvestmentsView({ accounts: initialAccounts, snapshots: 
                           {fmtShort(change)} <span className="font-semibold opacity-70">({changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%)</span>
                         </span>
                       </div>
-                      <ResponsiveContainer width="100%" height={60}>
+                      <ChartContainer config={{ value: { label: acc.name, color: isUp ? '#10b981' : '#f43f5e' } }} className="h-[60px]">
                         <AreaChart data={accData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-                          <defs><linearGradient id={`g-${acc.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={isUp ? '#10b981' : '#f43f5e'} stopOpacity={0.15} /><stop offset="95%" stopColor={isUp ? '#10b981' : '#f43f5e'} stopOpacity={0} /></linearGradient></defs>
+                          <defs><linearGradient id={`g-${acc.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={isUp ? '#10b981' : '#f43f5e'} stopOpacity={0.4} /><stop offset="95%" stopColor={isUp ? '#10b981' : '#f43f5e'} stopOpacity={0.05} /></linearGradient></defs>
                           <YAxis hide domain={[(min: number) => min * 0.998, (max: number) => max * 1.002]} />
-                          <Area type="monotone" dataKey="value" stroke={isUp ? '#10b981' : '#f43f5e'} strokeWidth={1.5} fill={`url(#g-${acc.id})`} dot={false} />
+                          <Area type="monotone" dataKey="value" stroke={isUp ? '#10b981' : '#f43f5e'} strokeWidth={1.5} fill={`url(#g-${acc.id})`} dot={false} animationDuration={500} animationEasing="ease-out" />
                         </AreaChart>
-                      </ResponsiveContainer>
+                      </ChartContainer>
                     </div>
                   );
                 })}

@@ -227,11 +227,12 @@ export default function SubscriptionsPage({ initialSubscriptions, accounts, cate
           </div>
         ) : (
           <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
-            {[...activeSubs, ...pausedSubs].map(sub => {
+            {[...activeSubs, ...pausedSubs].map((sub, idx, arr) => {
               const daysUntil = differenceInDays(parseISO(sub.next_payment_date), new Date());
               const isUpcoming = sub.status === 'active' && daysUntil >= 0 && daysUntil <= 3;
               const isPaused = sub.status === 'paused';
               const cat = getCategoryForSub(sub.category_id);
+              const edge = arr.length === 1 ? 'both' : idx === 0 ? 'top' : idx === arr.length - 1 ? 'bottom' : 'none';
 
               return (
                 <SwipeActionRow
@@ -239,6 +240,7 @@ export default function SubscriptionsPage({ initialSubscriptions, accounts, cate
                   onEdit={() => openEditForm(sub)}
                   onDelete={() => handleDelete(sub)}
                   disabled={deletingId === sub.id}
+                  edge={edge}
                 >
                   {/*
                    * El atenuado de "pausada" va en este wrapper interior, nunca en la capa

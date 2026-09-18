@@ -94,7 +94,7 @@ export default function CreateAccountButton({ banks }: Props) {
         title="Nueva cuenta"
       >
         <Plus className="w-4 h-4" strokeWidth={2.5} />
-        <span>Añadir Cuenta</span>
+        <span>Cuenta</span>
       </button>
 
       {/* Modal a pantalla completa usando Portal */}
