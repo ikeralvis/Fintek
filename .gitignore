@@ -44,3 +44,7 @@ next-env.d.ts
 # local env files
 .env.local
 .env*.local
+
+#sql files
+/migrations
+.sql
