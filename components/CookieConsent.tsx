@@ -21,7 +21,7 @@ function hasAcknowledged(): boolean {
 }
 
 /**
- * Aviso discreto e informativo sobre cookies, theme-aware. FinTek solo usa cookies técnicas
+ * Aviso discreto e informativo sobre cookies, theme-aware. Fintek solo usa cookies técnicas
  * (sesión de Supabase Auth) y localStorage para preferencias de interfaz — nada que requiera
  * pedir consentimiento — así que esto es un aviso de transparencia, no un muro de permisos.
  */

@@ -5,7 +5,7 @@ import LandingPage from '@/components/landing/LandingPage';
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'FinTek',
+  name: 'Fintek',
   applicationCategory: 'FinanceApplication',
   operatingSystem: 'Web, iOS, Android',
   description: 'Gestor financiero personal: cuentas, presupuestos e inversiones en un solo sitio, sin conectar tu banco.',

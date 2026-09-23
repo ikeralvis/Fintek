@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Política de Privacidad — FinTek',
-  description: 'Cómo FinTek recoge, usa y protege tus datos personales, conforme al RGPD y la LOPDGDD.',
+  title: 'Política de Privacidad — Fintek',
+  description: 'Cómo Fintek recoge, usa y protege tus datos personales, conforme al RGPD y la LOPDGDD.',
   alternates: { canonical: '/privacidad' },
 };
 
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
             <li>Datos técnicos mínimos necesarios para el funcionamiento (sesión, preferencias de interfaz guardadas localmente en tu navegador).</li>
           </ul>
           <p className="mt-2">
-            FinTek no accede a tus credenciales bancarias ni se conecta directamente a tu banco: todos los datos
+            Fintek no accede a tus credenciales bancarias ni se conecta directamente a tu banco: todos los datos
             financieros se introducen o importan manualmente por ti. No recogemos datos de categorías especiales (Art. 9 RGPD).
           </p>
         </section>
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-base font-semibold text-foreground mb-2">7. Decisiones automatizadas</h2>
-          <p>Las predicciones y sugerencias que ofrece FinTek (presupuestos, análisis de tendencias) son orientativas y no producen efectos jurídicos ni te afectan significativamente en el sentido del artículo 22 RGPD: no existe toma de decisiones automatizada sin intervención humana.</p>
+          <p>Las predicciones y sugerencias que ofrece Fintek (presupuestos, análisis de tendencias) son orientativas y no producen efectos jurídicos ni te afectan significativamente en el sentido del artículo 22 RGPD: no existe toma de decisiones automatizada sin intervención humana.</p>
         </section>
       </div>
     </article>

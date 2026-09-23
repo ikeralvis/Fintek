@@ -3,7 +3,7 @@ import RegisterForm from './RegisterForm';
 
 export const metadata: Metadata = {
   title: 'Crear cuenta',
-  description: 'Crea tu cuenta gratuita en FinTek y empieza a gestionar tus finanzas personales.',
+  description: 'Crea tu cuenta gratuita en Fintek y empieza a gestionar tus finanzas personales.',
   alternates: { canonical: '/register' },
 };
 

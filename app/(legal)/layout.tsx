@@ -9,7 +9,7 @@ export default function LegalLayout({ children }: { readonly children: React.Rea
           <Link href="/" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
-          <span className="text-sm font-bold text-foreground">FinTek</span>
+          <span className="text-sm font-bold text-foreground">Fintek</span>
         </div>
       </div>
       <div className="max-w-2xl mx-auto px-5 py-10">

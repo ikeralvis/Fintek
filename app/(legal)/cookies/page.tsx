@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Política de Cookies — FinTek',
-  description: 'Qué cookies y almacenamiento local usa FinTek y para qué.',
+  title: 'Política de Cookies — Fintek',
+  description: 'Qué cookies y almacenamiento local usa Fintek y para qué.',
   alternates: { canonical: '/cookies' },
 };
 
@@ -16,7 +16,7 @@ export default function CookiesPage() {
         <section>
           <h2 className="text-base font-semibold text-foreground mb-2">1. Resumen</h2>
           <p>
-            FinTek solo usa <strong>cookies técnicas estrictamente necesarias</strong> y{' '}
+            Fintek solo usa <strong>cookies técnicas estrictamente necesarias</strong> y{' '}
             <strong>almacenamiento local del navegador</strong> (localStorage) para preferencias de interfaz.
             No usamos cookies de analítica, publicidad ni de terceros. Por eso el aviso de cookies de esta web
             es meramente informativo: al ser todas técnicas, la normativa (Art. 22 LSSI-CE) no exige recabar tu

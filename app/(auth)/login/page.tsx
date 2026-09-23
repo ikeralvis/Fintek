@@ -3,7 +3,7 @@ import LoginForm from './LoginForm';
 
 export const metadata: Metadata = {
   title: 'Iniciar sesión',
-  description: 'Accede a tu cuenta de FinTek para gestionar tus finanzas personales.',
+  description: 'Accede a tu cuenta de Fintek para gestionar tus finanzas personales.',
   alternates: { canonical: '/login' },
 };
 

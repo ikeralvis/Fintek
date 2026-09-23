@@ -79,8 +79,8 @@ export default function RegisterForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center space-x-2 mb-4">
-            <img src="/logo.png" alt="FinTek Logo" className="h-10 w-10" />
-            <span className="text-3xl font-bold text-primary-900">FinTek</span>
+            <img src="/logo.png" alt="Fintek Logo" className="h-10 w-10" />
+            <span className="text-3xl font-bold text-primary-900">Fintek</span>
           </Link>
           <h1 className="text-2xl font-bold text-neutral-900 mb-2">Crear Cuenta</h1>
           <p className="text-neutral-600">Comienza a gestionar tus finanzas hoy</p>

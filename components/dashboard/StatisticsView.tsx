@@ -217,7 +217,7 @@ export default function StatisticsView({ initialTransactions, accounts, categori
             };
 
             // Header
-            addText('FinTek — Informe Financiero', 15, y, { size: 16, bold: true });
+            addText('Fintek — Informe Financiero', 15, y, { size: 16, bold: true });
             y += 7;
             addText(`Período: ${periodLabel}`, 15, y, { size: 10, color: [113, 113, 122] });
             addText(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, w - 65, y, { size: 8, color: [161, 161, 170] });
@@ -312,10 +312,10 @@ export default function StatisticsView({ initialTransactions, accounts, categori
 
             // Footer
             y = pdf.internal.pageSize.getHeight() - 10;
-            addText('Generado por FinTek', 15, y, { size: 7, color: [161, 161, 170] });
+            addText('Generado por Fintek', 15, y, { size: 7, color: [161, 161, 170] });
             addText(`${stats.txCount} transacciones analizadas`, w - 60, y, { size: 7, color: [161, 161, 170] });
 
-            pdf.save(`FinTek_Informe_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+            pdf.save(`Fintek_Informe_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
         } catch (err) {
             console.error("PDF Error", err);
             alert('Error al generar PDF');

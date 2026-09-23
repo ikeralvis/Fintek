@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💰 FinTek — Gestor Financiero Personal
+# 💰 Fintek — Gestor Financiero Personal
 
 [![CI/CD](https://github.com/ikeralvis/Fintek/actions/workflows/ci.yml/badge.svg)](https://github.com/ikeralvis/Fintek/actions/workflows/ci.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
@@ -21,7 +21,7 @@
 ## 📸 Vista previa
 
 <div align="center">
-<img src="public/dashboard-preview.png" alt="FinTek Dashboard" width="80%" />
+<img src="public/dashboard-preview.png" alt="Fintek Dashboard" width="80%" />
 </div>
 
 ---
@@ -178,7 +178,7 @@ Fintek/
 
 ## 🔬 Motor de análisis predictivo
 
-FinTek incluye un motor de forecasting financiero propio que combina:
+Fintek incluye un motor de forecasting financiero propio que combina:
 
 1. **Weighted Moving Average (WMA)** — prioriza los datos recientes
 2. **Regresión lineal (OLS)** — detecta tendencias direccionales

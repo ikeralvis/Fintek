@@ -54,8 +54,8 @@ export default function LandingPage() {
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#08090b]/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="FinTek" className="h-7 w-7 rounded-lg object-cover" />
-            <span className="text-[15px] font-semibold tracking-tight">FinTek</span>
+            <img src="/logo.png" alt="Fintek" className="h-7 w-7 rounded-lg object-cover" />
+            <span className="text-[15px] font-semibold tracking-tight">Fintek</span>
           </Link>
 
           <div className="hidden items-center gap-8 text-sm text-neutral-400 md:flex">
@@ -123,7 +123,7 @@ export default function LandingPage() {
               transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut', repeatType: 'mirror' }}
             />
             <Sparkles className="relative h-3.5 w-3.5 text-indigo-300" />
-            <span className="relative">FinTek 2.0 — Control financiero de precisión</span>
+            <span className="relative">Fintek 2.0 — Control financiero de precisión</span>
           </motion.div>
 
           <motion.h1
@@ -383,8 +383,8 @@ export default function LandingPage() {
           <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
             <div className="max-w-xs">
               <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="FinTek" className="h-7 w-7 rounded-lg object-cover" />
-                <span className="text-[15px] font-semibold tracking-tight">FinTek</span>
+                <img src="/logo.png" alt="Fintek" className="h-7 w-7 rounded-lg object-cover" />
+                <span className="text-[15px] font-semibold tracking-tight">Fintek</span>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-neutral-500">
                 Gestión financiera personal simple, rápida y privada.
@@ -418,7 +418,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-6 text-xs text-neutral-500 sm:flex-row">
-            <p>© {new Date().getFullYear()} FinTek. Todos los derechos reservados.</p>
+            <p>© {new Date().getFullYear()} Fintek. Todos los derechos reservados.</p>
             <Wallet className="h-4 w-4 text-neutral-700" />
           </div>
         </div>

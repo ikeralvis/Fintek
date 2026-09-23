@@ -50,8 +50,8 @@ export default function DashboardNav({ userName, userEmail }: Props) {
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <img src="/logo.png" alt="FinTek" className="h-7 w-7 rounded-lg object-cover" />
-            <span className="text-base font-bold text-foreground tracking-tight hidden lg:inline">FinTek</span>
+            <img src="/logo.png" alt="Fintek" className="h-7 w-7 rounded-lg object-cover" />
+            <span className="text-base font-bold text-foreground tracking-tight hidden lg:inline">Fintek</span>
           </Link>
 
           {/* Navigation — puede scrollear internamente en vez de empujar el perfil fuera del viewport */}

@@ -7,14 +7,14 @@ import CookieConsent from "@/components/CookieConsent";
 import "./globals.css";
 
 const SITE_URL = "https://fintek-app.vercel.app";
-const SITE_NAME = "FinTek";
+const SITE_NAME = "Fintek";
 const SITE_DESCRIPTION = "Gestiona tus cuentas, presupuestos e inversiones en un solo sitio. Sin conectar tu banco, sin ceder tus credenciales a nadie.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "FinTek — Gestor Financiero Personal",
-    template: "%s — FinTek",
+    default: "Fintek — Gestor Financiero Personal",
+    template: "%s — Fintek",
   },
   description: SITE_DESCRIPTION,
   alternates: { canonical: "/" },
@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     locale: "es_ES",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: "FinTek — Gestor Financiero Personal",
+    title: "Fintek — Gestor Financiero Personal",
     description: SITE_DESCRIPTION,
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "FinTek" }],
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Fintek" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FinTek — Gestor Financiero Personal",
+    title: "Fintek — Gestor Financiero Personal",
     description: SITE_DESCRIPTION,
     images: ["/opengraph-image"],
   },
@@ -56,12 +56,12 @@ export const metadata: Metadata = {
   },
   // Genera <meta name="apple-mobile-web-app-capable" content="yes">,
   // <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> y
-  // <meta name="apple-mobile-web-app-title" content="FinTek">, para que al añadir la app
+  // <meta name="apple-mobile-web-app-title" content="Fintek">, para que al añadir la app
   // a la pantalla de inicio en iOS abra en modo standalone con la barra de estado translúcida.
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'FinTek',
+    title: 'Fintek',
   },
 };
 

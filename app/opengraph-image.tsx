@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'FinTek — Gestor Financiero Personal';
+export const alt = 'Fintek — Gestor Financiero Personal';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -29,7 +29,7 @@ export default async function OpengraphImage() {
               display: 'flex',
             }}
           />
-          <div style={{ display: 'flex', fontSize: 84, fontWeight: 700, color: '#fff' }}>FinTek</div>
+          <div style={{ display: 'flex', fontSize: 84, fontWeight: 700, color: '#fff' }}>Fintek</div>
         </div>
         <div style={{ display: 'flex', marginTop: 28, fontSize: 32, color: '#a1a1aa' }}>
           Tus finanzas, bajo control absoluto
