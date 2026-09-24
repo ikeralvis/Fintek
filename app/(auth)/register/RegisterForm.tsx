@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { createClient } from '@/lib/supabase/client';
+import { TurnstileWidget, TURNSTILE_SITE_KEY } from '@/components/auth/TurnstileWidget';
+import { setSessionUnlocked } from '@/lib/appLock';
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -17,6 +20,8 @@ export default function RegisterForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,12 +50,14 @@ export default function RegisterForm() {
           data: {
             name: formData.name,
           },
+          captchaToken: captchaToken ?? undefined,
         },
       });
 
       if (error) throw error;
 
       if (data.user) {
+        setSessionUnlocked(true);
         setSuccess(true);
         setTimeout(() => {
           router.push('/dashboard');
@@ -61,6 +68,9 @@ export default function RegisterForm() {
       console.error('Register error:', err);
       // Mensaje genérico: evitar filtrar si el email ya existe (enumeración de usuarios)
       setError('No se pudo crear la cuenta. Comprueba los datos e inténtalo de nuevo.');
+      // El token de Turnstile es de un solo uso.
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -209,10 +219,12 @@ export default function RegisterForm() {
                 </label>
               </div>
 
+              <TurnstileWidget ref={turnstileRef} onToken={setCaptchaToken} />
+
               {/* Submit Button - MEJORADO */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
                 style={{
                   backgroundColor: loading ? '#94a3b8' : '#0073ea',
                   color: 'white',

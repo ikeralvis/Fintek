@@ -16,6 +16,10 @@ type Props = {
   frequentIds?: string[];
   isDisabled?: (categoryId: string) => boolean;
   disabledTitle?: (categoryId: string) => string | undefined;
+  /** Muestra el buscador (solo aparece con más de 8 categorías). */
+  searchable?: boolean;
+  /** Clases del contenedor scrollable de grupos (por defecto limita la altura). */
+  listClassName?: string;
   className?: string;
 };
 
@@ -24,7 +28,7 @@ type Props = {
  * por bloques lógicos (Hogar, Transporte, Ocio, Suministros, Finanzas...). Compartido entre
  * el modal de nueva transacción, edición y presupuestos para no divergir de patrón.
  */
-export function CategoryPicker({ categories, selectedId, onSelect, frequentIds = [], isDisabled, disabledTitle, className }: Props) {
+export function CategoryPicker({ categories, selectedId, onSelect, frequentIds = [], isDisabled, disabledTitle, searchable = true, listClassName, className }: Props) {
   const [query, setQuery] = useState('');
 
   const frequentCategories = useMemo(
@@ -35,7 +39,7 @@ export function CategoryPicker({ categories, selectedId, onSelect, frequentIds =
 
   return (
     <div className={cn('space-y-3', className)}>
-      {categories.length > 8 && (
+      {searchable && categories.length > 8 && (
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -73,7 +77,7 @@ export function CategoryPicker({ categories, selectedId, onSelect, frequentIds =
         </div>
       )}
 
-      <div className="max-h-64 space-y-3 overflow-y-auto pr-0.5">
+      <div className={cn('max-h-64 space-y-3 overflow-y-auto pr-0.5', listClassName)}>
         {groups.length === 0 && (
           <p className="py-4 text-center text-xs text-muted-foreground">Sin resultados</p>
         )}

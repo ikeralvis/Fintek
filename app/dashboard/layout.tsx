@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
@@ -7,6 +8,8 @@ import BottomNav from '@/components/layout/BottomNav';
 import CommandSearch from '@/components/dashboard/CommandSearch';
 import { DashboardProvider } from '@/lib/DashboardContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import AppLock from '@/components/security/AppLock';
+import { LOCK_COOKIE } from '@/lib/appLock';
 
 // Todo lo que cuelga de /dashboard vive detrás de login y es distinto por usuario: no aporta
 // nada indexar/rastrear, y podría filtrar en resultados de búsqueda que existe contenido
@@ -110,7 +113,16 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
+  const serverLocked = (await cookies()).has(LOCK_COOKIE);
+  const providers: string[] = user.app_metadata?.providers ?? [];
+
   return (
+    <AppLock
+      userId={user.id}
+      email={user.email ?? ''}
+      hasPassword={providers.includes('email')}
+      serverLocked={serverLocked}
+    >
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <DashboardNav
         userName={user.user_metadata?.name}
@@ -121,5 +133,6 @@ export default async function DashboardLayout({
       </Suspense>
       <BottomNav />
     </div>
+    </AppLock>
   );
 }

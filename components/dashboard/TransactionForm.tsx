@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Check, Calendar, ChevronDown, ChevronUp, Search, Landmark } from 'lucide-react';
+import { X, Check, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { createTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -32,14 +32,17 @@ type Category = {
 };
 
 type Props = {
-  accounts: Account[];
-  categories: Category[];
+  /** Si se omiten, se leen del DashboardContext (ya cargado por el layout): la página no necesita refetch. */
+  accounts?: Account[];
+  categories?: Category[];
 };
 
-export default function TransactionForm({ accounts, categories }: Props) {
+export default function TransactionForm({ accounts: accountsProp, categories: categoriesProp }: Props) {
   const router = useRouter();
   const supabase = createClient();
-  const { transactions } = useDashboard();
+  const { transactions, accounts: ctxAccounts, categories: ctxCategories } = useDashboard();
+  const accounts = (accountsProp ?? ctxAccounts) as Account[];
+  const categories = (categoriesProp ?? ctxCategories) as Category[];
   const [loading, setLoading] = useState(false);
 
   const [amount, setAmount] = useState('');
@@ -310,10 +313,10 @@ export default function TransactionForm({ accounts, categories }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-6 max-w-lg mx-auto space-y-5">
+        <div className="px-4 py-3 max-w-lg mx-auto space-y-3">
 
           {/* AMOUNT INPUT */}
-          <div className="text-center py-4">
+          <div className="text-center py-1">
             <NumericInput
               ref={amountRef}
               value={amount}
@@ -328,18 +331,17 @@ export default function TransactionForm({ accounts, categories }: Props) {
 
           {/* DESCRIPTION WITH AUTOCOMPLETE + DATE */}
           <div className="flex gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   ref={descriptionRef}
                   type="text"
-                  placeholder="Descripción (ej: Mercadona, Netflix...)"
+                  placeholder="Descripción"
                   value={description}
                   onChange={(e) => handleDescriptionChange(e.target.value)}
                   onKeyDown={handleDescriptionKeyDown}
                   onFocus={() => description.length >= 2 && filteredSuggestions.length > 0 && setShowSuggestions(true)}
-                  className="w-full bg-muted/60 border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm text-foreground font-medium placeholder-muted-foreground focus:bg-card focus:ring-2 focus:ring-ring focus:border-ring outline-none transition-all"
+                  className="w-full bg-muted/60 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground font-medium placeholder-muted-foreground focus:bg-card focus:ring-2 focus:ring-ring focus:border-ring outline-none transition-all"
                 />
               </div>
 
@@ -393,15 +395,12 @@ export default function TransactionForm({ accounts, categories }: Props) {
               )}
             </div>
 
-            <div className="relative shrink-0">
-              <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="bg-muted/60 border border-border rounded-xl pl-8 pr-2 py-2.5 text-sm text-foreground font-medium outline-none w-[130px]"
-              />
-            </div>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="shrink-0 w-[8.75rem] min-w-0 bg-muted/60 border border-border rounded-xl px-2 py-2.5 text-sm text-foreground font-medium outline-none"
+            />
           </div>
 
           {/* ACCOUNT SELECTOR */}
@@ -580,6 +579,8 @@ export default function TransactionForm({ accounts, categories }: Props) {
                     selectedId={categoryId}
                     onSelect={handleSelectCategory}
                     frequentIds={frequentCategoryIds}
+                    searchable={false}
+                    listClassName="max-h-none"
                   />
                 </div>
               )}

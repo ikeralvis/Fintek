@@ -5,6 +5,16 @@
 /* Habilita el modo oscuro basado en clase (.dark en <html>), controlado por next-themes */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* iOS Safari hace zoom automático al enfocar un campo con fuente < 16px y deja la página
+   con scroll horizontal. Fuera de @layer para ganar a las utilidades text-xs/text-sm. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @layer base {
   :root {
     /* --- Swedish Minimal / Apple tokens (light) --- */

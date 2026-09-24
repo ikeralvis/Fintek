@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { createClient } from '@/lib/supabase/client';
+import { TurnstileWidget, TURNSTILE_SITE_KEY } from '@/components/auth/TurnstileWidget';
+import { setSessionUnlocked } from '@/lib/appLock';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -13,6 +16,8 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,17 +29,23 @@ export default function LoginForm() {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: captchaToken ? { captchaToken } : undefined,
       });
 
       if (error) throw error;
 
       if (data.user) {
+        // Acaba de teclear la contraseña: no hace falta bloquear la app al entrar.
+        setSessionUnlocked(true);
         router.push('/dashboard');
         router.refresh();
       }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+      // El token de Turnstile es de un solo uso.
+      turnstileRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -43,6 +54,7 @@ export default function LoginForm() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
+      setSessionUnlocked(true);
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -135,6 +147,8 @@ export default function LoginForm() {
               </div>
             </div>
 
+            <TurnstileWidget ref={turnstileRef} onToken={setCaptchaToken} />
+
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -152,7 +166,7 @@ export default function LoginForm() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
               style={{
                 backgroundColor: loading ? '#94a3b8' : '#0073ea',
                 color: 'white',

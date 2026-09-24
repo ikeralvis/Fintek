@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     Home, List, Plus, Wallet, Menu, X, RefreshCw,
     Target, Sparkles, PieChart, Settings, CreditCard, TrendingUp,
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 
 export default function BottomNav() {
     const pathname = usePathname();
+    const router = useRouter();
     const [isMoreOpen, setIsMoreOpen] = useState(false);
 
     const isActive = (path: string) => {
@@ -108,7 +109,7 @@ export default function BottomNav() {
                         <button
                             onClick={() => {
                                 sessionStorage.setItem('previousPath', pathname);
-                                window.location.href = '/dashboard/transacciones/nueva';
+                                router.push('/dashboard/transacciones/nueva');
                             }}
                             className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"
                         >

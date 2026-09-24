@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import BanksManager from './BanksManager';
 import CategoriesManager from './CategoriesManager';
 import NotificationSettingsManager from './NotificationSettingsManager';
+import SecuritySettings from '@/components/security/SecuritySettings';
 import { cn } from '@/lib/utils';
 
 type Tab = 'account' | 'banks' | 'categories' | 'notifications';
@@ -29,7 +30,7 @@ const THEME_OPTIONS = [
 ] as const;
 
 type Props = {
-  user: { email?: string; user_metadata?: { name?: string } };
+  user: { email?: string; user_metadata?: { name?: string }; app_metadata?: { providers?: string[] } };
   userId: string;
   banks: any[];
   categories: any[];
@@ -202,6 +203,12 @@ export default function ConfiguracionPageClient({ user, userId, banks, categorie
               </div>
             )}
           </div>
+
+          <SecuritySettings
+            userId={userId}
+            email={user.email ?? ''}
+            hasPassword={(user.app_metadata?.providers ?? []).includes('email')}
+          />
 
           {/* Selector de tema de 3 vías */}
           <div className="bg-card rounded-2xl border border-border/60 p-4">
