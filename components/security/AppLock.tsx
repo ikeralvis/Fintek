@@ -196,50 +196,58 @@ function LockScreen({
   };
 
   const captchaPending = !!TURNSTILE_SITE_KEY && !captchaToken;
+  // Sin biometría configurada (o si el usuario la descarta) el acceso es la contraseña.
+  const showPasswordForm = hasPassword && usePassword;
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-y-auto bg-background px-6 py-10">
-      <div className="w-full max-w-sm text-center">
-        <img src="/logo.png" alt="Fintek" className="mx-auto mb-5 h-14 w-14 rounded-2xl object-cover" />
-        <h1 className="text-xl font-bold text-foreground">Fintek está bloqueado</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{email}</p>
+    <div className="fixed inset-0 z-[200] flex flex-col overflow-y-auto bg-background px-6 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      {/* Halo suave de fondo */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(closest-side,var(--muted),transparent)] opacity-70" />
 
-        {credentialId && (
-          <button
-            onClick={tryBiometric}
-            className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-semibold text-primary-foreground active:scale-[0.98] transition-transform"
-          >
-            <Fingerprint className="h-5 w-5" />
-            Desbloquear con Face ID / huella
-          </button>
+      <div className="relative m-auto w-full max-w-sm text-center">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-border bg-card shadow-sm">
+          <img src="/logo.png" alt="Fintek" className="h-12 w-12 rounded-2xl object-cover" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Bienvenido de nuevo</h1>
+        <p className="mt-1.5 truncate text-sm text-muted-foreground">{email}</p>
+
+        {!showPasswordForm && credentialId && (
+          <div className="mt-10 space-y-3">
+            <button
+              onClick={tryBiometric}
+              className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/10 transition-transform active:scale-[0.98]"
+            >
+              <Fingerprint className="h-5 w-5" />
+              Desbloquear
+            </button>
+            {hasPassword && (
+              <button
+                onClick={() => { setError(''); setUsePassword(true); }}
+                className="w-full py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                No quiero usar la huella
+              </button>
+            )}
+          </div>
         )}
 
-        {credentialId && hasPassword && !usePassword && (
-          <button
-            onClick={() => setUsePassword(true)}
-            className="mt-4 text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Usar contraseña
-          </button>
-        )}
-
-        {hasPassword && usePassword && (
-          <form onSubmit={handlePassword} className="mt-8 space-y-3 text-left">
+        {showPasswordForm && (
+          <form onSubmit={handlePassword} className="mt-10 space-y-3 text-left">
             <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Contraseña"
                 autoComplete="current-password"
-                autoFocus={!credentialId}
-                className="w-full rounded-xl border border-border bg-muted/60 py-3 pl-10 pr-11 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
+                autoFocus
+                className="w-full rounded-2xl border border-border bg-card py-3.5 pl-11 pr-12 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -249,32 +257,45 @@ function LockScreen({
             <button
               type="submit"
               disabled={!password || busy || captchaPending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/10 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               Desbloquear
             </button>
+            {credentialId && (
+              <button
+                type="button"
+                onClick={() => { setError(''); setUsePassword(false); }}
+                className="w-full py-2 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Usar huella
+              </button>
+            )}
           </form>
         )}
 
         {!hasPassword && !credentialId && (
-          <p className="mt-6 text-sm text-muted-foreground">
+          <p className="mt-8 text-sm text-muted-foreground">
             Tu cuenta usa Google. Vuelve a iniciar sesión para continuar.
           </p>
         )}
 
-        {error && <p className="mt-3 text-sm font-medium text-accent-600 dark:text-accent-400">{error}</p>}
-
-        <form action="/api/auth/signout" method="post" className="mt-8">
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Cerrar sesión
-          </button>
-        </form>
+        {error && (
+          <p role="alert" className="mt-4 rounded-xl bg-accent-500/10 px-3 py-2 text-sm font-medium text-accent-600 dark:text-accent-400">
+            {error}
+          </p>
+        )}
       </div>
+
+      <form action="/api/auth/signout" method="post" className="relative mt-8 flex justify-center">
+        <button
+          type="submit"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Cerrar sesión
+        </button>
+      </form>
     </div>
   );
 }

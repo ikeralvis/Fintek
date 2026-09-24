@@ -123,7 +123,9 @@ export async function registerBiometric(userId: string, email: string): Promise<
           residentKey: 'discouraged',
         },
         timeout: 60_000,
-      },
+        // Pide al navegador/gestor guardar la credencial en ESTE dispositivo (Face ID), no en un gestor de contraseñas.
+        hints: ["client-device"],
+      } as PublicKeyCredentialCreationOptions,
     })) as PublicKeyCredential | null;
     return cred ? toB64Url(cred.rawId) : null;
   } catch {
