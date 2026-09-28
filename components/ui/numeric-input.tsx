@@ -16,7 +16,15 @@ export interface NumericInputProps
   currencySymbol?: string | null;
   /** Clases adicionales para el símbolo de moneda (color, tamaño, posición). */
   currencyClassName?: string;
+  /** Estilos inline para el símbolo de moneda (por si el tamaño debe garantizarse sí o sí). */
+  currencyStyle?: React.CSSProperties;
   wrapperClassName?: string;
+  /**
+   * 'absolute' (por defecto): símbolo fijo al borde derecho del input, para inputs de ancho
+   * completo tipo formulario. 'inline': símbolo en flujo normal justo después del número, para
+   * usos tipo "importe hero" donde ambos deben centrarse juntos como una unidad.
+   */
+  layout?: 'absolute' | 'inline';
 }
 
 const MAX_DECIMALS = 2;
@@ -84,10 +92,12 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
       onValueChange,
       currencySymbol = '€',
       currencyClassName,
+      currencyStyle,
       className,
       wrapperClassName,
       placeholder = '0,00',
       disabled,
+      layout = 'absolute',
       ...props
     },
     forwardedRef
@@ -120,7 +130,7 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
     };
 
     return (
-      <div className={cn('relative flex items-center', wrapperClassName)}>
+      <div className={cn(layout === 'inline' ? 'inline-flex items-baseline' : 'relative flex items-center', wrapperClassName)}>
         <input
           ref={innerRef}
           type="text"
@@ -132,13 +142,19 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
           disabled={disabled}
           className={cn(
             'flex h-10 w-full rounded-xl border border-input bg-card px-3.5 py-2 text-sm text-foreground shadow-none transition-colors tabular-nums placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50',
-            currencySymbol && 'pr-9',
+            layout === 'absolute' && currencySymbol && 'pr-9',
             className
           )}
           {...props}
         />
         {currencySymbol && (
-          <span className={cn('pointer-events-none absolute right-3.5 text-muted-foreground', currencyClassName)}>
+          <span
+            className={cn(
+              layout === 'inline' ? 'pointer-events-none shrink-0 text-muted-foreground' : 'pointer-events-none absolute right-3.5 text-muted-foreground',
+              currencyClassName
+            )}
+            style={currencyStyle}
+          >
             {currencySymbol}
           </span>
         )}

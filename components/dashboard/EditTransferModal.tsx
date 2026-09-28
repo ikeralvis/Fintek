@@ -8,7 +8,7 @@ import { updateTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { NumericInput } from '@/components/ui/numeric-input';
+import { AmountHeroInput } from '@/components/ui/amount-hero-input';
 import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
@@ -194,18 +194,7 @@ export default function EditTransferModal({ transaction, categories, accounts, o
                     )}
 
                     {/* Amount */}
-                    <div className="py-2 text-center">
-                        <NumericInput
-                            value={amount}
-                            onValueChange={setAmount}
-                            placeholder="0,00"
-                            autoFocus
-                            currencySymbol="€"
-                            currencyClassName="text-2xl font-semibold text-primary/50"
-                            wrapperClassName="mx-auto w-full max-w-[220px] justify-center"
-                            className="h-auto w-full border-none bg-transparent p-0 pr-8 text-center text-5xl font-semibold text-primary shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0"
-                        />
-                    </div>
+                    <AmountHeroInput value={amount} onValueChange={setAmount} tone="transfer" autoFocus className="py-2" />
 
                     {/* Description & Date */}
                     <div className="flex gap-2">

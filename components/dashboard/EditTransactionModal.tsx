@@ -2,14 +2,14 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronRight, ChevronUp, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { NumericInput } from '@/components/ui/numeric-input';
-import { CategoryPicker } from '@/components/ui/category-picker';
+import { AmountHeroInput } from '@/components/ui/amount-hero-input';
+import { CategoryPickerSheet } from '@/components/ui/category-picker-sheet';
 import { useDashboard } from '@/lib/DashboardContext';
 import { matchCategoryFromText } from '@/lib/transactionSuggestions';
 import { getFrequentCategoryIds } from '@/lib/frequentCategories';
@@ -65,7 +65,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
     const [categoryId, setCategoryId] = useState(transaction.category_id || '');
     const [date, setDate] = useState(transaction.transaction_date.split('T')[0]);
 
-    const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
+    const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false);
     const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
     // Igual que en Nueva Transacción: recuerda si la categoría actual la puso la
     // auto-categorización, para no pisar una elección manual mientras se sigue escribiendo.
@@ -92,7 +92,6 @@ export default function EditTransactionModal({ transaction, categories, accounts
     const handleSelectCategory = (id: string) => {
         setCategoryId(id);
         autoCategoryIdRef.current = null;
-        setIsCategoriesExpanded(false);
     };
 
     // Agrupar cuentas por banco
@@ -143,7 +142,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
 
     return (
         <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="w-full sm:max-w-md p-0 gap-0">
+            <DialogContent className="w-full sm:max-w-md p-0 gap-0 overflow-x-hidden">
                 <DialogHeader className="px-5 py-4 border-b border-border">
                     <DialogTitle>Editar Transacción</DialogTitle>
                 </DialogHeader>
@@ -158,24 +157,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
                     </Tabs>
 
                     {/* Amount */}
-                    <div className="py-2 text-center">
-                        <NumericInput
-                            value={amount}
-                            onValueChange={setAmount}
-                            placeholder="0,00"
-                            autoFocus
-                            currencySymbol="€"
-                            currencyClassName={cn(
-                                'text-2xl font-semibold',
-                                type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : 'text-secondary-500/60 dark:text-secondary-400/60'
-                            )}
-                            wrapperClassName="mx-auto w-full max-w-[220px] justify-center"
-                            className={cn(
-                                'h-auto w-full border-none bg-transparent p-0 pr-8 text-center text-5xl font-semibold shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0',
-                                type === 'expense' ? 'text-accent-600 dark:text-accent-400' : 'text-secondary-600 dark:text-secondary-400'
-                            )}
-                        />
-                    </div>
+                    <AmountHeroInput value={amount} onValueChange={setAmount} tone={type} autoFocus className="py-2" />
 
                     {/* Description & Date */}
                     <div className="flex gap-2">
@@ -263,44 +245,44 @@ export default function EditTransactionModal({ transaction, categories, accounts
                         )}
                     </div>
 
-                    {/* Category Selector */}
-                    <div className="overflow-hidden rounded-xl border border-border bg-muted/60">
-                        <button
-                            onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
-                            className="flex w-full items-center justify-between p-2.5"
-                        >
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Categoría</span>
-                            <div className="flex items-center gap-2">
-                                {selectedCategory && (
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="flex h-8 w-8 items-center justify-center rounded-xl"
-                                            style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : 'var(--muted)' }}
-                                        >
-                                            <CategoryIcon
-                                                name={selectedCategory.icon}
-                                                className="h-4 w-4"
-                                                style={{ color: selectedCategory.color || 'var(--muted-foreground)' }}
-                                            />
-                                        </div>
-                                        <span className="text-sm font-semibold text-foreground">{selectedCategory.name}</span>
+                    {/* Category Selector — abre el mismo popup que Nueva Transacción */}
+                    <button
+                        type="button"
+                        onClick={() => setIsCategorySheetOpen(true)}
+                        className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-muted/60 p-2.5 transition-transform duration-150 ease-out active:scale-[0.99]"
+                    >
+                        <span className="shrink-0 text-xs font-semibold uppercase text-muted-foreground">Categoría</span>
+                        <div className="flex min-w-0 items-center gap-2">
+                            {selectedCategory ? (
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <div
+                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+                                        style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : 'var(--muted)' }}
+                                    >
+                                        <CategoryIcon
+                                            name={selectedCategory.icon}
+                                            className="h-4 w-4"
+                                            style={{ color: selectedCategory.color || 'var(--muted-foreground)' }}
+                                        />
                                     </div>
-                                )}
-                                {isCategoriesExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                            </div>
-                        </button>
-                        {isCategoriesExpanded && (
-                            <div className="max-h-72 overflow-y-auto border-t border-border p-3">
-                                <CategoryPicker
-                                    categories={categories}
-                                    selectedId={categoryId}
-                                    onSelect={handleSelectCategory}
-                                    frequentIds={frequentCategoryIds}
-                                />
-                            </div>
-                        )}
-                    </div>
+                                    <span className="truncate text-sm font-semibold text-foreground">{selectedCategory.name}</span>
+                                </div>
+                            ) : (
+                                <span className="text-sm font-semibold text-muted-foreground">Elegir categoría</span>
+                            )}
+                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        </div>
+                    </button>
                 </div>
+
+                <CategoryPickerSheet
+                    open={isCategorySheetOpen}
+                    onClose={() => setIsCategorySheetOpen(false)}
+                    categories={categories}
+                    selectedId={categoryId}
+                    onSelect={handleSelectCategory}
+                    frequentIds={frequentCategoryIds}
+                />
 
                 <DialogFooter className="border-t border-border px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-stretch sm:pb-4">
                     <Button variant="outline" onClick={onClose} className="flex-1">

@@ -126,6 +126,7 @@ const config: Config = {
         'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
         'slide-up': 'slideUp 0.5s ease-out',
         'shimmer': 'shimmer 1.8s ease-in-out infinite',
+        'select-bounce': 'selectBounce 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       keyframes: {
         fadeIn: {
@@ -143,6 +144,12 @@ const config: Config = {
         shimmer: {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(100%)' },
+        },
+        selectBounce: {
+          '0%': { transform: 'scale(1)' },
+          '35%': { transform: 'scale(1.14)' },
+          '65%': { transform: 'scale(0.95)' },
+          '100%': { transform: 'scale(1)' },
         },
       },
     },

@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Check, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
+import { X, Check, ChevronDown, ChevronUp, ChevronRight, Landmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { createTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { NumericInput } from '@/components/ui/numeric-input';
-import { CategoryPicker } from '@/components/ui/category-picker';
+import { AmountHeroInput } from '@/components/ui/amount-hero-input';
+import { CategoryPickerSheet } from '@/components/ui/category-picker-sheet';
 import { useDashboard } from '@/lib/DashboardContext';
 import { SUGGESTIONS, findCategoryByName, matchCategoryFromText, type Suggestion } from '@/lib/transactionSuggestions';
 import { getFrequentCategoryIds } from '@/lib/frequentCategories';
@@ -55,7 +55,7 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
 
   const [isAccountsExpanded, setIsAccountsExpanded] = useState(false);
   const [isToAccountsExpanded, setIsToAccountsExpanded] = useState(false);
-  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
+  const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false);
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -139,7 +139,6 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
     if (matchedCat) {
       setCategoryId(matchedCat.id);
       autoCategoryIdRef.current = matchedCat.id;
-      setIsCategoriesExpanded(false);
     }
 
     // Auto-fill type if specified
@@ -276,11 +275,10 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
     // Elección manual y explícita: deja de auto-recategorizar mientras el usuario siga
     // escribiendo, para no pisar lo que acaba de elegir.
     autoCategoryIdRef.current = null;
-    setIsCategoriesExpanded(false);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col bg-background animate-slide-up sm:static sm:h-auto sm:max-h-[90dvh] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-strong">
+    <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col overflow-x-hidden bg-background animate-slide-up sm:static sm:h-auto sm:max-h-[90dvh] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-strong">
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-border">
         <button
@@ -312,22 +310,11 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
         <div className="w-9" />
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-3 max-w-lg mx-auto space-y-3">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="px-4 py-3 max-w-lg w-full mx-auto space-y-3">
 
           {/* AMOUNT INPUT */}
-          <div className="text-center py-1">
-            <NumericInput
-              ref={amountRef}
-              value={amount}
-              onValueChange={setAmount}
-              placeholder="0,00"
-              currencySymbol="€"
-              currencyClassName={`text-2xl font-semibold ${type === 'expense' ? 'text-accent-500/60 dark:text-accent-400/60' : type === 'income' ? 'text-secondary-500/60 dark:text-secondary-400/60' : 'text-primary/50'}`}
-              wrapperClassName="mx-auto w-full max-w-[240px] justify-center"
-              className={`h-auto w-full border-none bg-transparent p-0 pr-8 text-center text-5xl font-semibold shadow-none placeholder:text-muted-foreground focus-visible:ring-0 ${type === 'expense' ? 'text-accent-600 dark:text-accent-400' : type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : 'text-primary'}`}
-            />
-          </div>
+          <AmountHeroInput ref={amountRef} value={amount} onValueChange={setAmount} tone={type} />
 
           {/* DESCRIPTION WITH AUTOCOMPLETE + DATE */}
           <div className="flex gap-2">
@@ -407,7 +394,7 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <button
               onClick={() => setIsAccountsExpanded(!isAccountsExpanded)}
-              className="w-full p-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
+              className="w-full p-3 flex items-center justify-between hover:bg-muted/60 active:scale-[0.99] transition-all"
             >
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 {type === 'transfer' ? 'Desde' : 'Cuenta'}
@@ -478,7 +465,7 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <button
                 onClick={() => setIsToAccountsExpanded(!isToAccountsExpanded)}
-                className="w-full p-3 flex items-center justify-between hover:bg-muted/60 transition-colors"
+                className="w-full p-3 flex items-center justify-between hover:bg-muted/60 active:scale-[0.99] transition-all"
               >
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Para</span>
                 <div className="flex items-center gap-2">
@@ -545,46 +532,34 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
             </div>
           )}
 
-          {/* CATEGORIES */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-              <button
-                onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
-                className="w-full p-4 flex items-center justify-between hover:bg-muted/60 transition-colors"
-              >
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoría</span>
-                <div className="flex items-center gap-2">
-                  {selectedCategory && (
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : '#f5f5f5' }}
-                      >
-                        <CategoryIcon
-                          name={selectedCategory.icon}
-                          className="w-4 h-4"
-                          style={{ color: selectedCategory.color || '#666' }}
-                        />
-                      </div>
-                      <span className="text-sm font-bold text-foreground">{selectedCategory.name}</span>
-                    </div>
-                  )}
-                  {isCategoriesExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          {/* CATEGORIES - abre un bottom-sheet propio en vez de empujar el formulario hacia abajo */}
+          <button
+            type="button"
+            onClick={() => setIsCategorySheetOpen(true)}
+            className="w-full bg-card border border-border rounded-2xl overflow-hidden shadow-sm p-3 flex items-center justify-between hover:bg-muted/60 active:scale-[0.99] transition-all"
+          >
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">Categoría</span>
+            <div className="flex items-center gap-2 min-w-0">
+              {selectedCategory ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : '#f5f5f5' }}
+                  >
+                    <CategoryIcon
+                      name={selectedCategory.icon}
+                      className="w-4 h-4"
+                      style={{ color: selectedCategory.color || '#666' }}
+                    />
+                  </div>
+                  <span className="text-sm font-bold text-foreground truncate">{selectedCategory.name}</span>
                 </div>
-              </button>
-
-              {isCategoriesExpanded && (
-                <div className="border-t border-border p-3">
-                  <CategoryPicker
-                    categories={categories}
-                    selectedId={categoryId}
-                    onSelect={handleSelectCategory}
-                    frequentIds={frequentCategoryIds}
-                    searchable={false}
-                    listClassName="max-h-none"
-                  />
-                </div>
+              ) : (
+                <span className="text-sm font-semibold text-muted-foreground">Elegir categoría</span>
               )}
-          </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </div>
+          </button>
 
         </div>
       </div>
@@ -606,6 +581,15 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
           {loading ? 'Guardando...' : `Añadir ${type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : 'Transferencia'}`}
         </button>
       </div>
+
+      <CategoryPickerSheet
+        open={isCategorySheetOpen}
+        onClose={() => setIsCategorySheetOpen(false)}
+        categories={categories}
+        selectedId={categoryId}
+        onSelect={handleSelectCategory}
+        frequentIds={frequentCategoryIds}
+      />
     </div>
   );
 }
