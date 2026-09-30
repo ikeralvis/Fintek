@@ -94,6 +94,7 @@ async function DashboardData({ userId, children }: { userId: string; children: R
       userId={userId}
     >
       <CommandSearch />
+      <PullToRefresh />
       <main className="animate-in fade-in duration-500">{children}</main>
     </DashboardProvider>
   );
@@ -132,7 +133,6 @@ export default async function DashboardLayout({
       <Suspense fallback={<DashboardShellFallback />}>
         <DashboardData userId={user.id}>{children}</DashboardData>
       </Suspense>
-      <PullToRefresh />
       <BottomNav />
     </div>
     </AppLock>
