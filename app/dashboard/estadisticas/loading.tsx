@@ -1,5 +1,5 @@
-import Loading from '@/components/Loading';
+import { ChartsSkeleton } from '@/components/skeletons';
 
-export default function EstadisticasLoading() {
-    return <Loading />;
+export default function Loading() {
+    return <ChartsSkeleton />;
 }

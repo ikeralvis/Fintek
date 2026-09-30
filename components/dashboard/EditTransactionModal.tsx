@@ -57,6 +57,8 @@ export default function EditTransactionModal({ transaction, categories, accounts
     const supabase = createClient();
     const { transactions } = useDashboard();
     const [loading, setLoading] = useState(false);
+    // En táctil el autofocus abre el teclado y tapa el sheet inferior.
+    const [isTouchDevice] = useState(() => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches);
 
     const [amount, setAmount] = useState(transaction.amount.toString());
     const [description, setDescription] = useState(transaction.description || '');
@@ -157,7 +159,7 @@ export default function EditTransactionModal({ transaction, categories, accounts
                     </Tabs>
 
                     {/* Amount */}
-                    <AmountHeroInput value={amount} onValueChange={setAmount} tone={type} autoFocus className="py-2" />
+                    <AmountHeroInput value={amount} onValueChange={setAmount} tone={type} autoFocus={!isTouchDevice} className="py-2" />
 
                     {/* Description & Date */}
                     <div className="flex gap-2">

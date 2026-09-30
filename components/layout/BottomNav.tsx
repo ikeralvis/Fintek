@@ -15,6 +15,7 @@ export default function BottomNav() {
     const [isMoreOpen, setIsMoreOpen] = useState(false);
 
     const isActive = (path: string) => {
+        if (pathname.startsWith('/dashboard/transacciones/nueva')) return false;
         return pathname === path || (path !== '/dashboard' && pathname.startsWith(path));
     };
 

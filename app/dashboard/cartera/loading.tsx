@@ -1,5 +1,5 @@
-import Loading from '@/components/Loading';
+import { ListSkeleton } from '@/components/skeletons';
 
-export default function CarteraLoading() {
-    return <Loading />;
+export default function Loading() {
+    return <ListSkeleton />;
 }

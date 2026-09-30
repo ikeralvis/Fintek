@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Check, ChevronDown, ChevronUp, ChevronRight, Landmark } from 'lucide-react';
+import { toast } from 'sonner';
+import { TransactionSuccess } from '@/components/ui/transaction-success';
 import { createClient } from '@/lib/supabase/client';
 import { createTransfer } from '@/lib/actions/transfers';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -40,10 +42,11 @@ type Props = {
 export default function TransactionForm({ accounts: accountsProp, categories: categoriesProp }: Props) {
   const router = useRouter();
   const supabase = createClient();
-  const { transactions, accounts: ctxAccounts, categories: ctxCategories } = useDashboard();
+  const { transactions, accounts: ctxAccounts, categories: ctxCategories, refreshData } = useDashboard();
   const accounts = (accountsProp ?? ctxAccounts) as Account[];
   const categories = (categoriesProp ?? ctxCategories) as Category[];
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -68,9 +71,11 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
   // elección manual del usuario mientras sigue escribiendo el concepto).
   const autoCategoryIdRef = useRef<string | null>(null);
 
-  // Focus amount on mount
+  // Focus amount on mount, solo con puntero fino: en táctil el teclado nativo tapaba los sheets.
   useEffect(() => {
-    setTimeout(() => amountRef.current?.focus(), 100);
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    const t = setTimeout(() => amountRef.current?.focus(), 100);
+    return () => clearTimeout(t);
   }, []);
 
   // La cuenta por defecto ya viene ordenada con la favorita primero (accounts[0]), pero si la
@@ -232,28 +237,34 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
 
       try { window.localStorage.setItem('fintek:lastAccountId', accountId); } catch { /* ignore */ }
 
-      const previousPath = sessionStorage.getItem('previousPath') || '/dashboard/transacciones';
-      sessionStorage.removeItem('previousPath');
-      router.push(previousPath);
+      // Datos frescos ya, para que al volver los saldos estén actualizados.
       router.refresh();
+      refreshData().catch(() => { /* el refresh del servidor cubre el caso */ });
+      setSuccess(true);
     } catch (error) {
       console.error(error);
-      alert('Error al guardar');
+      toast.error('No se pudo guardar el movimiento');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSuccessDone = useCallback(() => {
+    const previousPath = sessionStorage.getItem('previousPath') || '/dashboard/transacciones';
+    sessionStorage.removeItem('previousPath');
+    router.push(previousPath);
+  }, [router]);
+
   // Global Enter to save
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && canSubmit && !loading && !showSuggestions) {
+    if (e.key === 'Enter' && !e.shiftKey && canSubmit && !loading && !success && !showSuggestions) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag !== 'TEXTAREA') {
         e.preventDefault();
         handleSubmit();
       }
     }
-  }, [canSubmit, loading, showSuggestions, handleSubmit]);
+  }, [canSubmit, loading, success, showSuggestions, handleSubmit]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalKeyDown);
@@ -279,6 +290,14 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
 
   return (
     <div className="fixed inset-0 z-[100] flex h-[100dvh] flex-col overflow-x-hidden bg-background animate-slide-up sm:static sm:h-auto sm:max-h-[90dvh] sm:overflow-hidden sm:rounded-3xl sm:border sm:border-border sm:shadow-strong">
+      {success && (
+        <TransactionSuccess
+          amount={parsedAmount}
+          type={type}
+          label={description.trim() || selectedCategory?.name}
+          onDone={handleSuccessDone}
+        />
+      )}
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-border">
         <button

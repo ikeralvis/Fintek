@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import DashboardNav from '@/components/layout/DashboardNav';
 import BottomNav from '@/components/layout/BottomNav';
+import PullToRefresh from '@/components/layout/PullToRefresh';
 import CommandSearch from '@/components/dashboard/CommandSearch';
 import { DashboardProvider } from '@/lib/DashboardContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -131,6 +132,7 @@ export default async function DashboardLayout({
       <Suspense fallback={<DashboardShellFallback />}>
         <DashboardData userId={user.id}>{children}</DashboardData>
       </Suspense>
+      <PullToRefresh />
       <BottomNav />
     </div>
     </AppLock>

@@ -56,6 +56,8 @@ function CategoryPickerSheetInner({ onClose, categories, selectedId, onSelect, f
   };
 
   useEffect(() => {
+    // Cierra el teclado del input de importe para que el sheet no quede debajo.
+    (document.activeElement as HTMLElement | null)?.blur?.();
     const raf = requestAnimationFrame(() => setVisible(true));
     const timeouts = timeoutsRef.current;
     return () => {

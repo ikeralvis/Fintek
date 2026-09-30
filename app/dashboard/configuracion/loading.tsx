@@ -1,5 +1,5 @@
-import Loading from '@/components/Loading';
+import { SettingsSkeleton } from '@/components/skeletons';
 
-export default function ConfiguracionLoading() {
-    return <Loading />;
+export default function Loading() {
+    return <SettingsSkeleton />;
 }

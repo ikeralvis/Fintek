@@ -32,11 +32,13 @@ const GLOW: Record<Tone, string> = {
 
 /** Caracteres que ocupa el importe ya formateado en es-ES ("12345.6" → "12.345,6"), o el placeholder. */
 function displayLength(raw: string): number {
-  if (!raw) return 4; // "0,00"
+  if (!raw) return 3.3; // "0,00": 3 dígitos + coma
   const [int = '', dec] = raw.replace('-', '').split('.');
   const intLen = Math.max(1, int.length);
   const separators = Math.floor((intLen - 1) / 3);
-  return intLen + separators + (dec !== undefined ? 1 + dec.length : 0);
+  // Los separadores (. y ,) miden ~0.3ch, no 1ch: contarlos enteros dejaba holgura a la izquierda
+  // y desplazaba el número a la derecha a partir de 4 cifras.
+  return intLen + separators * 0.3 + (dec !== undefined ? 0.3 + dec.length : 0);
 }
 
 /**
@@ -73,7 +75,7 @@ export const AmountHeroInput = React.forwardRef<HTMLInputElement, Props>(
             wrapperClassName="max-w-full"
             style={{ fontSize: '1em', width: `${displayLen + 0.4}ch`, maxWidth: '100%', lineHeight: 1 }}
             className={cn(
-              'h-auto min-w-0 rounded-none border-none bg-transparent p-0 text-right font-extrabold tracking-tight shadow-none placeholder:text-muted-foreground/30 focus-visible:ring-0 transition-colors duration-300',
+              'h-auto min-w-0 rounded-none border-none bg-transparent p-0 text-center font-extrabold tabular-nums tracking-tight shadow-none placeholder:text-muted-foreground/30 focus-visible:ring-0 transition-colors duration-300',
               TEXT[tone]
             )}
           />

@@ -82,6 +82,20 @@ export function DashboardProvider({
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
 
+  // router.refresh() reenvía props nuevas desde el servidor; useState las ignoraría y los saldos
+  // quedarían obsoletos hasta entrar al detalle de la cuenta.
+  const [prevInitial, setPrevInitial] = useState({ initialAccounts, initialCategories, initialTransactions });
+  if (
+    prevInitial.initialAccounts !== initialAccounts ||
+    prevInitial.initialCategories !== initialCategories ||
+    prevInitial.initialTransactions !== initialTransactions
+  ) {
+    setPrevInitial({ initialAccounts, initialCategories, initialTransactions });
+    setAccounts(initialAccounts);
+    setCategories(initialCategories);
+    setTransactions(initialTransactions);
+  }
+
   const addTransaction = useCallback((tx: Transaction) => {
     setTransactions(prev => [tx, ...prev]);
   }, []);

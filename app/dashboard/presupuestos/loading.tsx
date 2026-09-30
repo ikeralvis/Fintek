@@ -1,5 +1,5 @@
-import Loading from '@/components/Loading';
+import { BudgetsSkeleton } from '@/components/skeletons';
 
-export default function PresupuestosLoading() {
-    return <Loading />;
+export default function Loading() {
+    return <BudgetsSkeleton />;
 }
