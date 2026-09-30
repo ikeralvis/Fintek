@@ -70,8 +70,8 @@ export default function PullToRefresh() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed left-1/2 top-0 z-[70] -translate-x-1/2"
-      style={{ transform: `translate(-50%, ${pull - 36}px)`, opacity: Math.min(1, pull / THRESHOLD) }}
+      className="pointer-events-none fixed inset-x-0 top-0 z-[70] flex justify-center"
+      style={{ transform: `translateY(${pull - 36}px)`, opacity: Math.min(1, pull / THRESHOLD) }}
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card shadow-medium">
         <RefreshCw

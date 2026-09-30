@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, Star, Trash2,
     ChevronLeft, ChevronRight,
-    Calendar, Database, Loader2
+    Calendar, Database, Loader2, PiggyBank
 } from 'lucide-react';
+import Link from 'next/link';
 import { format, parseISO, isSameDay, subMonths, addMonths, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { createClient } from '@/lib/supabase/client';
@@ -61,6 +62,8 @@ type Props = {
     initialTransactions: Transaction[];
     categories: Category[];
     accounts: Account[];
+    pocketedTotal?: number;
+    pocketCount?: number;
 };
 
 const HISTORY_PAGE_SIZE = 100;
@@ -73,7 +76,7 @@ function categoryAndTitle(categoryName: string, description?: string) {
         : categoryName;
 }
 
-export default function AccountDetailView({ account, initialTransactions, categories, accounts }: Props) {
+export default function AccountDetailView({ account, initialTransactions, categories, accounts, pocketedTotal = 0, pocketCount = 0 }: Props) {
     const router = useRouter();
     const supabase = createClient();
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
@@ -353,6 +356,25 @@ export default function AccountDetailView({ account, initialTransactions, catego
                         )}
                     </div>
                 </div>
+
+                {/* Apartados: sub-saldos virtuales de esta cuenta */}
+                <Link
+                    href={`/dashboard/cuentas/${account.id}/apartados`}
+                    className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3.5 transition-colors active:scale-[0.99] hover:bg-muted/40"
+                >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <PiggyBank className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-foreground">Apartados</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                            {pocketCount > 0
+                                ? `${formatCurrency(pocketedTotal)} apartados · ${formatCurrency(account.current_balance - pocketedTotal)} disponibles`
+                                : 'Reserva parte del saldo para viajes, compras…'}
+                        </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
 
                 {/* Selector de fecha compacto tipo pill */}
                 <div className="flex items-center justify-center gap-1">

@@ -21,7 +21,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     const monthEnd = endOfMonth(new Date()).toISOString().split('T')[0];
 
     // Fetch Account, Transactions del mes actual (incl. transferencias entrantes), Categories y todas las Accounts (para editar transferencias) en paralelo
-    const [accountRes, outgoingTxRes, incomingTransfersRes, categoriesRes, allAccountsRes] = await Promise.all([
+    const [accountRes, outgoingTxRes, incomingTransfersRes, categoriesRes, allAccountsRes, pocketsRes] = await Promise.all([
         supabase
             .from('accounts')
             .select('*, banks(id, name, color, logo_url)')
@@ -59,8 +59,18 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             .from('accounts')
             .select('*, banks(id, name, color, logo_url)')
             .eq('user_id', user.id)
-            .eq('is_active', true)
+            .eq('is_active', true),
+
+        // Apartados (si la tabla aún no existe, el error se ignora y no se muestra nada)
+        supabase
+            .from('account_pockets')
+            .select('balance')
+            .eq('account_id', id)
+            .eq('user_id', user.id),
     ]);
+
+    const pockets = pocketsRes.data || [];
+    const pocketedTotal = pockets.reduce((s, p) => s + Number(p.balance), 0);
 
     if (accountRes.error || !accountRes.data) {
         console.error('Account not found or error:', accountRes.error);
@@ -87,6 +97,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             initialTransactions={allTransactions}
             categories={categoriesRes.data || []}
             accounts={allAccountsRes.data || []}
+            pocketedTotal={pocketedTotal}
+            pocketCount={pockets.length}
         />
     );
 }
