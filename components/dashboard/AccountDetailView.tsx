@@ -63,7 +63,7 @@ type Props = {
     categories: Category[];
     accounts: Account[];
     pocketedTotal?: number;
-    pocketCount?: number;
+    pockets?: { id: string; name: string; color: string; balance: number }[];
 };
 
 const HISTORY_PAGE_SIZE = 100;
@@ -76,7 +76,7 @@ function categoryAndTitle(categoryName: string, description?: string) {
         : categoryName;
 }
 
-export default function AccountDetailView({ account, initialTransactions, categories, accounts, pocketedTotal = 0, pocketCount = 0 }: Props) {
+export default function AccountDetailView({ account, initialTransactions, categories, accounts, pocketedTotal = 0, pockets = [] }: Props) {
     const router = useRouter();
     const supabase = createClient();
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
@@ -360,20 +360,47 @@ export default function AccountDetailView({ account, initialTransactions, catego
                 {/* Apartados: sub-saldos virtuales de esta cuenta */}
                 <Link
                     href={`/dashboard/cuentas/${account.id}/apartados`}
-                    className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3.5 transition-colors active:scale-[0.99] hover:bg-muted/40"
+                    className="block rounded-2xl border border-border/50 bg-card p-3.5 transition-transform duration-150 ease-out active:scale-[0.985]"
                 >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <PiggyBank className="h-4.5 w-4.5" />
+                    <div className="mb-3 flex items-center gap-2">
+                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                        <p className="flex-1 text-xs font-semibold text-muted-foreground">Apartados</p>
+                        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                            {formatCurrency(account.current_balance - pocketedTotal)} disponibles
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground">Apartados</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                            {pocketCount > 0
-                                ? `${formatCurrency(pocketedTotal)} apartados · ${formatCurrency(account.current_balance - pocketedTotal)} disponibles`
-                                : 'Reserva parte del saldo para viajes, compras…'}
-                        </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    {pockets.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2.5">
+                            {pockets.slice(0, 2).map(p => (
+                                <div
+                                    key={p.id}
+                                    className="min-w-0 rounded-xl p-3"
+                                    style={{ backgroundColor: `${p.color}1F`, boxShadow: `inset 0 0 0 1px ${p.color}40` }}
+                                >
+                                    <div className="mb-1 flex items-center gap-1.5">
+                                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
+                                        <p className="truncate text-[11px] font-semibold text-foreground/80">{p.name}</p>
+                                    </div>
+                                    <p className="truncate text-xl font-semibold tabular-nums tracking-tight" style={{ color: p.color }}>
+                                        {formatCurrency(p.balance)}
+                                    </p>
+                                </div>
+                            ))}
+                            {pockets.length === 1 && (
+                                <div className="flex items-center justify-center rounded-xl border border-dashed border-border p-3 text-[11px] font-semibold text-muted-foreground">
+                                    + Nuevo apartado
+                                </div>
+                            )}
+                            {pockets.length > 2 && (
+                                <p className="col-span-2 text-center text-[11px] font-medium text-muted-foreground">
+                                    +{pockets.length - 2} {pockets.length - 2 === 1 ? 'apartado más' : 'apartados más'} · Ver todos
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">Reserva parte del saldo para viajes, compras…</p>
+                    )}
                 </Link>
 
                 {/* Selector de fecha compacto tipo pill */}

@@ -168,9 +168,9 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
               onChange={e => setName(e.target.value)}
               placeholder="Nombre (ej. Viajes)"
               maxLength={60}
-              className="w-full rounded-xl bg-muted/60 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl bg-muted/60 px-4 py-3 text-base font-medium outline-none focus:ring-2 focus:ring-ring"
             />
-            <NumericInput value={target} onValueChange={setTarget} placeholder="Objetivo (opcional)" currencySymbol="€" className="w-full rounded-xl bg-muted/60 px-4 py-3 text-sm" />
+            <NumericInput value={target} onValueChange={setTarget} placeholder="Objetivo (opcional)" currencySymbol="€" className="w-full rounded-xl bg-muted/60 px-4 py-3 text-base" />
             <div className="flex flex-wrap gap-2">
               {COLORS.map(c => (
                 <button
@@ -208,7 +208,7 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
               onChange={e => setNote(e.target.value)}
               placeholder="Nota (opcional)"
               maxLength={200}
-              className="w-full rounded-xl bg-muted/60 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl bg-muted/60 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-ring"
             />
             <button
               onClick={handleMove}

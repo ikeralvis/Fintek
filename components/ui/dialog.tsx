@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useKeyboardInset } from '@/lib/useKeyboardInset';
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -25,23 +26,32 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+/** Vive dentro del Portal: solo se monta mientras el diálogo está abierto, así el sheet sube con el teclado. */
+function KeyboardInset() {
+  useKeyboardInset();
+  return null;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => {
+  return (
   <DialogPortal>
+    <KeyboardInset />
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
         // Mobile: bottom sheet nativo (iOS) que entra deslizando desde abajo.
         // Desktop (sm+): diálogo centrado clásico con zoom + fade sutil.
-        'fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 rounded-t-3xl border border-border bg-card p-6 text-card-foreground shadow-strong duration-300 ease-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+        // bottom = altura del teclado (--kb, ver useKeyboardInset): el sheet nunca queda tapado.
+        'fixed inset-x-0 bottom-[var(--kb,0px)] z-50 grid w-full gap-4 rounded-t-3xl border border-border bg-card p-6 text-card-foreground shadow-strong duration-300 ease-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
         'sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:slide-in-from-bottom-0',
         // dvh (no vh) para que la altura máxima se reduzca cuando el teclado nativo aparece
         // (junto con interactiveWidget: 'resizes-content' en el viewport), así el sheet nunca
         // queda tapado y el contenedor sigue siendo desplazable hasta el botón de guardar.
-        'max-h-[90dvh] overflow-y-auto overscroll-contain',
+        'max-h-[min(90dvh,calc(var(--vvh,100dvh)-1rem))] overflow-y-auto overscroll-contain',
         className
       )}
       {...props}
@@ -53,7 +63,8 @@ const DialogContent = React.forwardRef<
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
-));
+  );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

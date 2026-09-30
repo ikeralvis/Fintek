@@ -64,9 +64,10 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         // Apartados (si la tabla aún no existe, el error se ignora y no se muestra nada)
         supabase
             .from('account_pockets')
-            .select('balance')
+            .select('id, name, color, balance')
             .eq('account_id', id)
-            .eq('user_id', user.id),
+            .eq('user_id', user.id)
+            .order('balance', { ascending: false }),
     ]);
 
     const pockets = pocketsRes.data || [];
@@ -98,7 +99,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
             categories={categoriesRes.data || []}
             accounts={allAccountsRes.data || []}
             pocketedTotal={pocketedTotal}
-            pocketCount={pockets.length}
+            pockets={pockets.map(p => ({ id: p.id, name: p.name, color: p.color, balance: Number(p.balance) }))}
         />
     );
 }
