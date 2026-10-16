@@ -20,7 +20,7 @@ import { upsertBudget, getHandledRolloverKeys, recordRolloverAction, type Rollov
 import { formatCurrency as fmt, cn } from '@/lib/utils';
 
 export default function BudgetsPageClient() {
-  const { transactions, categories, accounts, userId, setTransactions } = useDashboard();
+  const { transactions, categories, userId } = useDashboard();
   const router = useRouter();
   const supabase = createClient();
   const [budgets, setBudgets] = useState<any[]>([]);
@@ -74,11 +74,25 @@ export default function BudgetsPageClient() {
     return map;
   }, [transactions, startOfMonth]);
 
+  // Sobrantes del mes anterior movidos a Ahorro: cuentan como ahorrado este mes, sin crear
+  // ninguna transacción (no es un gasto real). Se acreditan al primer presupuesto de Ahorro.
+  const [savingsCredits, setSavingsCredits] = useState<{ monthKey: string; surplus: number }[]>([]);
+  const previousMonthKey = format(subMonths(now, 1), 'yyyy-MM');
+  const surplusSavedThisMonth = useMemo(
+    () => savingsCredits.filter(c => c.monthKey === previousMonthKey).reduce((a, c) => a + c.surplus, 0),
+    [savingsCredits, previousMonthKey]
+  );
+  const savingsCreditBudgetId = useMemo(
+    () => budgets.find(b => b.is_savings && categoriesMap[b.category_id])?.id,
+    [budgets, categoriesMap]
+  );
+
   const budgetData = useMemo(() => {
     return budgets
       .filter(b => categoriesMap[b.category_id])
       .map(b => {
-        const spent = spendingMap[b.category_id] || 0;
+        const credit = b.id === savingsCreditBudgetId ? surplusSavedThisMonth : 0;
+        const spent = (spendingMap[b.category_id] || 0) + credit;
         const percentage = b.amount > 0 ? (spent / b.amount) * 100 : 0;
         const remaining = b.amount - spent;
         const category = categoriesMap[b.category_id];
@@ -87,7 +101,7 @@ export default function BudgetsPageClient() {
         return { ...b, spent, percentage, remaining, category, status };
       })
       .sort((a, b) => b.percentage - a.percentage);
-  }, [budgets, spendingMap, categoriesMap]);
+  }, [budgets, spendingMap, categoriesMap, savingsCreditBudgetId, surplusSavedThisMonth]);
 
   const expenseBudgets = useMemo(() => budgetData.filter(b => !b.is_savings), [budgetData]);
   const savingsBudgets = useMemo(() => budgetData.filter(b => b.is_savings), [budgetData]);
@@ -145,16 +159,22 @@ export default function BudgetsPageClient() {
   // cualquier dispositivo del usuario en vez de depender del localStorage del navegador.
   const [handledSurplusKeys, setHandledSurplusKeys] = useState<Set<string>>(new Set());
   useEffect(() => {
-    getHandledRolloverKeys().then(res => setHandledSurplusKeys(new Set(res.data)));
+    getHandledRolloverKeys().then(res => {
+      setHandledSurplusKeys(new Set(res.data));
+      setSavingsCredits(res.savings);
+    });
   }, [userId]);
 
-  const markSurplusHandled = async (candidate: { key: string; categoryId: string; surplus: number }, action: RolloverAction) => {
+  const markSurplusHandled = async (candidate: { key: string; categoryId: string; surplus: number }, action: RolloverAction): Promise<boolean> => {
     // Optimista: refleja el estado al instante y confirma contra el servidor en paralelo.
     setHandledSurplusKeys(prev => new Set(prev).add(candidate.key));
     const res = await recordRolloverAction(candidate.categoryId, lastMonthKey, action, candidate.surplus);
     if (res.error) {
+      setHandledSurplusKeys(prev => { const next = new Set(prev); next.delete(candidate.key); return next; });
       toast.error('No se pudo guardar el estado del sobrante: ' + res.error);
+      return false;
     }
+    return true;
   };
 
   const surplusCandidates = useMemo(() => {
@@ -190,40 +210,16 @@ export default function BudgetsPageClient() {
   const handleAutoSavings = async (candidate: { key: string; categoryId: string; category: any; amount: number; surplus: number }) => {
     const savingsTarget = savingsBudgets[0];
     if (!savingsTarget) {
-      toast.error('Crea antes un presupuesto de Ahorro para poder mover el sobrante');
-      return;
-    }
-    const defaultAccount = accounts[0];
-    if (!defaultAccount) {
-      toast.error('No se encontró una cuenta donde registrar el movimiento');
+      toast.error('Crea antes un presupuesto de Ahorro para poder sumar el sobrante');
       return;
     }
     setProcessingSurplusKey(candidate.key);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No autorizado');
-
-      const { data, error } = await supabase.from('transactions').insert([{
-        user_id: user.id,
-        account_id: defaultAccount.id,
-        category_id: savingsTarget.category_id,
-        amount: candidate.surplus,
-        description: `Auto-ahorro: sobrante de ${candidate.category.name}`,
-        type: 'expense',
-        transaction_date: format(now, 'yyyy-MM-dd'),
-      }]).select().single();
-
-      if (error) throw error;
-
-      setTransactions([...transactions, data]);
-      markSurplusHandled(candidate, 'auto_savings');
-      toast.success(`${fmt(candidate.surplus)} movidos a ${savingsTarget.category.name}`);
-      router.refresh();
-    } catch (err: any) {
-      console.error(err);
-      toast.error('Error al mover el sobrante a ahorro: ' + (err.message || ''));
-    } finally {
-      setProcessingSurplusKey(null);
+    // Solo se registra en budget_rollover_actions; no se crea ninguna transacción.
+    const ok = await markSurplusHandled(candidate, 'auto_savings');
+    setProcessingSurplusKey(null);
+    if (ok) {
+      setSavingsCredits(prev => [...prev, { monthKey: lastMonthKey, surplus: candidate.surplus }]);
+      toast.success(`${fmt(candidate.surplus)} sumados a tu ahorro en ${savingsTarget.category.name}`);
     }
   };
 
@@ -414,7 +410,7 @@ export default function BudgetsPageClient() {
                       className="flex-1 py-2 rounded-xl bg-secondary-500 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
                       {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      Mover a Ahorro
+                      Sumar a Ahorro
                     </button>
                   </div>
                 </div>

@@ -103,22 +103,33 @@ export async function deleteBudget(budgetId: string) {
 export type RolloverAction = 'rollover' | 'auto_savings' | 'dismissed';
 
 /** Claves `categoryId:monthKey` ya resueltas (para no repetir el aviso de sobrante). */
-export async function getHandledRolloverKeys(): Promise<{ data: string[]; error?: string }> {
+export async function getHandledRolloverKeys(): Promise<{
+    data: string[];
+    /** Sobrantes movidos a ahorro: se suman al progreso del presupuesto de Ahorro del mes siguiente. */
+    savings: { monthKey: string; surplus: number }[];
+    error?: string;
+}> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { data: [], error: 'No autorizado' };
+    if (!user) return { data: [], savings: [], error: 'No autorizado' };
 
     const { data, error } = await supabase
         .from('budget_rollover_actions')
-        .select('category_id, month_key')
+        .select('category_id, month_key, action, surplus')
         .eq('user_id', user.id);
 
     if (error) {
         console.error('Error fetching rollover actions:', error);
-        return { data: [], error: error.message };
+        return { data: [], savings: [], error: error.message };
     }
 
-    return { data: (data || []).map(r => `${r.category_id}:${r.month_key}`) };
+    const rows = data || [];
+    return {
+        data: rows.map(r => `${r.category_id}:${r.month_key}`),
+        savings: rows
+            .filter(r => r.action === 'auto_savings')
+            .map(r => ({ monthKey: r.month_key as string, surplus: Number(r.surplus) })),
+    };
 }
 
 /** Registra qué se hizo con el sobrante de una categoría en un mes concreto. */

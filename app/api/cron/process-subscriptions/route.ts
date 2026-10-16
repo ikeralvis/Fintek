@@ -37,32 +37,30 @@ export async function GET(request: Request) {
             const accountId = sub.account_id || (await getDefaultAccountId(supabase, sub.user_id));
             if (!accountId) throw new Error('No account available for subscription');
 
-            const { error: txError } = await supabase.from('transactions').insert({
-                user_id: sub.user_id,
-                account_id: accountId,
-                amount: sub.amount,
-                type: 'expense',
-                description: `${sub.name} - Pago Recurrente`,
-                category_id: sub.category_id,
-                transaction_date: today,
-            });
-            if (txError) throw txError;
+            const type: 'expense' | 'income' | 'transfer' = sub.type || 'expense';
+            if (type === 'transfer' && (!sub.to_account_id || sub.to_account_id === accountId)) {
+                throw new Error('Transfer without a valid destination account');
+            }
 
-            const currentNext = parseISO(sub.next_payment_date);
-            let newNextDate = currentNext;
-            if (sub.billing_cycle === 'monthly') newNextDate = addMonths(currentNext, 1);
-            else if (sub.billing_cycle === 'yearly') newNextDate = addYears(currentNext, 1);
-            else if (sub.billing_cycle === 'weekly') newNextDate = addWeeks(currentNext, 1);
-            else if (sub.billing_cycle === 'bi-weekly') newNextDate = addWeeks(currentNext, 2);
+            // Si el cron no corrió algún día, se recuperan los cobros atrasados (cada uno con su
+            // fecha), con un tope para no generar una avalancha por un dato mal puesto.
+            let nextDate = parseISO(sub.next_payment_date);
+            let created = 0;
+            while (format(nextDate, 'yyyy-MM-dd') <= today && created < MAX_CATCHUP) {
+                const dueDate = format(nextDate, 'yyyy-MM-dd');
+                await createOccurrence(supabase, sub, accountId, type, dueDate);
+                created++;
+                nextDate = advance(nextDate, sub.billing_cycle);
+            }
 
             const { error: updateError } = await supabase
                 .from('subscriptions')
-                .update({ next_payment_date: format(newNextDate, 'yyyy-MM-dd') })
+                .update({ next_payment_date: format(nextDate, 'yyyy-MM-dd') })
                 .eq('id', sub.id);
             if (updateError) throw updateError;
 
             results.processed++;
-            results.details.push({ id: sub.id, name: sub.name, status: 'processed' });
+            results.details.push({ id: sub.id, name: sub.name, status: 'processed', occurrences: created });
         } catch (err: any) {
             console.error(`Error processing sub ${sub.id}:`, err);
             results.errors++;
@@ -71,6 +69,61 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ ...results, reminders: reminderResults });
+}
+
+const MAX_CATCHUP = 12;
+
+function advance(date: Date, cycle: string): Date {
+    if (cycle === 'yearly') return addYears(date, 1);
+    if (cycle === 'weekly') return addWeeks(date, 1);
+    if (cycle === 'bi-weekly') return addWeeks(date, 2);
+    return addMonths(date, 1);
+}
+
+async function createOccurrence(supabase: any, sub: any, accountId: string, type: string, date: string) {
+    if (type === 'transfer') {
+        // El trigger de saldo no cubre las transferencias: se ajustan ambos saldos a mano,
+        // igual que hace createTransfer en la app.
+        const { error: txError } = await supabase.from('transactions').insert({
+            user_id: sub.user_id,
+            account_id: accountId,
+            related_account_id: sub.to_account_id,
+            category_id: sub.category_id,
+            amount: sub.amount,
+            type: 'transfer',
+            description: `${sub.name} - Transferencia automática`,
+            transaction_date: date,
+        });
+        if (txError) throw txError;
+
+        const { data: accs, error: accError } = await supabase
+            .from('accounts')
+            .select('id, current_balance')
+            .in('id', [accountId, sub.to_account_id]);
+        if (accError) throw accError;
+
+        const amount = Number(sub.amount);
+        for (const acc of accs || []) {
+            const delta = acc.id === accountId ? -amount : amount;
+            const { error } = await supabase
+                .from('accounts')
+                .update({ current_balance: Number(acc.current_balance) + delta, updated_at: new Date().toISOString() })
+                .eq('id', acc.id);
+            if (error) throw error;
+        }
+        return;
+    }
+
+    const { error: txError } = await supabase.from('transactions').insert({
+        user_id: sub.user_id,
+        account_id: accountId,
+        amount: sub.amount,
+        type,
+        description: `${sub.name} - ${type === 'income' ? 'Ingreso automático' : 'Pago Recurrente'}`,
+        category_id: sub.category_id,
+        transaction_date: date,
+    });
+    if (txError) throw txError;
 }
 
 async function sendTomorrowReminders(supabase: any, tomorrow: string) {
