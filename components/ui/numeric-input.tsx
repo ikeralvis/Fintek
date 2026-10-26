@@ -98,6 +98,7 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
       placeholder = '0,00',
       disabled,
       layout = 'absolute',
+      onKeyDown,
       ...props
     },
     forwardedRef
@@ -107,11 +108,7 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
 
     const display = toDisplay(value);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const input = e.target;
-      const nextRawDisplay = input.value;
-      const caret = input.selectionStart ?? nextRawDisplay.length;
-
+    const applyDisplay = (nextRawDisplay: string, caret: number) => {
       // Solo se permiten dígitos, un separador decimal (, o .) y el signo -.
       const sanitized = nextRawDisplay.replace(/[^\d,.-]/g, '');
       const significantBefore = significantCountBefore(sanitized, caret);
@@ -129,6 +126,26 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
       });
     };
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const input = e.target;
+      applyDisplay(input.value, input.selectionStart ?? input.value.length);
+    };
+
+    // El "." se usa como separador de miles en pantalla, así que al teclearlo (p. ej. el punto del
+    // teclado numérico en PC) se descartaba. Se interpreta como la coma decimal.
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      onKeyDown?.(e);
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key !== '.' && e.key !== 'Decimal') return;
+      e.preventDefault();
+      const input = e.currentTarget;
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? start;
+      const next = input.value.slice(0, start) + ',' + input.value.slice(end);
+      // Si ya hay una coma fuera de la selección, toRaw se queda con la primera: no se duplica.
+      applyDisplay(next, start + 1);
+    };
+
     return (
       <div className={cn(layout === 'inline' ? 'inline-flex items-baseline' : 'relative flex items-center', wrapperClassName)}>
         <input
@@ -138,6 +155,7 @@ export const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps
           autoComplete="off"
           value={display}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
