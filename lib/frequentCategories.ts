@@ -5,7 +5,7 @@ type TxLike = { category_id?: string | null; type: string; transaction_date: str
  * historial de transacciones ya cargado en el DashboardContext (sin llamadas extra al server).
  * Empata por frecuencia y desempata por la fecha de uso más reciente.
  */
-export function getFrequentCategoryIds(transactions: TxLike[], type: 'expense' | 'income', limit = 5): string[] {
+export function getFrequentCategoryIds(transactions: TxLike[], type: 'expense' | 'income' | 'transfer', limit = 5): string[] {
   const stats = new Map<string, { count: number; lastDate: string }>();
 
   for (const t of transactions) {

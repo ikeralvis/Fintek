@@ -58,6 +58,11 @@ function CategoryPickerSheetInner({ onClose, categories, selectedId, onSelect, f
   useEffect(() => {
     // Cierra el teclado del input de importe para que el sheet no quede debajo.
     (document.activeElement as HTMLElement | null)?.blur?.();
+    // En PC (puntero fino con hover) se puede escribir directamente; en táctil enfocar abriría el
+    // teclado y taparía el sheet, así que ahí se deja sin foco.
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      searchRef.current?.focus({ preventScroll: true });
+    }
     const raf = requestAnimationFrame(() => setVisible(true));
     const timeouts = timeoutsRef.current;
     return () => {

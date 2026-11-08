@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ChevronLeft, ChevronRight, X, Database, CalendarRange } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, X, Database, CalendarRange, List, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence, type PanInfo } from 'motion/react';
 import { format, parseISO, isSameDay, isSameMonth, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -57,6 +57,13 @@ type Props = {
 
 type ViewMode = 'month' | 'all';
 type TypeFilter = 'all' | 'income' | 'expense';
+type Layout = 'list' | 'grid';
+type GroupBy = 'date' | 'category';
+
+const GROUP_SEGMENTS: { value: GroupBy; label: string }[] = [
+    { value: 'date', label: 'Por fecha' },
+    { value: 'category', label: 'Por categoría' },
+];
 
 const TYPE_SEGMENTS: { value: TypeFilter; label: string }[] = [
     { value: 'all', label: 'Todos' },
@@ -94,6 +101,30 @@ export default function TransactionsView({ initialTransactions, accounts, catego
     // Dirección del último cambio de mes (1 = siguiente, -1 = anterior), para que la
     // transición del label y el gesto de swipe se sientan consistentes entre sí.
     const [monthDirection, setMonthDirection] = useState<1 | -1>(1);
+
+    const [layout, setLayout] = useState<Layout>('list');
+    const [groupBy, setGroupBy] = useState<GroupBy>('date');
+
+    // Preferencia de vista por dispositivo; se lee tras montar para no desajustar la hidratación.
+    useEffect(() => {
+        try {
+            const l = window.localStorage.getItem('fintek:txLayout');
+            const g = window.localStorage.getItem('fintek:txGroupBy');
+            /* eslint-disable react-hooks/set-state-in-effect -- lectura única tras montar (evita desajuste de hidratación) */
+            if (l === 'list' || l === 'grid') setLayout(l);
+            if (g === 'date' || g === 'category') setGroupBy(g);
+            /* eslint-enable react-hooks/set-state-in-effect */
+        } catch { /* localStorage no disponible */ }
+    }, []);
+
+    const changeLayout = (v: Layout) => {
+        setLayout(v);
+        try { window.localStorage.setItem('fintek:txLayout', v); } catch { /* ignore */ }
+    };
+    const changeGroupBy = (v: GroupBy) => {
+        setGroupBy(v);
+        try { window.localStorage.setItem('fintek:txGroupBy', v); } catch { /* ignore */ }
+    };
 
     const navigateMonth = (dir: 1 | -1) => {
         setMonthDirection(dir);
@@ -195,15 +226,66 @@ export default function TransactionsView({ initialTransactions, accounts, catego
         return { totalIncome: income, totalExpense: expense };
     }, [filteredTransactions]);
 
-    const groupedTransactions = useMemo(() => {
-        const grouped: Record<string, Transaction[]> = {};
+    // Secciones de la lista: por fecha (más reciente primero) o por categoría (mayor importe neto primero).
+    const sections = useMemo(() => {
+        const grouped = new Map<string, { key: string; title: string; category?: Category | null; items: Transaction[] }>();
         filteredTransactions.forEach(t => {
-            const dateKey = t.transaction_date.substring(0, 10);
-            if (!grouped[dateKey]) grouped[dateKey] = [];
-            grouped[dateKey].push(t);
+            const isTransfer = t.type === 'transfer';
+            const cat = t.categories;
+            const key = groupBy === 'date'
+                ? t.transaction_date.substring(0, 10)
+                : (t.category_id || cat?.id || (isTransfer ? '__transfer' : '__none'));
+            let section = grouped.get(key);
+            if (!section) {
+                const title = groupBy === 'date'
+                    ? (isSameDay(parseISO(key), new Date()) ? 'Hoy' : format(parseISO(key), 'd MMMM yyyy', { locale: es }))
+                    : (cat?.name || t.category || (isTransfer ? 'Transferencia' : 'General'));
+                section = { key, title, category: groupBy === 'category' ? cat : null, items: [] };
+                grouped.set(key, section);
+            }
+            section.items.push(t);
         });
-        return grouped;
-    }, [filteredTransactions]);
+        const net = (items: Transaction[]) => items.reduce((a, t) => a + (t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
+        const list = Array.from(grouped.values());
+        return groupBy === 'date'
+            ? list.sort((a, b) => b.key.localeCompare(a.key))
+            : list.sort((a, b) => Math.abs(net(b.items)) - Math.abs(net(a.items)));
+    }, [filteredTransactions, groupBy]);
+
+    const renderIcon = (t: Transaction, size: 'md' | 'sm' = 'md') => {
+        const isTransfer = t.type === 'transfer';
+        return (
+            <div
+                className={cn('rounded-xl flex items-center justify-center shrink-0', size === 'md' ? 'w-10 h-10' : 'w-9 h-9')}
+                style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#eff6ff' : '#f5f5f5') }}
+            >
+                <CategoryIcon
+                    name={t.categories?.icon || (isTransfer ? 'down' : (t.type === 'income' ? 'up' : 'down'))}
+                    className="w-5 h-5"
+                    style={{ color: t.categories?.color || (isTransfer ? '#2563eb' : (t.type === 'income' ? '#10b981' : '#f43f5e')) }}
+                />
+            </div>
+        );
+    };
+
+    const amountClass = (t: Transaction) =>
+        t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : t.type === 'transfer' ? 'text-primary' : 'text-accent-600 dark:text-accent-400';
+
+    const txLabels = (t: Transaction) => {
+        const isTransfer = t.type === 'transfer';
+        const categoryName = t.categories?.name || t.category || (isTransfer ? 'Transferencia' : 'General');
+        const accountName = accounts.find(a => a.id === t.account_id)?.name || t.accounts?.name || 'Cuenta';
+        const destinationName = t.related_account_id
+            ? accounts.find(a => a.id === t.related_account_id)?.name || 'Cuenta destino'
+            : null;
+        // Agrupado por categoría, el nombre de la categoría ya está en la cabecera: se muestra el concepto + fecha.
+        const title = groupBy === 'category'
+            ? (t.description?.trim() || categoryName)
+            : (isTransfer ? categoryName : categoryAndTitle(categoryName, t.description));
+        const subtitle = isTransfer && destinationName ? `${accountName} -> ${destinationName}` : accountName;
+        const dateLabel = format(parseISO(t.transaction_date), 'd MMM', { locale: es });
+        return { title, subtitle: groupBy === 'category' ? `${dateLabel} · ${subtitle}` : subtitle };
+    };
 
     return (
         <div className="min-h-screen bg-background pb-32 md:pb-8">
@@ -358,24 +440,91 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
                 {/* Transaction List */}
                 <div className="space-y-5">
-                    {Object.keys(groupedTransactions).length === 0 ? (
+                    {/* Vista: lista/galería y agrupación por fecha/categoría (se recuerda en este dispositivo) */}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center bg-muted rounded-xl p-1">
+                            {GROUP_SEGMENTS.map(seg => (
+                                <button
+                                    key={seg.value}
+                                    onClick={() => changeGroupBy(seg.value)}
+                                    className={cn(
+                                        'rounded-lg px-3 py-1 text-xs font-semibold transition-colors',
+                                        groupBy === seg.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                                    )}
+                                >
+                                    {seg.label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center bg-muted rounded-xl p-1">
+                            {([['list', List, 'Lista'], ['grid', LayoutGrid, 'Galería']] as const).map(([value, Icon, label]) => (
+                                <button
+                                    key={value}
+                                    onClick={() => changeLayout(value)}
+                                    aria-label={label}
+                                    title={label}
+                                    className={cn(
+                                        'rounded-lg px-2.5 py-1 transition-colors',
+                                        layout === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+                                    )}
+                                >
+                                    <Icon className="w-4 h-4" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {sections.length === 0 ? (
                         <div className="text-center py-16 bg-card rounded-xl border border-border">
                             <p className="text-muted-foreground text-sm">No hay transacciones</p>
                         </div>
                     ) : (
-                        Object.keys(groupedTransactions).sort((a, b) => b.localeCompare(a)).map(date => (
-                            <div key={date}>
-                                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 ml-1">
-                                    {isSameDay(parseISO(date), new Date()) ? 'Hoy' : format(parseISO(date), 'd MMMM yyyy', { locale: es })}
-                                </h3>
+                        sections.map(section => {
+                            const sectionNet = section.items.reduce((a, t) => a + (t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
+                            return (
+                            <div key={section.key}>
+                                <div className="flex items-center justify-between mb-2 mx-1 gap-2">
+                                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
+                                        {section.title}
+                                        {groupBy === 'category' && <span className="ml-1.5 normal-case font-medium">· {section.items.length}</span>}
+                                    </h3>
+                                    {groupBy === 'category' && sectionNet !== 0 && (
+                                        <span className="text-xs font-semibold tabular-nums text-foreground shrink-0">
+                                            {sectionNet > 0 ? '+' : ''}{formatCurrency(sectionNet)}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {layout === 'grid' ? (
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                        {section.items.map(t => {
+                                            const { title, subtitle } = txLabels(t);
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    type="button"
+                                                    onClick={() => setEditingTransaction(t)}
+                                                    disabled={deletingId === t.id}
+                                                    className="bg-card rounded-xl border border-border p-3 text-left flex flex-col gap-2 min-w-0 transition-transform active:scale-[0.98] hover:bg-muted/40 disabled:opacity-50"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        {renderIcon(t, 'sm')}
+                                                        <p className={cn('font-semibold text-sm tabular-nums', amountClass(t))}>
+                                                            {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                                                        </p>
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium text-foreground text-sm truncate">{title}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
                                 <div className="bg-card rounded-xl border border-border overflow-hidden divide-y divide-border">
-                                    {groupedTransactions[date].map((t, idx, arr) => {
-                                        const isTransfer = t.type === 'transfer';
-                                        const categoryName = t.categories?.name || t.category || (isTransfer ? 'Transferencia' : 'General');
-                                        const accountName = accounts.find(a => a.id === t.account_id)?.name || t.accounts?.name || 'Cuenta';
-                                        const destinationName = t.related_account_id
-                                            ? accounts.find(a => a.id === t.related_account_id)?.name || 'Cuenta destino'
-                                            : null;
+                                    {section.items.map((t, idx, arr) => {
+                                        const { title, subtitle } = txLabels(t);
                                         const edge = arr.length === 1 ? 'both' : idx === 0 ? 'top' : idx === arr.length - 1 ? 'bottom' : 'none';
 
                                         return (
@@ -387,38 +536,26 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                                                 edge={edge}
                                                 className="bg-card px-4 py-3 flex items-center gap-3"
                                             >
-                                                {/* Category Icon */}
-                                                <div
-                                                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                                                    style={{ backgroundColor: t.categories?.color ? `${t.categories.color}15` : (isTransfer ? '#eff6ff' : '#f5f5f5') }}
-                                                >
-                                                    <CategoryIcon
-                                                        name={t.categories?.icon || (isTransfer ? 'down' : (t.type === 'income' ? 'up' : 'down'))}
-                                                        className="w-5 h-5"
-                                                        style={{ color: t.categories?.color || (isTransfer ? '#2563eb' : (t.type === 'income' ? '#10b981' : '#f43f5e')) }}
-                                                    />
-                                                </div>
+                                                {renderIcon(t)}
 
                                                 {/* Details */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-foreground text-sm truncate">
-                                                        {isTransfer ? categoryName : categoryAndTitle(categoryName, t.description)}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        {isTransfer && destinationName ? `${accountName} -> ${destinationName}` : accountName}
-                                                    </p>
+                                                    <p className="font-medium text-foreground text-sm truncate">{title}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
                                                 </div>
 
                                                 {/* Amount */}
-                                                <p className={`font-semibold text-sm tabular-nums shrink-0 ${t.type === 'income' ? 'text-secondary-600 dark:text-secondary-400' : t.type === 'transfer' ? 'text-primary' : 'text-accent-600 dark:text-accent-400'}`}>
+                                                <p className={cn('font-semibold text-sm tabular-nums shrink-0', amountClass(t))}>
                                                     {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                                                 </p>
                                             </SwipeActionRow>
                                         );
                                     })}
                                 </div>
+                                )}
                             </div>
-                        ))
+                            );
+                        })
                     )}
 
                     {/* Acceso rápido al mes anterior: evita volver arriba para seguir explorando */}

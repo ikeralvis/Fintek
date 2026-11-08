@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { subMonths, startOfMonth as startOfMonthFn, endOfMonth, format } from 'date-fns';
+import { subMonths, format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useDashboard } from '@/lib/DashboardContext';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import {
   ArrowLeft, Target, Plus, AlertTriangle, Pencil, Trash2,
-  PiggyBank, Settings, Shield, Sparkles, Loader2, X
+  PiggyBank, Settings, Shield, ChevronDown
 } from 'lucide-react';
 import Link from 'next/link';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -16,7 +16,7 @@ import BudgetFormModal from './BudgetFormModal';
 import BudgetSettingsModal from './BudgetSettingsModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getSpendingAnalysis } from '@/lib/actions/analysis';
-import { upsertBudget, getHandledRolloverKeys, recordRolloverAction, type RolloverAction } from '@/lib/actions/budgets';
+import { getHandledRolloverKeys } from '@/lib/actions/budgets';
 import { formatCurrency as fmt, cn } from '@/lib/utils';
 
 export default function BudgetsPageClient() {
@@ -74,6 +74,18 @@ export default function BudgetsPageClient() {
     return map;
   }, [transactions, startOfMonth]);
 
+  // Movimientos del mes que cuentan para cada presupuesto (mismo criterio que spendingMap), más recientes primero.
+  const monthTxByCategory = useMemo(() => {
+    const map: Record<string, typeof transactions> = {};
+    transactions.forEach(t => {
+      if ((t.type === 'expense' || t.type === 'transfer') && t.transaction_date >= startOfMonth && t.category_id) {
+        (map[t.category_id] ||= []).push(t);
+      }
+    });
+    Object.values(map).forEach(list => list.sort((a, b) => b.transaction_date.localeCompare(a.transaction_date)));
+    return map;
+  }, [transactions, startOfMonth]);
+
   // Sobrantes del mes anterior movidos a Ahorro: cuentan como ahorrado este mes, sin crear
   // ninguna transacción (no es un gasto real). Se acreditan al primer presupuesto de Ahorro.
   const [savingsCredits, setSavingsCredits] = useState<{ monthKey: string; surplus: number }[]>([]);
@@ -82,6 +94,10 @@ export default function BudgetsPageClient() {
     () => savingsCredits.filter(c => c.monthKey === previousMonthKey).reduce((a, c) => a + c.surplus, 0),
     [savingsCredits, previousMonthKey]
   );
+  // Créditos de ahorro ya registrados en meses anteriores (la sugerencia de sobrante se retiró).
+  useEffect(() => {
+    getHandledRolloverKeys().then(res => setSavingsCredits(res.savings));
+  }, [userId]);
   const savingsCreditBudgetId = useMemo(
     () => budgets.find(b => b.is_savings && categoriesMap[b.category_id])?.id,
     [budgets, categoriesMap]
@@ -136,92 +152,6 @@ export default function BudgetsPageClient() {
   const pctSavedOfIncome = income > 0 ? (totalSaved / income) * 100 : 0;
   const pctFreeOfIncome = income > 0 ? Math.max(0, (incomeFree / income) * 100) : 0;
   const incomeOverflow = Math.max(0, incomeAllocated - income);
-
-  // --- Smart Budgets: detección de sobrante del mes anterior (rollover / auto-ahorro) ---
-  const lastMonthDate = subMonths(now, 1);
-  const lastMonthStart = format(startOfMonthFn(lastMonthDate), 'yyyy-MM-dd');
-  const lastMonthEnd = format(endOfMonth(lastMonthDate), 'yyyy-MM-dd');
-  const lastMonthKey = format(lastMonthDate, 'yyyy-MM');
-
-  const lastMonthSpendMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    transactions.forEach(t => {
-      const countsTowardBudget = t.type === 'expense' || t.type === 'transfer';
-      if (countsTowardBudget && t.transaction_date >= lastMonthStart && t.transaction_date <= lastMonthEnd && t.category_id) {
-        map[t.category_id] = (map[t.category_id] || 0) + t.amount;
-      }
-    });
-    return map;
-  }, [transactions, lastMonthStart, lastMonthEnd]);
-
-  // Qué sobrantes de mes anterior ya se resolvieron (rollover/auto-ahorro/ignorado),
-  // persistido en Supabase (budget_rollover_actions) para que el estado sea el mismo en
-  // cualquier dispositivo del usuario en vez de depender del localStorage del navegador.
-  const [handledSurplusKeys, setHandledSurplusKeys] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    getHandledRolloverKeys().then(res => {
-      setHandledSurplusKeys(new Set(res.data));
-      setSavingsCredits(res.savings);
-    });
-  }, [userId]);
-
-  const markSurplusHandled = async (candidate: { key: string; categoryId: string; surplus: number }, action: RolloverAction): Promise<boolean> => {
-    // Optimista: refleja el estado al instante y confirma contra el servidor en paralelo.
-    setHandledSurplusKeys(prev => new Set(prev).add(candidate.key));
-    const res = await recordRolloverAction(candidate.categoryId, lastMonthKey, action, candidate.surplus);
-    if (res.error) {
-      setHandledSurplusKeys(prev => { const next = new Set(prev); next.delete(candidate.key); return next; });
-      toast.error('No se pudo guardar el estado del sobrante: ' + res.error);
-      return false;
-    }
-    return true;
-  };
-
-  const surplusCandidates = useMemo(() => {
-    return expenseBudgets
-      .map(b => {
-        const lastSpent = lastMonthSpendMap[b.category_id];
-        if (lastSpent === undefined) return null; // sin actividad el mes pasado: nada que detectar
-        const surplus = b.amount - lastSpent;
-        if (surplus < 1) return null;
-        const key = `${b.category_id}:${lastMonthKey}`;
-        if (handledSurplusKeys.has(key)) return null;
-        return { key, categoryId: b.category_id, category: b.category, amount: b.amount, surplus };
-      })
-      .filter((x): x is { key: string; categoryId: string; category: any; amount: number; surplus: number } => x !== null);
-  }, [expenseBudgets, lastMonthSpendMap, lastMonthKey, handledSurplusKeys]);
-
-  const [processingSurplusKey, setProcessingSurplusKey] = useState<string | null>(null);
-
-  const handleRollover = async (candidate: { key: string; categoryId: string; category: any; amount: number; surplus: number }) => {
-    setProcessingSurplusKey(candidate.key);
-    const newAmount = candidate.amount + candidate.surplus;
-    const res = await upsertBudget(candidate.categoryId, newAmount, false);
-    setProcessingSurplusKey(null);
-    if (res.success) {
-      setBudgets(prev => prev.map(b => b.category_id === candidate.categoryId ? { ...b, amount: newAmount } : b));
-      markSurplusHandled(candidate, 'rollover');
-      toast.success(`+${fmt(candidate.surplus)} añadidos al límite de ${candidate.category.name} este mes`);
-    } else {
-      toast.error('Error al aplicar el rollover: ' + res.error);
-    }
-  };
-
-  const handleAutoSavings = async (candidate: { key: string; categoryId: string; category: any; amount: number; surplus: number }) => {
-    const savingsTarget = savingsBudgets[0];
-    if (!savingsTarget) {
-      toast.error('Crea antes un presupuesto de Ahorro para poder sumar el sobrante');
-      return;
-    }
-    setProcessingSurplusKey(candidate.key);
-    // Solo se registra en budget_rollover_actions; no se crea ninguna transacción.
-    const ok = await markSurplusHandled(candidate, 'auto_savings');
-    setProcessingSurplusKey(null);
-    if (ok) {
-      setSavingsCredits(prev => [...prev, { monthKey: lastMonthKey, surplus: candidate.surplus }]);
-      toast.success(`${fmt(candidate.surplus)} sumados a tu ahorro en ${savingsTarget.category.name}`);
-    }
-  };
 
   const alerts = budgetData.filter(b => !b.is_savings && (b.status === 'warning' || b.status === 'exceeded'));
 
@@ -370,55 +300,6 @@ export default function BudgetsPageClient() {
           )}
         </div>
 
-        {/* Smart Budgets: sobrante detectado del mes anterior — rollover o auto-ahorro a 1 tap */}
-        {surplusCandidates.length > 0 && (
-          <div className="space-y-2">
-            {surplusCandidates.map(c => {
-              const isProcessing = processingSurplusKey === c.key;
-              return (
-                <div key={c.key} className="rounded-2xl border border-secondary-500/20 bg-secondary-500/10 p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-xl bg-secondary-500/15 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">Presupuesto sobrante detectado</p>
-                      <p className="text-xs text-muted-foreground">
-                        Te sobraron <span className="font-semibold tabular-nums text-secondary-700 dark:text-secondary-400">{fmt(c.surplus)}</span> en {c.category.name} el mes pasado
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => markSurplusHandled(c, 'dismissed')}
-                      className="shrink-0 p-1 -m-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                      title="Ignorar"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleRollover(c)}
-                      disabled={isProcessing}
-                      className="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      Sumar a este mes
-                    </button>
-                    <button
-                      onClick={() => handleAutoSavings(c)}
-                      disabled={isProcessing}
-                      className="flex-1 py-2 rounded-xl bg-secondary-500 text-white text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      Sumar a Ahorro
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* Margen de seguridad: solo mide cuánto del exceso de gasto consume el colchón */}
         {cushion > 0 && (
           <div className={`rounded-2xl border p-4 ${cushionExceeded ? 'bg-accent-500/10 border-accent-500/20' : bufferCoversOverage ? 'bg-amber-500/10 border-amber-500/20' : 'bg-card border-border'}`}>
@@ -534,7 +415,7 @@ export default function BudgetsPageClient() {
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Gastos</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {expenseBudgets.map(b => (
-                    <BudgetCard key={b.id} b={b} onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
+                    <BudgetCard key={b.id} b={b} txs={monthTxByCategory[b.category_id] || []} onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
                   ))}
                 </div>
               </div>
@@ -547,7 +428,7 @@ export default function BudgetsPageClient() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {savingsBudgets.map(b => (
-                    <BudgetCard key={b.id} b={b} isSavings onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
+                    <BudgetCard key={b.id} b={b} txs={monthTxByCategory[b.category_id] || []} isSavings onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
                   ))}
                 </div>
               </div>
@@ -576,10 +457,18 @@ export default function BudgetsPageClient() {
   );
 }
 
-function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: boolean; onEdit: () => void; onDelete: () => void }) {
+function BudgetCard({ b, txs, isSavings, onEdit, onDelete }: { b: any; txs: any[]; isSavings?: boolean; onEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="bg-card rounded-2xl border border-border p-4 group">
-      <div className="flex items-center justify-between mb-3">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); } }}
+        className="flex items-center justify-between mb-3 cursor-pointer"
+      >
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -590,11 +479,11 @@ function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: bo
           <div>
             <p className="text-sm font-semibold text-foreground">{b.category.name}</p>
             <p className="text-xs text-muted-foreground tabular-nums">
-              {fmt(b.spent)} / {fmt(b.amount)}
+              {fmt(b.spent)} / {fmt(b.amount)} · {b.percentage.toFixed(0)}%
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button onClick={onEdit} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground">
             <Pencil className="w-3.5 h-3.5" />
           </button>
@@ -633,6 +522,31 @@ function BudgetCard({ b, isSavings, onEdit, onDelete }: { b: any; isSavings?: bo
           }
         </span>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="mt-3 w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {txs.length} {txs.length === 1 ? 'movimiento' : 'movimientos'}
+        <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="mt-2 -mx-1 divide-y divide-border border-t border-border max-h-64 overflow-y-auto">
+          {txs.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted-foreground">Sin movimientos este mes</p>
+          ) : txs.map(t => (
+            <div key={t.id} className="flex items-center justify-between gap-3 px-1 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{t.description?.trim() || b.category.name}</p>
+                <p className="text-xs text-muted-foreground">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}{t.type === 'transfer' ? ' · Transferencia' : ''}</p>
+              </div>
+              <p className="text-sm font-semibold tabular-nums shrink-0 text-accent-600 dark:text-accent-400">-{fmt(t.amount)}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

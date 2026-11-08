@@ -181,7 +181,7 @@ export default function TransactionForm({ accounts: accountsProp, categories: ca
 
   const selectedCategory = categories.find(c => c.id === categoryId);
   const frequentCategoryIds = useMemo(
-    () => (type === 'transfer' ? [] : getFrequentCategoryIds(transactions, type, 5)),
+    () => getFrequentCategoryIds(transactions, type, 5),
     [transactions, type]
   );
   const selectedAccount = accounts.find(a => a.id === accountId);
