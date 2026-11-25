@@ -15,6 +15,9 @@ import SwipeActionRow from './SwipeActionRow';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { SelectSheet, type SelectSheetOption } from '@/components/ui/select-sheet';
 import { deleteTransfer } from '@/lib/actions/transfers';
+import { useDashboard } from '@/lib/DashboardContext';
+import { invalidateYearTransactions, useYearTransactions } from '@/lib/useYearTransactions';
+import { invalidateHomeData } from '@/lib/useHomeData';
 import { cn, formatCurrency } from '@/lib/utils';
 
 type Category = {
@@ -85,12 +88,17 @@ function categoryAndTitle(categoryName: string, description?: string) {
         : categoryName;
 }
 
-export default function TransactionsView({ initialTransactions, accounts, categories }: Props) {
+export default function TransactionsView({ initialTransactions, accounts, categories, initialPeriod }: Props & { initialPeriod?: string }) {
     const router = useRouter();
     const supabase = createClient();
-    const [transactions, setTransactions] = useState(initialTransactions);
-    const [viewMode, setViewMode] = useState<ViewMode>('month');
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const { userId, removeTransaction, refreshData } = useDashboard();
+    // Periodo inicial desde la URL (?mes=2026-05 | ?mes=todo), para que refrescar o volver de
+    // añadir/editar no te devuelva al mes actual.
+    const [viewMode, setViewMode] = useState<ViewMode>(initialPeriod === 'todo' ? 'all' : 'month');
+    const [currentDate, setCurrentDate] = useState(() => {
+        const m = initialPeriod?.match(/^(\d{4})-(\d{2})$/);
+        return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1) : new Date();
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -153,6 +161,33 @@ export default function TransactionsView({ initialTransactions, accounts, catego
 
     const periodValue = viewMode === 'all' ? 'all' : format(currentDate, 'yyyy-MM');
 
+    // El contexto solo trae el año en curso. Otro año se pide al navegar a él (una vez por sesión);
+    // "Todo el histórico" pide lo anterior de una sola vez y solo si lo eliges.
+    const viewedYear = currentDate.getFullYear();
+    const pastYears = useMemo(() => [viewedYear], [viewedYear]);
+    const noYears = useMemo(() => [] as number[], []);
+    const past = useYearTransactions(userId, viewMode === 'all' ? noYears : pastYears, { allPast: viewMode === 'all' });
+    const transactions = useMemo(() => {
+        if (past.transactions.length === 0) return initialTransactions;
+        const catById = new Map(categories.map(c => [c.id, c]));
+        const enriched = past.transactions.map(t => ({
+            ...t,
+            account_id: t.account_id ?? '',
+            category_id: t.category_id ?? undefined,
+            description: t.description ?? undefined,
+            categories: t.category_id ? catById.get(t.category_id) ?? null : null,
+        })) as Transaction[];
+        return [...initialTransactions, ...enriched];
+    }, [initialTransactions, past.transactions, categories]);
+
+    // Refleja el periodo en la URL sin navegar (el mes actual deja la URL limpia).
+    useEffect(() => {
+        const param = periodValue === 'all' ? 'todo' : periodValue === format(new Date(), 'yyyy-MM') ? null : periodValue;
+        const url = new URL(window.location.href);
+        if (param) url.searchParams.set('mes', param); else url.searchParams.delete('mes');
+        if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url.href);
+    }, [periodValue]);
+
     const handlePeriodSelect = (value: string) => {
         if (value === 'all') {
             setViewMode('all');
@@ -177,7 +212,9 @@ export default function TransactionsView({ initialTransactions, accounts, catego
                 if (delError) throw delError;
             }
 
-            setTransactions(transactions.filter(t => t.id !== tx.id));
+            removeTransaction(tx.id);
+            if (!tx.transaction_date.startsWith(String(new Date().getFullYear()))) invalidateYearTransactions();
+            invalidateHomeData();
             toast.success('Transacción eliminada');
             router.refresh();
         } catch (err) {
@@ -188,17 +225,14 @@ export default function TransactionsView({ initialTransactions, accounts, catego
         }
     };
 
+    // Tras editar: se recarga solo el año en curso (1 petición) y, si el movimiento era de otro
+    // año, se vacía esa caché para que se vuelva a pedir. Antes se descargaba todo el histórico.
     const handleEditSaved = async () => {
+        const edited = editingTransaction;
         setEditingTransaction(null);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data } = await supabase
-                .from('transactions')
-                .select('*, categories(id, name, icon, color), accounts!account_id(id, name)')
-                .eq('user_id', user.id)
-                .order('transaction_date', { ascending: false });
-            if (data) setTransactions(data as Transaction[]);
-        }
+        await refreshData();
+        if (edited && !edited.transaction_date.startsWith(String(new Date().getFullYear()))) invalidateYearTransactions();
+        invalidateHomeData();
         router.refresh();
     };
 

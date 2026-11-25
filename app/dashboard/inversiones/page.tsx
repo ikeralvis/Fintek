@@ -1,11 +1,16 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import InvestmentsView from '@/components/dashboard/InvestmentsView';
+import { syncInvestmentContributions } from '@/lib/actions/investments';
 
 export default async function InversionesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Antes de cargar: convierte en aportaciones las transferencias nuevas a/desde las cuentas
+  // de inversión (pagos automáticos incluidos), para que no cuenten como ganancia.
+  await syncInvestmentContributions();
 
   const [accountsRes, snapshotsRes, contributionsRes] = await Promise.all([
     supabase
@@ -17,7 +22,7 @@ export default async function InversionesPage() {
       .order('name'),
     supabase
       .from('investment_snapshots')
-      .select('*')
+      .select('id, account_id, value, snapshot_date')
       .eq('user_id', user.id)
       .order('snapshot_date', { ascending: true }),
     supabase

@@ -93,7 +93,7 @@ export default function BottomNav() {
                     <div className="relative -top-5">
                         <button
                             onClick={() => {
-                                sessionStorage.setItem('previousPath', pathname);
+                                sessionStorage.setItem('previousPath', pathname + window.location.search);
                                 router.push(NEW_TRANSACTION_HREF);
                             }}
                             className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"

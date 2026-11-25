@@ -83,7 +83,7 @@ export default function DashboardNav({ userName, userEmail }: Props) {
           <div className="flex items-center gap-2 xl:gap-3 shrink-0">
             <Link
               href={NEW_TRANSACTION_HREF}
-              onClick={() => sessionStorage.setItem('previousPath', pathname)}
+              onClick={() => sessionStorage.setItem('previousPath', pathname + window.location.search)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:bg-primary/90 transition-colors"
               title="Nueva transacción"
             >

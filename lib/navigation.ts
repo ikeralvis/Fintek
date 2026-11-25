@@ -1,5 +1,5 @@
 import {
-  CalendarDays, CreditCard, Home, List, PieChart, RefreshCw, Settings, Sparkles, Target, TrendingUp, Wallet,
+  Home, List, PieChart, RefreshCw, Settings, Sparkles, Target, TrendingUp, Wallet,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -27,10 +27,8 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'budgets', name: 'Presupuestos', href: '/dashboard/presupuestos', icon: Target, desktop: 'bar', mobile: 'more' },
   { key: 'subs', name: 'Pagos automáticos', href: '/dashboard/suscripciones', icon: RefreshCw, desktop: 'bar', mobile: 'more' },
   { key: 'stats', name: 'Estadísticas', href: '/dashboard/estadisticas', icon: PieChart, desktop: 'bar', mobile: 'more' },
-  { key: 'calendar', name: 'Calendario', href: '/dashboard/calendario', icon: CalendarDays, desktop: 'more', mobile: 'more' },
-  { key: 'invest', name: 'Inversiones', href: '/dashboard/inversiones', icon: TrendingUp, desktop: 'more', mobile: 'more' },
+  { key: 'invest', name: 'Inversiones', href: '/dashboard/inversiones', icon: TrendingUp, desktop: 'bar', mobile: 'more' },
   { key: 'ai', name: 'Predicción IA', href: '/dashboard/analisis', icon: Sparkles, desktop: 'more', mobile: 'more' },
-  { key: 'wallet', name: 'Mi Cartera', href: '/dashboard/cartera', icon: CreditCard, desktop: 'more', mobile: 'more' },
   { key: 'settings', name: 'Configuración', href: '/dashboard/configuracion', icon: Settings, desktop: 'more', mobile: 'more' },
 ];
 

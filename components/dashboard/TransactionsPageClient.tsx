@@ -3,7 +3,7 @@
 import { useDashboard } from '@/lib/DashboardContext';
 import TransactionsView from './TransactionsView';
 
-export default function TransactionsPageClient() {
+export default function TransactionsPageClient({ initialPeriod }: { initialPeriod?: string }) {
   const { transactions, accounts, categories } = useDashboard();
 
   return (
@@ -11,6 +11,7 @@ export default function TransactionsPageClient() {
       initialTransactions={transactions}
       accounts={accounts as any}
       categories={categories}
+      initialPeriod={initialPeriod}
     />
   );
 }

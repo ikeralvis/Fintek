@@ -7,7 +7,6 @@ import { useDashboard } from '@/lib/DashboardContext';
 import NetWorthCard from './NetWorthCard';
 import AccountList from './AccountList';
 import RecentTransactionsList from './RecentTransactionsList';
-import WalletWidget from './WalletWidget';
 import AlertsBell from './AlertsBell';
 import MonthOverviewCard from './home/MonthOverviewCard';
 import InsightsCard from './home/InsightsCard';
@@ -22,7 +21,7 @@ import { computeInsights, computeMonthOverview, savingsCategoryIds, type HomeTx 
 
 type WidgetId =
   | 'monthRecap' | 'monthOverview' | 'insights' | 'netWorth' | 'recentTransactions'
-  | 'budgets' | 'goals' | 'accounts' | 'wallet' | 'upcomingSubscriptions';
+  | 'budgets' | 'goals' | 'accounts' | 'upcomingSubscriptions';
 type Column = 'main' | 'side';
 
 type WidgetDef = {
@@ -42,7 +41,6 @@ const WIDGET_DEFS: (WidgetDef & { defaultVisible?: boolean })[] = [
   { id: 'goals', label: 'Tus objetivos', column: 'side' },
   { id: 'upcomingSubscriptions', label: 'Próximos 7 días', column: 'side' },
   { id: 'accounts', label: 'Cuentas', column: 'side' },
-  { id: 'wallet', label: 'Mi Cartera', column: 'side' },
 ];
 
 type LayoutEntry = { id: WidgetId; visible: boolean };
@@ -115,7 +113,7 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
   const now = new Date();
   const monthKey = format(now, 'yyyy-MM');
 
-  const { totalBalance, monthlyIncome, monthlyExpense, recentTransactions, walletAccount, bankAccounts } = useMemo(() => {
+  const { totalBalance, monthlyIncome, monthlyExpense, recentTransactions } = useMemo(() => {
     const totalBalance = accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
 
     // Mismo criterio que /movimientos (TransactionsView en modo "mes"): isSameMonth
@@ -126,10 +124,7 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
     const monthlyExpense = monthTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
     const recentTransactions = transactions.slice(0, 5);
-    const walletAccount = accounts.find(a => a.type === 'wallet');
-    const bankAccounts = accounts.filter(a => a.type !== 'wallet');
-
-    return { totalBalance, monthlyIncome, monthlyExpense, recentTransactions, walletAccount, bankAccounts };
+    return { totalBalance, monthlyIncome, monthlyExpense, recentTransactions };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, transactions, monthKey]);
 
@@ -185,14 +180,7 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
       case 'recentTransactions':
         return <RecentTransactionsList transactions={recentTransactions} />;
       case 'accounts':
-        return <AccountList accounts={bankAccounts as any} />;
-      case 'wallet':
-        return walletAccount ? (
-          <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Mi Cartera</h3>
-            <WalletWidget walletAccount={walletAccount} />
-          </div>
-        ) : null;
+        return <AccountList accounts={accounts as any} />;
       case 'upcomingSubscriptions':
         return <WeekStripWidget subscriptions={homeData?.subscriptions ?? null} />;
       default:

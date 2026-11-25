@@ -39,8 +39,11 @@ export default function SwipeActionRow({ onDelete, onEdit, disabled, children, c
     const wasDragged = useRef(false);
     const edgeClass = EDGE_CLASS[edge];
 
+    // Se marca al EMPEZAR a arrastrar (no al terminar): el clic que genera soltar el dedo puede
+    // llegar antes que onDragEnd y abría el editor justo después de borrar.
+    const handleDragStart = () => { wasDragged.current = true; };
+
     const handleDragEnd = (_: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
-        wasDragged.current = Math.abs(info.offset.x) > 8;
         // Siempre vuelve a su sitio: si onDelete pide confirmación y se cancela, la fila
         // ya está en su posición normal en vez de haber "volado" fuera de la pantalla.
         controls.start({ x: 0, transition: { type: 'spring', stiffness: 400, damping: 30 } });
@@ -53,10 +56,7 @@ export default function SwipeActionRow({ onDelete, onEdit, disabled, children, c
     };
 
     const handleClick = () => {
-        if (wasDragged.current) {
-            wasDragged.current = false;
-            return;
-        }
+        if (wasDragged.current) return; // se limpia en el siguiente pointerdown
         if (!disabled) onEdit();
     };
 
@@ -97,6 +97,8 @@ export default function SwipeActionRow({ onDelete, onEdit, disabled, children, c
                 // ese borde y asome una tira del fondo de la fila (la "línea rara" al deslizar).
                 dragElastic={0}
                 animate={controls}
+                onPointerDown={() => { wasDragged.current = false; }}
+                onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onClick={handleClick}
                 whileTap={{ scale: disabled ? 1 : 0.99 }}

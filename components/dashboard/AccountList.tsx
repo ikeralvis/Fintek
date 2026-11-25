@@ -73,7 +73,7 @@ export default function AccountList({ accounts }: { accounts: Account[] }) {
                         return (
                             <Link
                                 key={acc.id}
-                                href={isWallet ? `/dashboard/cartera` : `/dashboard/cuentas/${acc.id}`}
+                                href={`/dashboard/cuentas/${acc.id}`}
                                 className="glass-card relative overflow-hidden rounded-2xl p-4 transition-all hover:shadow-medium active:scale-[0.98]"
                             >
                                 <div className="mb-3 flex items-center gap-2">
