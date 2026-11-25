@@ -2,40 +2,44 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-    Home, List, Plus, Wallet, Menu, X, RefreshCw,
-    Target, Sparkles, PieChart, Settings, CreditCard, TrendingUp,
-} from 'lucide-react';
+import { Plus, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { NAV_ITEMS, NEW_TRANSACTION_HREF, isNavActive, type NavItem } from '@/lib/navigation';
+
+// Misma lista que el menú de escritorio (lib/navigation.ts).
+const barItems = NAV_ITEMS.filter(i => i.mobile === 'bar');
+const menuItems = NAV_ITEMS.filter(i => i.mobile === 'more');
 
 export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const [isMoreOpen, setIsMoreOpen] = useState(false);
 
-    const isActive = (path: string) => {
-        if (pathname.startsWith('/dashboard/transacciones/nueva')) return false;
-        return pathname === path || (path !== '/dashboard' && pathname.startsWith(path));
-    };
-
     const toggleMore = () => setIsMoreOpen(!isMoreOpen);
+    // Si estás en una sección del menú "Más", el botón "Más" se marca como activo.
+    const moreActive = isMoreOpen || menuItems.some(i => isNavActive(pathname, i));
 
-    // Menu items for "More" drawer - Only items not in main nav
-    const menuItems = [
-        { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: PieChart },
-        { name: 'Inversiones', href: '/dashboard/inversiones', icon: TrendingUp },
-        { name: 'Predicción IA', href: '/dashboard/analisis', icon: Sparkles },
-        { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: Target },
-        { name: 'Suscripciones', href: '/dashboard/suscripciones', icon: RefreshCw },
-        { name: 'Mi Cartera', href: '/dashboard/cartera', icon: CreditCard },
-        { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings },
-    ];
-
-    const navItems = [
-        { key: 'home', href: '/dashboard', icon: Home, label: 'Inicio', exact: true },
-        { key: 'tx', href: '/dashboard/transacciones', icon: List, label: 'Movimientos', exact: false },
-    ];
+    const barLink = (item: NavItem) => {
+        const active = isNavActive(pathname, item);
+        const Icon = item.icon;
+        return (
+            <Link
+                key={item.key}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                className="relative flex flex-col items-center gap-1 px-3 py-1 -my-1 rounded-xl"
+            >
+                {active && (
+                    <span className="absolute inset-0 rounded-xl bg-primary/10 animate-in fade-in-0 zoom-in-95 duration-200" />
+                )}
+                <Icon className={cn('relative w-6 h-6 transition-colors', active ? 'text-primary' : 'text-muted-foreground')} strokeWidth={active ? 2 : 1.5} />
+                <span className={cn('relative text-[10px] font-semibold transition-colors', active ? 'text-primary' : 'text-muted-foreground')}>
+                    {item.name}
+                </span>
+            </Link>
+        );
+    };
 
     return (
         <>
@@ -58,14 +62,14 @@ export default function BottomNav() {
                         <div className="grid grid-cols-3 gap-3 mb-6">
                             {menuItems.map((item) => (
                                 <Link
-                                    key={item.name}
+                                    key={item.key}
                                     href={item.href}
                                     onClick={() => setIsMoreOpen(false)}
                                     className="flex flex-col items-center gap-2 text-center"
                                 >
                                     <div className={cn(
                                         'w-14 h-14 rounded-2xl flex items-center justify-center border transition-all active:scale-95',
-                                        isActive(item.href)
+                                        isNavActive(pathname, item)
                                             ? 'bg-primary text-primary-foreground border-primary'
                                             : 'bg-card text-muted-foreground border-border shadow-soft'
                                     )}>
@@ -83,34 +87,14 @@ export default function BottomNav() {
             {/* Bottom Bar - glass, tokens en sync con DashboardNav */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 glass-nav border-t z-50 px-4 py-2 pb-6">
                 <div className="flex items-center justify-between h-14">
-                    {navItems.map(({ key, href, icon: Icon, label, exact }) => {
-                        const active = exact ? (isActive(href) && pathname === href) : isActive(href);
-                        return (
-                            <Link
-                                key={key}
-                                href={href}
-                                className="relative flex flex-col items-center gap-1 px-3 py-1 -my-1 rounded-xl"
-                            >
-                                {active && (
-                                    <span className="absolute inset-0 rounded-xl bg-primary/10 animate-in fade-in-0 zoom-in-95 duration-200" />
-                                )}
-                                <Icon
-                                    className={cn('relative w-6 h-6 transition-colors', active ? 'text-primary' : 'text-muted-foreground')}
-                                    strokeWidth={active ? 2 : 1.5}
-                                />
-                                <span className={cn('relative text-[10px] font-semibold transition-colors', active ? 'text-primary' : 'text-muted-foreground')}>
-                                    {label}
-                                </span>
-                            </Link>
-                        );
-                    })}
+                    {barItems.slice(0, 2).map(barLink)}
 
                     {/* Center Action Button: siempre visible, en cualquier pantalla del bottom nav */}
                     <div className="relative -top-5">
                         <button
                             onClick={() => {
                                 sessionStorage.setItem('previousPath', pathname);
-                                router.push('/dashboard/transacciones/nueva');
+                                router.push(NEW_TRANSACTION_HREF);
                             }}
                             className="flex items-center justify-center w-14 h-14 bg-primary rounded-full shadow-lg active:scale-90 transition-transform"
                         >
@@ -118,31 +102,18 @@ export default function BottomNav() {
                         </button>
                     </div>
 
-                    <Link
-                        href="/dashboard/cuentas"
-                        className="relative flex flex-col items-center gap-1 px-3 py-1 -my-1 rounded-xl"
-                    >
-                        {isActive('/dashboard/cuentas') && (
-                            <span className="absolute inset-0 rounded-xl bg-primary/10 animate-in fade-in-0 zoom-in-95 duration-200" />
-                        )}
-                        <Wallet
-                            className={cn('relative w-6 h-6 transition-colors', isActive('/dashboard/cuentas') ? 'text-primary' : 'text-muted-foreground')}
-                            strokeWidth={isActive('/dashboard/cuentas') ? 2 : 1.5}
-                        />
-                        <span className={cn('relative text-[10px] font-semibold transition-colors', isActive('/dashboard/cuentas') ? 'text-primary' : 'text-muted-foreground')}>
-                            Cuentas
-                        </span>
-                    </Link>
+                    {barItems.slice(2).map(barLink)}
 
                     <button
                         onClick={toggleMore}
+                        aria-expanded={isMoreOpen}
                         className="relative flex flex-col items-center gap-1 px-3 py-1 -my-1 rounded-xl"
                     >
-                        {isMoreOpen && (
+                        {moreActive && (
                             <span className="absolute inset-0 rounded-xl bg-primary/10 animate-in fade-in-0 zoom-in-95 duration-200" />
                         )}
-                        <Menu className={cn('relative w-6 h-6 transition-colors', isMoreOpen ? 'text-primary' : 'text-muted-foreground')} strokeWidth={isMoreOpen ? 2 : 1.5} />
-                        <span className={cn('relative text-[10px] font-semibold transition-colors', isMoreOpen ? 'text-primary' : 'text-muted-foreground')}>Más</span>
+                        <Menu className={cn('relative w-6 h-6 transition-colors', moreActive ? 'text-primary' : 'text-muted-foreground')} strokeWidth={moreActive ? 2 : 1.5} />
+                        <span className={cn('relative text-[10px] font-semibold transition-colors', moreActive ? 'text-primary' : 'text-muted-foreground')}>Más</span>
                     </button>
                 </div>
             </div>

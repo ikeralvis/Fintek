@@ -1,548 +1,404 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { subMonths, format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { useDashboard } from '@/lib/DashboardContext';
-import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft, Target, Plus, AlertTriangle, Pencil, Trash2,
-  PiggyBank, Settings, Shield, ChevronDown
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import {
+  AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Info, PiggyBank, Shield, SlidersHorizontal, Target,
+} from 'lucide-react';
+import { useDashboard } from '@/lib/DashboardContext';
+import { getCachedAverages, invalidateHomeData, setCachedAverages, useHomeData } from '@/lib/useHomeData';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import BudgetFormModal from './BudgetFormModal';
-import BudgetSettingsModal from './BudgetSettingsModal';
 import { Skeleton } from '@/components/ui/skeleton';
+import BudgetPlanEditor from '@/components/dashboard/budgets/BudgetPlanEditor';
 import { getSpendingAnalysis } from '@/lib/actions/analysis';
-import { getHandledRolloverKeys } from '@/lib/actions/budgets';
-import { formatCurrency as fmt, cn } from '@/lib/utils';
+import { computeBudgetMonth, type CategoryRow, type PlanAlert, type PlanBudget, type PlanSettings, type PlanTx } from '@/lib/budgetPlan';
+import { savingsCategoryIds } from '@/lib/homeInsights';
+import { cn, formatCurrency as fmt } from '@/lib/utils';
 
 export default function BudgetsPageClient() {
   const { transactions, categories, userId } = useDashboard();
-  const router = useRouter();
-  const supabase = createClient();
-  const [budgets, setBudgets] = useState<any[]>([]);
-  const [settings, setSettings] = useState<{ monthly_income: number; cushion: number } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<any>(null);
-  const [averageByCategory, setAverageByCategory] = useState<Record<string, number>>({});
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  // Presupuestos y plan salen de la caché compartida con Inicio: si vienes de allí, no se pide nada.
+  const homeData = useHomeData(userId);
+  const budgets: PlanBudget[] | null = homeData?.budgets ?? null;
+  const settings: PlanSettings | null = homeData?.planSettings ?? null;
+  const [averages, setAverages] = useState<Record<string, number>>(() => getCachedAverages(userId) ?? {});
+  const [editorOpen, setEditorOpen] = useState(false);
 
+  // Medias de gasto (12 meses): solo si no están en caché.
   useEffect(() => {
-    const fetchBudgets = async () => {
-      const [{ data: budgetsData }, { data: settingsData }] = await Promise.all([
-        supabase.from('budgets').select('*').eq('user_id', userId),
-        supabase.from('budget_settings').select('*').eq('user_id', userId).maybeSingle(),
-      ]);
-      setBudgets(budgetsData || []);
-      setSettings(settingsData || { monthly_income: 0, cushion: 0 });
-      setLoading(false);
-    };
-    fetchBudgets();
-
+    if (getCachedAverages(userId)) return;
+    let cancelled = false;
     getSpendingAnalysis().then(res => {
-      if (res.data) {
-        const averageMap: Record<string, number> = {};
-        res.data.categories.forEach((c: any) => {
-          averageMap[c.categoryId] = c.average;
-        });
-        setAverageByCategory(averageMap);
-      }
+      if (cancelled || !res.data) return;
+      const list = res.data.categories as ({ categoryId: string; average: number } | null)[];
+      const data = Object.fromEntries(list.flatMap(c => (c ? [[String(c.categoryId), Number(c.average) || 0] as const] : [])));
+      setCachedAverages(userId, data);
+      setAverages(data);
     });
+    return () => { cancelled = true; };
   }, [userId]);
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-
-  const categoriesMap = useMemo(() =>
-    categories.reduce((acc: any, c) => ({ ...acc, [c.id]: c }), {}),
-  [categories]);
-
-  const spendingMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    transactions.forEach(t => {
-      // Los gastos siempre cuentan. Las transferencias solo cuentan si el usuario les puso
-      // categoría explícitamente (ej. una aportación regular a otra cuenta categorizada como "Ahorro").
-      const countsTowardBudget = t.type === 'expense' || t.type === 'transfer';
-      if (countsTowardBudget && t.transaction_date >= startOfMonth && t.category_id) {
-        map[t.category_id] = (map[t.category_id] || 0) + t.amount;
-      }
-    });
-    return map;
-  }, [transactions, startOfMonth]);
-
-  // Movimientos del mes que cuentan para cada presupuesto (mismo criterio que spendingMap), más recientes primero.
-  const monthTxByCategory = useMemo(() => {
-    const map: Record<string, typeof transactions> = {};
-    transactions.forEach(t => {
-      if ((t.type === 'expense' || t.type === 'transfer') && t.transaction_date >= startOfMonth && t.category_id) {
-        (map[t.category_id] ||= []).push(t);
-      }
-    });
-    Object.values(map).forEach(list => list.sort((a, b) => b.transaction_date.localeCompare(a.transaction_date)));
-    return map;
-  }, [transactions, startOfMonth]);
-
-  // Sobrantes del mes anterior movidos a Ahorro: cuentan como ahorrado este mes, sin crear
-  // ninguna transacción (no es un gasto real). Se acreditan al primer presupuesto de Ahorro.
-  const [savingsCredits, setSavingsCredits] = useState<{ monthKey: string; surplus: number }[]>([]);
-  const previousMonthKey = format(subMonths(now, 1), 'yyyy-MM');
-  const surplusSavedThisMonth = useMemo(
-    () => savingsCredits.filter(c => c.monthKey === previousMonthKey).reduce((a, c) => a + c.surplus, 0),
-    [savingsCredits, previousMonthKey]
+  const savingsCats = useMemo(() => savingsCategoryIds(categories, budgets ?? []), [categories, budgets]);
+  const usedCategoryIds = useMemo(
+    () => new Set(transactions.filter(t => t.type === 'expense' && t.category_id).map(t => t.category_id!)),
+    [transactions]
   );
-  // Créditos de ahorro ya registrados en meses anteriores (la sugerencia de sobrante se retiró).
-  useEffect(() => {
-    getHandledRolloverKeys().then(res => setSavingsCredits(res.savings));
-  }, [userId]);
-  const savingsCreditBudgetId = useMemo(
-    () => budgets.find(b => b.is_savings && categoriesMap[b.category_id])?.id,
-    [budgets, categoriesMap]
-  );
+  const month = useMemo(() => budgets && computeBudgetMonth({
+    now: new Date(),
+    transactions: transactions as unknown as PlanTx[],
+    budgets,
+    categories,
+    settings,
+    savingsCategories: savingsCats,
+  }), [budgets, transactions, categories, settings, savingsCats]);
 
-  const budgetData = useMemo(() => {
-    return budgets
-      .filter(b => categoriesMap[b.category_id])
-      .map(b => {
-        const credit = b.id === savingsCreditBudgetId ? surplusSavedThisMonth : 0;
-        const spent = (spendingMap[b.category_id] || 0) + credit;
-        const percentage = b.amount > 0 ? (spent / b.amount) * 100 : 0;
-        const remaining = b.amount - spent;
-        const category = categoriesMap[b.category_id];
-        const status = percentage > 100 ? 'exceeded' : percentage >= 80 ? 'warning' : 'safe';
-
-        return { ...b, spent, percentage, remaining, category, status };
-      })
-      .sort((a, b) => b.percentage - a.percentage);
-  }, [budgets, spendingMap, categoriesMap, savingsCreditBudgetId, surplusSavedThisMonth]);
-
-  const expenseBudgets = useMemo(() => budgetData.filter(b => !b.is_savings), [budgetData]);
-  const savingsBudgets = useMemo(() => budgetData.filter(b => b.is_savings), [budgetData]);
-
-  const totalBudget = expenseBudgets.reduce((acc, b) => acc + b.amount, 0);
-  const totalSpent = expenseBudgets.reduce((acc, b) => acc + b.spent, 0);
-  const totalSaved = savingsBudgets.reduce((acc, b) => acc + b.spent, 0);
-  const globalProgress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-  // --- Ingreso mensual + colchón ---
-  const income = settings?.monthly_income || 0;
-  const cushion = settings?.cushion || 0;
-  const totalOverage = expenseBudgets.reduce((acc, b) => acc + Math.max(0, b.spent - b.amount), 0);
-
-  // Bolsa de dinero no comprometido (ingreso menos presupuestos, ahorro y colchón) que absorbe
-  // en silencio los excesos pequeños antes de que lleguen a tocar el Colchón de Seguridad.
-  // Deliberadamente no se muestra en la UI: es un cálculo interno, no una métrica más.
-  const dineroLibre = Math.max(0, income - totalBudget - totalSaved - cushion);
-  const overageAfterFree = Math.max(0, totalOverage - dineroLibre);
-
-  // El Margen/Colchón solo mide una cosa: cuánto de ese resto (tras la bolsa libre) consume
-  // el colchón, y si llega a agotarlo.
-  const cushionUsed = Math.min(overageAfterFree, cushion);
-  const cushionOverflow = Math.max(0, overageAfterFree - cushion);
-  const cushionExceeded = overageAfterFree > cushion;
-  const cushionPct = cushion > 0 ? (cushionUsed / cushion) * 100 : (overageAfterFree > 0 ? 100 : 0);
-  const bufferCoversOverage = overageAfterFree > 0 && !cushionExceeded;
-
-  const incomeAllocated = totalSpent + totalSaved;
-  const incomeFree = income - incomeAllocated;
-  const pctSpentOfIncome = income > 0 ? (totalSpent / income) * 100 : 0;
-  const pctSavedOfIncome = income > 0 ? (totalSaved / income) * 100 : 0;
-  const pctFreeOfIncome = income > 0 ? Math.max(0, (incomeFree / income) * 100) : 0;
-  const incomeOverflow = Math.max(0, incomeAllocated - income);
-
-  const alerts = budgetData.filter(b => !b.is_savings && (b.status === 'warning' || b.status === 'exceeded'));
-
-  const handleDelete = async (budgetId: string) => {
-    if (!confirm('¿Eliminar este presupuesto?')) return;
-    await supabase.from('budgets').delete().eq('id', budgetId);
-    setBudgets(prev => prev.filter(b => b.id !== budgetId));
-  };
-
-  const handleModalClose = () => {
-    setIsModalOpen(false);
-    setEditingBudget(null);
-    // Refresh budgets
-    supabase.from('budgets').select('*').eq('user_id', userId).then(({ data }) => {
-      if (data) setBudgets(data);
-    });
-  };
-
-  const handleSettingsSaved = (newIncome: number, newCushion: number) => {
-    setSettings({ monthly_income: newIncome, cushion: newCushion });
-    router.refresh();
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background pb-32 md:pb-8">
-        <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <Skeleton className="h-9 w-9 rounded-xl" />
-            <Skeleton className="h-5 w-28" />
-            <div className="flex items-center gap-1">
-              <Skeleton className="h-9 w-9 rounded-xl" />
-              <Skeleton className="h-9 w-9 rounded-xl" />
-            </div>
-          </div>
-        </div>
-        <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
-          <Skeleton className="h-48 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="h-28 rounded-2xl" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const monthLabel = format(new Date(), 'MMMM yyyy', { locale: es });
+  const hasPlan = !!month && (month.income > 0 || month.rows.length > 0);
 
   return (
     <div className="min-h-screen bg-background pb-32 md:pb-8">
-      {/* Header */}
-      <div className="sticky top-0 z-20 glass-nav border-b px-5 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
+      <div className="sticky top-0 z-20 glass-nav border-b px-5 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors" aria-label="Volver">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </Link>
-          <h1 className="text-lg font-semibold text-foreground">Presupuestos</h1>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors"
-              title="Configurar mes"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
-              className="p-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
-              title="Nuevo presupuesto"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
+          <div className="text-center min-w-0">
+            <h1 className="text-base font-semibold text-foreground leading-tight">Presupuestos</h1>
+            <p className="text-xs text-muted-foreground capitalize">{monthLabel}</p>
           </div>
+          <button
+            onClick={() => setEditorOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Configurar</span>
+          </button>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-5 py-6 space-y-5">
-
-        {/* Hero: patrimonio libre del mes */}
-        <div className="bg-card rounded-2xl border border-border p-6 text-center">
-          {income > 0 ? (
-            <>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">
-                {incomeFree >= 0 ? 'Disponible' : 'Sobregiro'}
-              </p>
-              <p className={cn(
-                'text-4xl font-black tracking-tight tabular-nums mb-1',
-                incomeFree >= 0 ? 'text-foreground' : 'text-accent-600 dark:text-accent-400'
-              )}>
-                {fmt(Math.abs(incomeFree))}
-              </p>
-              <p className="text-xs text-muted-foreground mb-5">de {fmt(income)} de ingreso este mes</p>
-
-              {/* Barra de 3 bloques: Gastado / Ahorrado / Libre */}
-              <div className="h-8 bg-muted rounded-xl overflow-hidden flex">
-                {pctSpentOfIncome > 0 && (
-                  <div
-                    style={{ width: `${Math.min(pctSpentOfIncome, 100)}%` }}
-                    className={cn('h-full shrink-0', incomeOverflow > 0 ? 'bg-accent-500' : 'bg-foreground/70')}
-                    title={`Gastado: ${fmt(totalSpent)}`}
-                  />
-                )}
-                {pctSavedOfIncome > 0 && (
-                  <div
-                    style={{ width: `${Math.min(pctSavedOfIncome, Math.max(0, 100 - pctSpentOfIncome))}%` }}
-                    className="h-full shrink-0 bg-secondary-500"
-                    title={`Ahorrado: ${fmt(totalSaved)}`}
-                  />
-                )}
-              </div>
-
-              {incomeOverflow > 0 && (
-                <p className="text-[11px] font-semibold text-accent-600 dark:text-accent-400 mt-1.5">
-                  Te pasas del ingreso en {fmt(incomeOverflow)}
-                </p>
-              )}
-
-              {/* Summary numbers */}
-              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
-                <div className="text-center">
-                  <p className="text-sm font-black tabular-nums text-foreground">{pctSpentOfIncome.toFixed(0)}%</p>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Gastado</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-black tabular-nums text-secondary-600 dark:text-secondary-400">{pctSavedOfIncome.toFixed(0)}%</p>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Ahorrado</p>
-                </div>
-                <div className={cn('text-center', incomeFree < 0 && 'text-accent-600 dark:text-accent-400')}>
-                  <p className="text-sm font-black tabular-nums">{pctFreeOfIncome.toFixed(0)}%</p>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Libre</p>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <Target className="w-10 h-10 text-muted-foreground/60 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground mb-3">Fija tu ingreso mensual para ver cuánto te queda libre</p>
-              <button
-                onClick={() => setIsSettingsModalOpen(true)}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold"
-              >
-                Configurar mes
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Margen de seguridad: solo mide cuánto del exceso de gasto consume el colchón */}
-        {cushion > 0 && (
-          <div className={`rounded-2xl border p-4 ${cushionExceeded ? 'bg-accent-500/10 border-accent-500/20' : bufferCoversOverage ? 'bg-amber-500/10 border-amber-500/20' : 'bg-card border-border'}`}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Shield className={`w-4 h-4 ${cushionExceeded ? 'text-accent-500 dark:text-accent-400' : bufferCoversOverage ? 'text-amber-500 dark:text-amber-400' : 'text-muted-foreground'}`} />
-                <span className="text-sm font-semibold text-foreground">Margen de seguridad</span>
-              </div>
-              <span className="text-xs font-bold tabular-nums text-foreground">{fmt(cushionUsed)} / {fmt(cushion)}</span>
-            </div>
-            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${cushionExceeded ? 'bg-accent-500' : 'bg-amber-400'}`}
-                style={{ width: `${Math.min(cushionPct, 100)}%` }}
-              />
-            </div>
-            {bufferCoversOverage && (
-              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5 shrink-0" />
-                {fmt(totalOverage)} de exceso absorbidos por tu Colchón de Seguridad.
-              </p>
-            )}
-            {cushionExceeded && (
-              <p className="text-xs font-semibold text-accent-600 dark:text-accent-400 mt-2 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                Colchón agotado: {fmt(cushionOverflow)} de exceso sin cubrir este mes.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Global Progress Card */}
-        <div className="bg-card rounded-2xl border border-border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Presupuesto de Gastos</p>
-              <p className="text-3xl font-black tracking-tight tabular-nums text-foreground">
-                {fmt(totalBudget - totalSpent)}
-                <span className="text-sm font-medium text-muted-foreground ml-2">disponible</span>
-              </p>
-            </div>
-            <div className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-              globalProgress > 100 ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400' :
-              globalProgress >= 80 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-              'bg-secondary-500/10 text-secondary-600 dark:text-secondary-400'
-            }`}>
-              {globalProgress.toFixed(0)}% usado
-            </div>
-          </div>
-          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                globalProgress > 100 ? 'bg-accent-500' :
-                globalProgress >= 80 ? 'bg-amber-400' :
-                'bg-secondary-500'
-              }`}
-              style={{ width: `${Math.min(globalProgress, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-2 text-[10px] font-medium text-muted-foreground">
-            <span>Gastado: {fmt(totalSpent)}</span>
-            <span>Límite: {fmt(totalBudget)}</span>
-          </div>
-        </div>
-
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <div className="space-y-2">
-            {alerts.map(b => {
-              // El exceso de una categoría solo es alerta CRÍTICA (roja) si, tras la absorción
-              // silenciosa de la bolsa libre, sigue superando el Colchón. Si la bolsa libre ya
-              // lo cubre, no se atribuye nada al Colchón (queda intacto, sin aviso).
-              const isCritical = b.status === 'exceeded' && cushionExceeded;
-              const absorbedNote = b.status === 'exceeded' && !cushionExceeded && overageAfterFree > 0
-                ? ' (absorbido por tu Colchón de Seguridad)'
-                : '';
-
-              return (
-                <div key={`alert-${b.id}`} className={`rounded-xl p-3 flex items-center gap-3 border ${
-                  isCritical ? 'bg-accent-500/10 border-accent-500/20' : 'bg-amber-500/10 border-amber-500/20'
-                }`}>
-                  <AlertTriangle className={`w-4 h-4 shrink-0 ${isCritical ? 'text-accent-500 dark:text-accent-400' : 'text-amber-500 dark:text-amber-400'}`} />
-                  <p className={`text-xs font-medium flex-1 ${isCritical ? 'text-accent-700 dark:text-accent-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                    <span className="font-bold">{b.category.name}</span>
-                    {b.status === 'exceeded'
-                      ? ` — excedido en ${fmt(Math.abs(b.remaining))}${absorbedNote}`
-                      : ` — al ${b.percentage.toFixed(0)}% del límite`
-                    }
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Budget Cards */}
-        {budgetData.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-dashed border-border p-12 text-center">
-            <Target className="w-12 h-12 text-muted-foreground/60 mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium mb-1">Sin presupuestos</p>
-            <p className="text-sm text-muted-foreground mb-4">Crea uno para controlar tus gastos por categoría</p>
-            <button
-              onClick={() => { setEditingBudget(null); setIsModalOpen(true); }}
-              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold"
-            >
-              Crear Presupuesto
-            </button>
-          </div>
-        ) : (
+        {!month ? (
           <>
-            {expenseBudgets.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">Gastos</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {expenseBudgets.map(b => (
-                    <BudgetCard key={b.id} b={b} txs={monthTxByCategory[b.category_id] || []} onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {savingsBudgets.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-                  <PiggyBank className="w-3.5 h-3.5" /> Ahorro
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {savingsBudgets.map(b => (
-                    <BudgetCard key={b.id} b={b} txs={monthTxByCategory[b.category_id] || []} isSavings onEdit={() => { setEditingBudget(b); setIsModalOpen(true); }} onDelete={() => handleDelete(b.id)} />
-                  ))}
-                </div>
-              </div>
-            )}
+            <Skeleton className="h-64 rounded-3xl" />
+            <Skeleton className="h-20 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
           </>
+        ) : !hasPlan ? (
+          <Onboarding onStart={() => setEditorOpen(true)} />
+        ) : (
+          <div className="md:grid md:grid-cols-12 md:gap-5 space-y-5 md:space-y-0">
+            <div className="md:col-span-5 space-y-5">
+              <PlanHero month={month} />
+              <div className="grid grid-cols-2 gap-3">
+                <SavingsCard saved={month.saved} target={month.savingsTarget} />
+                <CushionCard used={month.cushionUsed} total={month.cushion} />
+              </div>
+              {month.alerts.length > 0 && <AlertsList alerts={month.alerts} />}
+            </div>
+
+            <div className="md:col-span-7 space-y-3">
+              <CategoriesHeader month={month} />
+              {month.rows.length === 0 ? (
+                <button
+                  onClick={() => setEditorOpen(true)}
+                  className="w-full rounded-2xl border border-dashed border-border p-8 text-center hover:bg-muted/40 transition-colors"
+                >
+                  <Target className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm font-medium text-foreground">Reparte tu dinero por categorías</p>
+                  <p className="text-xs text-muted-foreground mt-1">Te sugerimos importes con tu gasto medio</p>
+                </button>
+              ) : (
+                month.rows.map(r => <CategoryCard key={r.budgetId} row={r} monthProgress={month.monthProgress} />)
+              )}
+              {month.unbudgetedSpent > 0 && (
+                <button
+                  onClick={() => setEditorOpen(true)}
+                  className="w-full flex items-center justify-between gap-3 rounded-2xl border border-dashed border-border px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">Sin presupuesto</span>
+                    <span className="block text-xs text-muted-foreground">Gastos en categorías fuera del plan</span>
+                  </span>
+                  <span className="text-sm font-bold tabular-nums text-foreground">{fmt(month.unbudgetedSpent)}</span>
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
-      <BudgetFormModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
+      <BudgetPlanEditor
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onSaved={invalidateHomeData}
         categories={categories}
-        existingBudget={editingBudget}
-        averageByCategory={averageByCategory}
-        existingCategoryIds={budgets.map(b => b.category_id)}
-      />
-
-      <BudgetSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        income={income}
-        cushion={cushion}
-        onSaved={handleSettingsSaved}
+        budgets={budgets ?? []}
+        settings={settings}
+        averages={averages}
+        savingsCategories={savingsCats}
+        usedCategoryIds={usedCategoryIds}
       />
     </div>
   );
 }
 
-function BudgetCard({ b, txs, isSavings, onEdit, onDelete }: { b: any; txs: any[]; isSavings?: boolean; onEdit: () => void; onDelete: () => void }) {
-  const [open, setOpen] = useState(false);
+// ---------------------------------------------------------------------------------------------
+
+function Onboarding({ onStart }: { onStart: () => void }) {
+  const steps = [
+    { n: 1, title: 'Tu ingreso', text: 'Lo que entra cada mes.' },
+    { n: 2, title: 'Ahorro y margen', text: 'Lo que quieres apartar y un colchón para imprevistos.' },
+    { n: 3, title: 'Reparte el resto', text: 'Un límite por categoría, con tu gasto medio como guía.' },
+  ];
   return (
-    <div className="bg-card rounded-2xl border border-border p-4 group">
-      <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); } }}
-        className="flex items-center justify-between mb-3 cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: `${b.category.color}15` }}
-          >
-            <CategoryIcon name={b.category.icon} className="w-5 h-5" style={{ color: b.category.color }} />
+    <div className="rounded-3xl border border-border bg-card p-6 sm:p-8">
+      <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
+        <Target className="w-6 h-6 text-foreground" />
+      </div>
+      <h2 className="text-xl font-bold text-foreground">Planifica tu mes en un minuto</h2>
+      <p className="text-sm text-muted-foreground mt-1">Sabrás en todo momento cuánto te queda y dónde te estás pasando.</p>
+      <ol className="mt-6 space-y-4">
+        {steps.map(s => (
+          <li key={s.n} className="flex gap-3">
+            <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shrink-0">{s.n}</span>
+            <span>
+              <span className="block text-sm font-semibold text-foreground">{s.title}</span>
+              <span className="block text-xs text-muted-foreground">{s.text}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <button onClick={onStart} className="mt-6 w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
+        Configurar mi mes
+      </button>
+    </div>
+  );
+}
+
+function PlanHero({ month }: { month: NonNullable<ReturnType<typeof computeBudgetMonth>> }) {
+  const { income, savingsTarget, cushion, spent, remaining, state, perDay, daysLeft, cushionUsed } = month;
+  const label = state === 'ok' ? 'Te quedan para gastar' : state === 'margin' ? 'Tirando del margen' : 'Te has pasado del plan';
+  const big = state === 'ok' ? remaining : state === 'margin' ? cushion - cushionUsed : -remaining - cushion;
+  const lines = [
+    { label: 'Ingreso', value: income, sign: '' },
+    savingsTarget > 0 ? { label: 'Ahorro previsto', value: -savingsTarget, sign: '−', cls: 'text-secondary-400' } : null,
+    cushion > 0 ? { label: 'Margen de seguridad', value: -cushion, sign: '−', cls: 'text-amber-400' } : null,
+    { label: 'Gastado', value: -spent, sign: '−' },
+  ].filter(Boolean) as { label: string; value: number; sign: string; cls?: string }[];
+
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-neutral-900 text-white p-5 sm:p-6 dark:ring-1 dark:ring-white/10">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] to-transparent pointer-events-none" />
+      <div className="relative">
+        <p className="text-sm text-white/60">{label}</p>
+        <p className={cn(
+          'text-[2.75rem] leading-none font-black tracking-tight tabular-nums mt-1',
+          state === 'margin' && 'text-amber-400',
+          state === 'over' && 'text-accent-400',
+        )}>
+          {fmt(big)}
+        </p>
+        <p className="text-sm text-white/60 mt-2">
+          {state === 'ok'
+            ? <>≈ <span className="text-white font-semibold tabular-nums">{fmt(perDay)}</span> al día · {daysLeft} {daysLeft === 1 ? 'día' : 'días'} restantes</>
+            : state === 'margin'
+              ? <>quedan en tu margen de {fmt(cushion)}</>
+              : <>por encima de lo previsto, margen incluido</>}
+        </p>
+
+        {/* Desglose: ingreso − ahorro − margen − gastado = resultado */}
+        <dl className="mt-5 space-y-1.5 text-sm">
+          {lines.map(l => (
+            <div key={l.label} className="flex justify-between gap-3">
+              <dt className={cn('text-white/60', l.cls)}>{l.label}</dt>
+              <dd className="tabular-nums text-white/90">{l.sign}{fmt(Math.abs(l.value))}</dd>
+            </div>
+          ))}
+          <div className="flex justify-between gap-3 pt-2 mt-1 border-t border-white/10 font-semibold">
+            <dt>Resultado</dt>
+            <dd className={cn('tabular-nums', remaining < 0 ? 'text-accent-400' : 'text-white')}>{fmt(remaining)}</dd>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{b.category.name}</p>
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {fmt(b.spent)} / {fmt(b.amount)} · {b.percentage.toFixed(0)}%
-            </p>
-          </div>
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function SavingsCard({ saved, target }: { saved: number; target: number }) {
+  const pct = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <PiggyBank className="w-4 h-4 text-secondary-500" />
+        <span className="text-xs font-medium">Ahorro</span>
+      </div>
+      <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{fmt(saved)}</p>
+      <p className="text-[11px] text-muted-foreground tabular-nums">{target > 0 ? `de ${fmt(target)} previsto` : 'Sin objetivo'}</p>
+      {target > 0 && (
+        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-secondary-500 transition-[width] duration-700" style={{ width: `${pct}%` }} />
         </div>
-        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-          <button onClick={onEdit} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground">
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onDelete} className="p-1.5 hover:bg-accent-500/10 rounded-lg text-accent-500 dark:text-accent-400">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+      )}
+    </div>
+  );
+}
+
+function CushionCard({ used, total }: { used: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, (used / total) * 100) : 0;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Shield className="w-4 h-4 text-amber-500" />
+        <span className="text-xs font-medium">Margen</span>
+      </div>
+      <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{fmt(Math.max(0, total - used))}</p>
+      <p className="text-[11px] text-muted-foreground tabular-nums">{total > 0 ? (used > 0 ? `usados ${fmt(used)} de ${fmt(total)}` : 'intacto') : 'Sin margen'}</p>
+      {total > 0 && (
+        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className={cn('h-full rounded-full transition-[width] duration-700', pct >= 100 ? 'bg-accent-500' : 'bg-amber-400')} style={{ width: `${pct}%` }} />
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
 
-      {/* Progress */}
-      <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            isSavings ? 'bg-secondary-500' :
-            b.status === 'exceeded' ? 'bg-accent-500' :
-            b.status === 'warning' ? 'bg-amber-400' :
-            'bg-secondary-500'
-          }`}
-          style={{ width: `${Math.min(b.percentage, 100)}%` }}
-        />
-      </div>
+const ALERT_STYLE: Record<PlanAlert['tone'], { icon: typeof Info; cls: string }> = {
+  danger: { icon: AlertTriangle, cls: 'bg-accent-500/10 text-accent-700 dark:text-accent-400' },
+  warning: { icon: AlertTriangle, cls: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+  info: { icon: Info, cls: 'bg-muted text-foreground' },
+  good: { icon: CheckCircle2, cls: 'bg-secondary-500/10 text-secondary-700 dark:text-secondary-400' },
+};
 
-      <div className="flex items-center justify-between">
-        <span className={`text-[10px] font-bold ${
-          isSavings ? 'text-secondary-500 dark:text-secondary-400' :
-          b.status === 'exceeded' ? 'text-accent-500 dark:text-accent-400' :
-          b.status === 'warning' ? 'text-amber-500 dark:text-amber-400' :
-          'text-secondary-500 dark:text-secondary-400'
-        }`}>
-          {b.percentage.toFixed(0)}%
+function AlertsList({ alerts }: { alerts: PlanAlert[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? alerts : alerts.slice(0, 3);
+  return (
+    <section className="space-y-2" aria-label="Avisos">
+      <h2 className="text-sm font-semibold text-foreground px-1">Avisos</h2>
+      {visible.map(a => {
+        const { icon: Icon, cls } = ALERT_STYLE[a.tone];
+        const body = (
+          <>
+            <Icon className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{a.title}</span>
+              {a.body && <span className="block text-xs opacity-80 mt-0.5">{a.body}</span>}
+            </span>
+          </>
+        );
+        return a.categoryId ? (
+          <a key={a.id} href={`#cat-${a.categoryId}`} className={cn('flex gap-2.5 rounded-xl p-3 hover:opacity-90', cls)}>{body}</a>
+        ) : (
+          <div key={a.id} className={cn('flex gap-2.5 rounded-xl p-3', cls)}>{body}</div>
+        );
+      })}
+      {alerts.length > 3 && (
+        <button onClick={() => setExpanded(v => !v)} className="text-xs font-semibold text-muted-foreground hover:text-foreground px-1">
+          {expanded ? 'Ver menos' : `Ver ${alerts.length - 3} más`}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function CategoriesHeader({ month }: { month: NonNullable<ReturnType<typeof computeBudgetMonth>> }) {
+  const budgetedSpent = month.rows.reduce((a, r) => a + r.spent, 0);
+  const pct = month.assigned > 0 ? Math.min(100, (budgetedSpent / month.assigned) * 100) : 0;
+  return (
+    <div className="px-1 pb-1">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold text-foreground">Por categoría</h2>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-foreground font-semibold">{fmt(budgetedSpent)}</span> de {fmt(month.assigned)}
         </span>
-        <span className="text-[10px] font-medium text-muted-foreground">
-          {isSavings
-            ? (b.remaining >= 0 ? `${fmt(b.remaining)} para el objetivo` : `${fmt(Math.abs(b.remaining))} de más ahorrado`)
-            : (b.remaining >= 0 ? `${fmt(b.remaining)} libre` : `${fmt(Math.abs(b.remaining))} excedido`)
-          }
-        </span>
       </div>
+      {month.assigned > 0 && (
+        <div className="relative mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-foreground/70 transition-[width] duration-700" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      {month.income > 0 && month.unassigned !== 0 && (
+        <p className={cn('mt-1.5 text-[11px] tabular-nums', month.unassigned < 0 ? 'text-accent-600 dark:text-accent-400' : 'text-muted-foreground')}>
+          {month.unassigned < 0 ? `Repartido ${fmt(-month.unassigned)} de más` : `${fmt(month.unassigned)} sin repartir`}
+        </p>
+      )}
+    </div>
+  );
+}
 
+const STATUS_BAR: Record<CategoryRow['status'], string> = {
+  ok: 'bg-secondary-500',
+  warning: 'bg-amber-400',
+  exceeded: 'bg-accent-500',
+};
+
+function CategoryCard({ row, monthProgress }: { row: CategoryRow; monthProgress: number }) {
+  const [open, setOpen] = useState(false);
+  const { category: c } = row;
+  return (
+    <div id={`cat-${c.id}`} className="scroll-mt-24 rounded-2xl border border-border bg-card">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="mt-3 w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={open}
+        className="w-full p-4 text-left"
       >
-        {txs.length} {txs.length === 1 ? 'movimiento' : 'movimientos'}
-        <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', open && 'rotate-180')} />
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: c.color ? `${c.color}1f` : 'var(--muted)' }}>
+            <CategoryIcon name={c.icon} className="w-5 h-5" style={{ color: c.color || 'var(--muted-foreground)' }} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-semibold text-foreground truncate">{c.name}</span>
+            <span className="block text-xs text-muted-foreground tabular-nums">
+              <span className="text-foreground font-medium">{fmt(row.spent)}</span> de {fmt(row.budget)}
+            </span>
+          </span>
+          <span className="text-right shrink-0">
+            <span className={cn('block text-sm font-bold tabular-nums', row.status === 'exceeded' ? 'text-accent-600 dark:text-accent-400' : 'text-foreground')}>
+              {row.remaining >= 0 ? fmt(row.remaining) : `+${fmt(-row.remaining)}`}
+            </span>
+            <span className="block text-[11px] text-muted-foreground">
+              {row.remaining >= 0 ? (row.perDay > 0 ? `${fmt(row.perDay)}/día` : 'quedan') : 'de más'}
+            </span>
+          </span>
+        </div>
+
+        {/* Barra con marcador de "dónde deberías ir" según el día del mes */}
+        <div className="relative mt-3">
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className={cn('h-full rounded-full transition-[width] duration-700', STATUS_BAR[row.status])} style={{ width: `${Math.min(100, row.pct)}%` }} />
+          </div>
+          <span
+            className="absolute -top-1 h-4 w-0.5 rounded-full bg-foreground/40"
+            style={{ left: `calc(${monthProgress * 100}% - 1px)` }}
+            title="Lo que llevarías gastado a estas alturas si fueras al ritmo del presupuesto"
+            aria-hidden
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="tabular-nums">{Math.round(row.pct)} %</span>
+          <span className="flex items-center gap-1">
+            {row.txs.length} {row.txs.length === 1 ? 'movimiento' : 'movimientos'}
+            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', open && 'rotate-180')} />
+          </span>
+        </div>
       </button>
 
       {open && (
-        <div className="mt-2 -mx-1 divide-y divide-border border-t border-border max-h-64 overflow-y-auto">
-          {txs.length === 0 ? (
+        <div className="border-t border-border divide-y divide-border max-h-64 overflow-y-auto">
+          {row.txs.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">Sin movimientos este mes</p>
-          ) : txs.map(t => (
-            <div key={t.id} className="flex items-center justify-between gap-3 px-1 py-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{t.description?.trim() || b.category.name}</p>
-                <p className="text-xs text-muted-foreground">{format(parseISO(t.transaction_date), 'd MMM', { locale: es })}{t.type === 'transfer' ? ' · Transferencia' : ''}</p>
-              </div>
-              <p className="text-sm font-semibold tabular-nums shrink-0 text-accent-600 dark:text-accent-400">-{fmt(t.amount)}</p>
+          ) : row.txs.map(t => (
+            <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <span className="min-w-0">
+                <span className="block text-sm text-foreground truncate">{t.description?.trim() || c.name}</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {format(parseISO(t.transaction_date), 'd MMM', { locale: es })}{t.type === 'transfer' ? ' · Transferencia' : ''}
+                </span>
+              </span>
+              <span className="text-sm font-semibold tabular-nums text-foreground shrink-0">−{fmt(Number(t.amount))}</span>
             </div>
           ))}
         </div>

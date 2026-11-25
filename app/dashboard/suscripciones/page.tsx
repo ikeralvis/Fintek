@@ -15,7 +15,7 @@ export default async function SuscripcionesPage() {
             .order('next_payment_date', { ascending: true }),
         supabase
             .from('accounts')
-            .select('id, name, banks(name, color)')
+            .select('id, name, current_balance, banks(name, color, logo_url)')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .order('name'),

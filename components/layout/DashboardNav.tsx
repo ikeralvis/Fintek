@@ -2,47 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  CreditCard,
-  TrendingUp,
-  Settings,
-  LogOut,
-  PieChart,
-  Target,
-  Plus,
-  TrendingUp as InvestmentIcon
-} from 'lucide-react';
+import { ChevronDown, LogOut, Plus } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-
-type NavItem = {
-  name: string;
-  href: string;
-  icon: React.ReactNode;
-};
-
-const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { name: 'Cuentas', href: '/dashboard/cuentas', icon: <CreditCard className="h-4 w-4" /> },
-  { name: 'Transacciones', href: '/dashboard/transacciones', icon: <TrendingUp className="h-4 w-4" /> },
-  { name: 'Inversiones', href: '/dashboard/inversiones', icon: <InvestmentIcon className="h-4 w-4" /> },
-  { name: 'Estadísticas', href: '/dashboard/estadisticas', icon: <PieChart className="h-4 w-4" /> },
-  { name: 'Presupuestos', href: '/dashboard/presupuestos', icon: <Target className="h-4 w-4" /> },
-  { name: 'Configuración', href: '/dashboard/configuracion', icon: <Settings className="h-4 w-4" /> },
-];
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { NAV_ITEMS, NEW_TRANSACTION_HREF, isNavActive } from '@/lib/navigation';
+import { cn } from '@/lib/utils';
 
 type Props = {
   readonly userName?: string;
   readonly userEmail?: string;
 };
 
+const barItems = NAV_ITEMS.filter(i => i.desktop === 'bar');
+const moreItems = NAV_ITEMS.filter(i => i.desktop === 'more');
+
 export default function DashboardNav({ userName, userEmail }: Props) {
   const pathname = usePathname();
-
-  const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard';
-    return pathname.startsWith(href);
-  };
+  const activeMore = moreItems.find(i => isNavActive(pathname, i));
 
   return (
     <nav className="hidden md:block glass-nav border-b sticky top-0 z-50">
@@ -50,39 +26,64 @@ export default function DashboardNav({ userName, userEmail }: Props) {
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Fintek" className="h-7 w-7 rounded-lg object-cover" />
             <span className="text-base font-bold text-foreground tracking-tight hidden lg:inline">Fintek</span>
           </Link>
 
-          {/* Navigation — puede scrollear internamente en vez de empujar el perfil fuera del viewport */}
+          {/* Secciones principales + "Más". Scroll interno antes que empujar el perfil fuera. */}
           <div className="flex items-center gap-1 min-w-0 flex-1 overflow-x-auto scrollbar-hide">
-            {navigation.map((item) => {
-              const active = isActive(item.href);
+            {barItems.map(item => {
+              const active = isNavActive(pathname, item);
+              const Icon = item.icon;
               return (
                 <Link
-                  key={item.name}
+                  key={item.key}
                   href={item.href}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors ${active
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors',
+                    active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
                 >
-                  {item.icon}
+                  <Icon className="h-4 w-4" />
                   <span>{item.name}</span>
                 </Link>
               );
             })}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-colors outline-none',
+                  activeMore ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+              >
+                {activeMore ? activeMore.name : 'Más'}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-48">
+                {moreItems.map(item => {
+                  const Icon = item.icon;
+                  const active = isNavActive(pathname, item);
+                  return (
+                    <DropdownMenuItem key={item.key} asChild>
+                      <Link href={item.href} className={cn('flex items-center gap-2 cursor-pointer', active && 'font-semibold text-foreground')}>
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        {item.name}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* New Transaction + User */}
+          {/* Nueva transacción + usuario */}
           <div className="flex items-center gap-2 xl:gap-3 shrink-0">
             <Link
-              href="/dashboard/transacciones/nueva"
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  sessionStorage.setItem('previousPath', pathname);
-                }
-              }}
+              href={NEW_TRANSACTION_HREF}
+              onClick={() => sessionStorage.setItem('previousPath', pathname)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:bg-primary/90 transition-colors"
               title="Nueva transacción"
             >

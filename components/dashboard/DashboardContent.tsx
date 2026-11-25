@@ -5,14 +5,24 @@ import { Settings2, X, Eye, EyeOff, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, isSameMonth, parseISO } from 'date-fns';
 import { useDashboard } from '@/lib/DashboardContext';
 import NetWorthCard from './NetWorthCard';
-import QuickActions from './QuickActions';
 import AccountList from './AccountList';
 import RecentTransactionsList from './RecentTransactionsList';
 import WalletWidget from './WalletWidget';
-import UpcomingSubscriptionsWidget from './UpcomingSubscriptionsWidget';
 import AlertsBell from './AlertsBell';
+import MonthOverviewCard from './home/MonthOverviewCard';
+import InsightsCard from './home/InsightsCard';
+import BudgetRingsWidget from './home/BudgetRingsWidget';
+import GoalsWidget from './home/GoalsWidget';
+import WeekStripWidget from './home/WeekStripWidget';
+import MonthRecapCard from './home/MonthRecapCard';
+import { computeMonthRecap } from '@/lib/homeWidgets';
+import { computeBudgetMonth } from '@/lib/budgetPlan';
+import { useHomeData } from '@/lib/useHomeData';
+import { computeInsights, computeMonthOverview, savingsCategoryIds, type HomeTx } from '@/lib/homeInsights';
 
-type WidgetId = 'netWorth' | 'quickActions' | 'recentTransactions' | 'accounts' | 'wallet' | 'upcomingSubscriptions';
+type WidgetId =
+  | 'monthRecap' | 'monthOverview' | 'insights' | 'netWorth' | 'recentTransactions'
+  | 'budgets' | 'goals' | 'accounts' | 'wallet' | 'upcomingSubscriptions';
 type Column = 'main' | 'side';
 
 type WidgetDef = {
@@ -21,33 +31,45 @@ type WidgetDef = {
   column: Column;
 };
 
-const WIDGET_DEFS: WidgetDef[] = [
-  { id: 'netWorth', label: 'Resumen de saldo', column: 'main' },
-  { id: 'quickActions', label: 'Accesos rápidos', column: 'main' },
+const WIDGET_DEFS: (WidgetDef & { defaultVisible?: boolean })[] = [
+  { id: 'monthRecap', label: 'Resumen del mes anterior (días 1-5)', column: 'main' },
+  { id: 'monthOverview', label: 'Disponible este mes', column: 'main' },
+  { id: 'insights', label: 'Para ti hoy', column: 'main' },
   { id: 'recentTransactions', label: 'Transacciones recientes', column: 'main' },
+  // El saldo total ya aparece en "Disponible este mes"; la tarjeta antigua queda como opcional.
+  { id: 'netWorth', label: 'Balance total (clásico)', column: 'main', defaultVisible: false },
+  { id: 'budgets', label: 'Presupuestos', column: 'side' },
+  { id: 'goals', label: 'Tus objetivos', column: 'side' },
+  { id: 'upcomingSubscriptions', label: 'Próximos 7 días', column: 'side' },
   { id: 'accounts', label: 'Cuentas', column: 'side' },
   { id: 'wallet', label: 'Mi Cartera', column: 'side' },
-  { id: 'upcomingSubscriptions', label: 'Próximos cobros', column: 'side' },
 ];
 
 type LayoutEntry = { id: WidgetId; visible: boolean };
 
-const DEFAULT_LAYOUT: LayoutEntry[] = WIDGET_DEFS.map(w => ({ id: w.id, visible: true }));
+const DEFAULT_LAYOUT: LayoutEntry[] = WIDGET_DEFS.map(w => ({ id: w.id, visible: w.defaultVisible ?? true }));
 
-const STORAGE_KEY = 'fintek_dashboard_layout_v1';
+const STORAGE_KEY = 'fintek_dashboard_layout_v2';
+const LEGACY_STORAGE_KEY = 'fintek_dashboard_layout_v1';
 
 function loadLayout(): LayoutEntry[] {
   if (typeof window === 'undefined') return DEFAULT_LAYOUT;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    let raw = window.localStorage.getItem(STORAGE_KEY);
+    const isLegacy = !raw;
+    if (!raw) raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return DEFAULT_LAYOUT;
-    const saved: LayoutEntry[] = JSON.parse(raw);
-    // Merge with defaults so newly-added widgets still show up
-    const savedIds = new Set(saved.map(s => s.id));
-    const merged = [...saved.filter(s => WIDGET_DEFS.some(w => w.id === s.id))];
-    for (const def of WIDGET_DEFS) {
-      if (!savedIds.has(def.id)) merged.push({ id: def.id, visible: true });
-    }
+    let merged: LayoutEntry[] = (JSON.parse(raw) as LayoutEntry[]).filter(s => WIDGET_DEFS.some(w => w.id === s.id));
+    // v1 → v2: la tarjeta de saldo se sustituye por "Disponible este mes".
+    if (isLegacy) merged = merged.map(e => (e.id === 'netWorth' ? { ...e, visible: false } : e));
+    // Los widgets nuevos se insertan en su posición por defecto (no al final de la lista).
+    WIDGET_DEFS.forEach((def, i) => {
+      if (merged.some(e => e.id === def.id)) return;
+      const entry = { id: def.id, visible: def.defaultVisible ?? true };
+      const nextId = WIDGET_DEFS.slice(i + 1).find(d => merged.some(e => e.id === d.id))?.id;
+      const at = nextId ? merged.findIndex(e => e.id === nextId) : merged.length;
+      merged.splice(at, 0, entry);
+    });
     return merged;
   } catch {
     return DEFAULT_LAYOUT;
@@ -55,7 +77,8 @@ function loadLayout(): LayoutEntry[] {
 }
 
 export default function DashboardContent({ firstName }: { readonly firstName: string }) {
-  const { accounts, transactions } = useDashboard();
+  const { accounts, transactions, categories, userId } = useDashboard();
+  const homeData = useHomeData(userId);
   const [layout, setLayout] = useState<LayoutEntry[]>(DEFAULT_LAYOUT);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
 
@@ -110,12 +133,55 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts, transactions, monthKey]);
 
+  const homeTx = transactions as unknown as HomeTx[];
+  const overview = useMemo(() => homeData && computeMonthOverview({
+    now: new Date(),
+    transactions: homeTx,
+    prevMonthTransactions: homeData.prevMonthTransactions,
+    subscriptions: homeData.subscriptions,
+    monthlyIncomeSetting: homeData.monthlyIncomeSetting,
+    savingsCategories: savingsCategoryIds(categories, homeData.budgets),
+  }), [homeData, homeTx, categories]);
+  // Con plan configurado, la tarjeta principal usa exactamente el cálculo de Presupuestos.
+  const plan = useMemo(() => {
+    if (!homeData?.planSettings || !(Number(homeData.planSettings.monthly_income) > 0)) return null;
+    return computeBudgetMonth({
+      now: new Date(),
+      transactions: homeTx,
+      budgets: homeData.budgets,
+      categories,
+      settings: homeData.planSettings,
+      savingsCategories: savingsCategoryIds(categories, homeData.budgets),
+    });
+  }, [homeData, homeTx, categories]);
+  const insights = useMemo(() => homeData && overview && computeInsights({
+    now: new Date(),
+    transactions: homeTx,
+    prevMonthTransactions: homeData.prevMonthTransactions,
+    categories,
+    subscriptions: homeData.subscriptions,
+    overview,
+  }), [homeData, overview, homeTx, categories]);
+
+  const recap = useMemo(
+    () => homeData && computeMonthRecap([...homeData.prevMonthTransactions, ...homeTx]),
+    [homeData, homeTx]
+  );
+
   const renderWidget = (id: WidgetId) => {
     switch (id) {
+      case 'monthRecap':
+        return <MonthRecapCard recap={recap} categories={categories} />;
+      case 'goals':
+        return <GoalsWidget goals={homeData?.goals ?? null} />;
+      case 'monthOverview':
+        return <MonthOverviewCard overview={overview} plan={plan} totalBalance={totalBalance} />;
+      case 'insights':
+        return <InsightsCard insights={insights} />;
+      case 'budgets':
+        return <BudgetRingsWidget budgets={homeData?.budgets ?? null} categories={categories} transactions={homeTx} />;
       case 'netWorth':
         return <NetWorthCard totalBalance={totalBalance} monthlyIncome={monthlyIncome} monthlyExpense={monthlyExpense} />;
-      case 'quickActions':
-        return <QuickActions />;
       case 'recentTransactions':
         return <RecentTransactionsList transactions={recentTransactions} />;
       case 'accounts':
@@ -128,7 +194,7 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
           </div>
         ) : null;
       case 'upcomingSubscriptions':
-        return <UpcomingSubscriptionsWidget />;
+        return <WeekStripWidget subscriptions={homeData?.subscriptions ?? null} />;
       default:
         return null;
     }
@@ -158,11 +224,11 @@ export default function DashboardContent({ firstName }: { readonly firstName: st
       <div className="px-5 md:max-w-6xl md:mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
           <div className="md:col-span-8 space-y-5">
-            {mainWidgets.map(w => <div key={w.id}>{renderWidget(w.id)}</div>)}
+            {mainWidgets.map(w => <div key={w.id} className="empty:hidden">{renderWidget(w.id)}</div>)}
           </div>
 
           <div className="md:col-span-4 space-y-5">
-            {sideWidgets.map(w => <div key={w.id}>{renderWidget(w.id)}</div>)}
+            {sideWidgets.map(w => <div key={w.id} className="empty:hidden">{renderWidget(w.id)}</div>)}
           </div>
         </div>
       </div>

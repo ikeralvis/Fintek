@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, PiggyBank } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, PiggyBank, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { createPocket, movePocketMoney, deletePocket } from '@/lib/actions/pockets';
+import { createPocket, movePocketMoney, deletePocket, updatePocketGoal } from '@/lib/actions/pockets';
+import { goalProgress } from '@/lib/savingsGoals';
+import { invalidateHomeData } from '@/lib/useHomeData';
 import { cn, formatCurrency } from '@/lib/utils';
 
-type Pocket = { id: string; name: string; color: string; target_amount: number | null; balance: number };
+type Pocket = { id: string; name: string; color: string; target_amount: number | null; target_date?: string | null; balance: number };
 type Account = { id: string; name: string; current_balance: number };
 type MoveMode = { pocket: Pocket; kind: 'add' | 'withdraw' };
 
@@ -19,6 +21,7 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [move, setMove] = useState<MoveMode | null>(null);
+  const [editingGoal, setEditingGoal] = useState<Pocket | null>(null);
   const [busy, setBusy] = useState(false);
 
   const pocketed = pockets.reduce((s, p) => s + Number(p.balance), 0);
@@ -28,10 +31,12 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
   const [name, setName] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [target, setTarget] = useState('');
+  const [targetDate, setTargetDate] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
-  const resetForm = () => { setName(''); setColor(COLORS[0]); setTarget(''); setAmount(''); setNote(''); };
+  const resetForm = () => { setName(''); setColor(COLORS[0]); setTarget(''); setTargetDate(''); setAmount(''); setNote(''); };
+  const parsedTarget = Number.parseFloat(target) > 0 ? Number.parseFloat(target) : null;
 
   const run = async (fn: () => Promise<{ error: string | null }>, okMsg: string, close: () => void) => {
     setBusy(true);
@@ -44,15 +49,32 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
     toast.success(okMsg);
     close();
     resetForm();
+    invalidateHomeData();
     router.refresh();
   };
 
   const handleCreate = () =>
     run(
-      () => createPocket({ accountId: account.id, name, color, targetAmount: Number.parseFloat(target) > 0 ? Number.parseFloat(target) : null }),
+      () => createPocket({ accountId: account.id, name, color, targetAmount: parsedTarget, targetDate: parsedTarget && targetDate ? targetDate : null }),
       'Apartado creado',
       () => setCreating(false)
     );
+
+  const openGoal = (p: Pocket) => {
+    resetForm();
+    setTarget(p.target_amount ? String(p.target_amount) : '');
+    setTargetDate(p.target_date || '');
+    setEditingGoal(p);
+  };
+
+  const handleSaveGoal = () => {
+    if (!editingGoal) return;
+    return run(
+      () => updatePocketGoal(account.id, { pocketId: editingGoal.id, targetAmount: parsedTarget, targetDate: parsedTarget && targetDate ? targetDate : null }),
+      parsedTarget ? 'Objetivo guardado' : 'Objetivo quitado',
+      () => setEditingGoal(null)
+    );
+  };
 
   const handleMove = () => {
     if (!move) return;
@@ -69,7 +91,7 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
     if (!confirm(`¿Eliminar "${p.name}"? Su dinero volverá a estar disponible en la cuenta.`)) return;
     const res = await deletePocket(account.id, p.id);
     if (res.error) toast.error(res.error);
-    else { toast.success('Apartado eliminado'); router.refresh(); }
+    else { toast.success('Apartado eliminado'); invalidateHomeData(); router.refresh(); }
   };
 
   const maxForMove = move ? (move.kind === 'add' ? available : Number(move.pocket.balance)) : 0;
@@ -120,23 +142,31 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
         ) : (
           <div className="space-y-3">
             {pockets.map(p => {
-              const pct = p.target_amount ? Math.min(100, (Number(p.balance) / p.target_amount) * 100) : null;
+              const goal = goalProgress(p);
               return (
                 <div key={p.id} className="space-y-3 rounded-2xl border border-border/50 bg-card p-4">
                   <div className="flex items-center gap-3">
                     <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
                     <p className="min-w-0 flex-1 truncate text-sm font-semibold">{p.name}</p>
                     <p className="text-lg font-semibold tabular-nums">{formatCurrency(Number(p.balance))}</p>
+                    <button onClick={() => openGoal(p)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={p.target_amount ? 'Editar objetivo' : 'Poner objetivo'}>
+                      <Target className="h-4 w-4" />
+                    </button>
                     <button onClick={() => handleDelete(p)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="Eliminar apartado">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  {pct !== null && (
+                  {goal && (
                     <div>
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, backgroundColor: p.color }} />
+                        <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${goal.pct}%`, backgroundColor: p.color }} />
                       </div>
-                      <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(pct)}% de {formatCurrency(p.target_amount!)}</p>
+                      <p className="mt-1 flex justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span>{Math.round(goal.pct)}% de {formatCurrency(p.target_amount!)}{goal.dateLabel ? ` · ${goal.dateLabel}` : ''}</span>
+                        <span className={cn('tabular-nums', goal.overdue && 'text-destructive', goal.done && 'text-secondary-600 dark:text-secondary-400')}>
+                          {goal.done ? '¡Conseguido!' : goal.overdue ? 'Fecha pasada' : goal.perMonth !== null ? `${formatCurrency(goal.perMonth)}/mes` : `Faltan ${formatCurrency(goal.remaining)}`}
+                        </span>
+                      </p>
                     </div>
                   )}
                   <div className="flex gap-2">
@@ -171,6 +201,7 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
               className="w-full rounded-xl bg-muted/60 px-4 py-3 text-base font-medium outline-none focus:ring-2 focus:ring-ring"
             />
             <NumericInput value={target} onValueChange={setTarget} placeholder="Objetivo (opcional)" currencySymbol="€" className="w-full rounded-xl bg-muted/60 px-4 py-3 text-base" />
+            {parsedTarget && <GoalDateInput value={targetDate} onChange={setTargetDate} />}
             <div className="flex flex-wrap gap-2">
               {COLORS.map(c => (
                 <button
@@ -189,6 +220,25 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
               className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
             >
               {busy ? 'Creando…' : 'Crear apartado'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Objetivo */}
+      <Dialog open={!!editingGoal} onOpenChange={o => !o && setEditingGoal(null)}>
+        <DialogContent>
+          <DialogTitle>Objetivo de {editingGoal?.name}</DialogTitle>
+          <div className="space-y-4">
+            <NumericInput value={target} onValueChange={setTarget} placeholder="Importe objetivo" currencySymbol="€" className="w-full rounded-xl bg-muted/60 px-4 py-3 text-lg font-semibold" />
+            {parsedTarget && <GoalDateInput value={targetDate} onChange={setTargetDate} />}
+            {editingGoal && parsedTarget && <GoalPreview pocket={{ ...editingGoal, target_amount: parsedTarget, target_date: targetDate || null }} />}
+            <button
+              onClick={handleSaveGoal}
+              disabled={busy}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-50"
+            >
+              {busy ? 'Guardando…' : parsedTarget ? 'Guardar objetivo' : 'Quitar objetivo'}
             </button>
           </div>
         </DialogContent>
@@ -221,5 +271,31 @@ export default function PocketsView({ account, pockets }: Readonly<{ account: Ac
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function GoalDateInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3">
+      <span className="text-sm text-muted-foreground">Fecha objetivo <span className="text-xs">(opcional)</span></span>
+      <input
+        type="date"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="min-w-0 bg-transparent text-right text-sm font-semibold text-foreground outline-none"
+      />
+    </label>
+  );
+}
+
+function GoalPreview({ pocket }: { pocket: Pocket }) {
+  const preview = goalProgress(pocket);
+  if (!preview || preview.done) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      Te faltan {formatCurrency(preview.remaining)}
+      {preview.perMonth !== null && <>: <span className="font-semibold text-foreground">{formatCurrency(preview.perMonth)} al mes</span> hasta {preview.dateLabel}</>}
+      {preview.overdue && ' (la fecha ya ha pasado)'}.
+    </p>
   );
 }

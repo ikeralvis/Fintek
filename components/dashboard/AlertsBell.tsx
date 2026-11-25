@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { differenceInDays, isSameMonth, parseISO } from 'date-fns';
 import { AlertTriangle, Bell, CalendarClock, TrendingDown, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
 import { useDashboard } from '@/lib/DashboardContext';
+import { useHomeData } from '@/lib/useHomeData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from '@/components/ui/dropdown-menu';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -26,14 +26,14 @@ type Alert = {
 
 const DISMISSED_KEY = 'fintek:dismissedAlerts';
 
-function loadDismissed(): Set<string> {
-    if (typeof window === 'undefined') return new Set();
-    try {
-        const raw = window.localStorage.getItem(DISMISSED_KEY);
-        return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-        return new Set();
-    }
+// Avisos descartados en localStorage, leídos como store externo (sin setState en efectos y
+// sin desajustes de hidratación: en el servidor se considera que no hay ninguno descartado).
+const dismissedListeners = new Set<() => void>();
+const subscribeDismissed = (cb: () => void) => { dismissedListeners.add(cb); return () => { dismissedListeners.delete(cb); }; };
+const readDismissedRaw = () => { try { return window.localStorage.getItem(DISMISSED_KEY) ?? '[]'; } catch { return '[]'; } };
+
+function parseDismissed(raw: string): Set<string> {
+    try { return new Set(JSON.parse(raw)); } catch { return new Set(); }
 }
 
 /**
@@ -44,29 +44,21 @@ function loadDismissed(): Set<string> {
  */
 export default function AlertsBell() {
     const { accounts, transactions, categories, userId } = useDashboard();
-    const [budgets, setBudgets] = useState<Budget[] | null>(null);
-    const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
-    const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+    // Mismos datos (y misma petición) que el resto de Inicio: no se piden aparte.
+    const homeData = useHomeData(userId);
+    const budgets: Budget[] | null = homeData?.budgets ?? null;
+    const subscriptions = useMemo<Subscription[] | null>(
+        () => homeData ? homeData.subscriptions.filter(s => s.status === 'active') : null,
+        [homeData]
+    );
+    const dismissedRaw = useSyncExternalStore(subscribeDismissed, readDismissedRaw, () => '[]');
+    const dismissed = useMemo(() => parseDismissed(dismissedRaw), [dismissedRaw]);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-    useEffect(() => {
-        setDismissed(loadDismissed());
-        const supabase = createClient();
-        let cancelled = false;
-
-        supabase.from('budgets').select('id, category_id, amount, is_savings').eq('user_id', userId)
-            .then(({ data }) => { if (!cancelled) setBudgets(data || []); });
-
-        supabase.from('subscriptions').select('id, name, amount, next_payment_date, status')
-            .eq('user_id', userId).eq('status', 'active')
-            .then(({ data }) => { if (!cancelled) setSubscriptions(data || []); });
-
-        return () => { cancelled = true; };
-    }, [userId]);
 
     const persistDismissed = (next: Set<string>) => {
-        setDismissed(next);
         try { window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+        dismissedListeners.forEach(l => l());
     };
 
     const alerts = useMemo<Alert[]>(() => {

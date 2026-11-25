@@ -206,3 +206,9 @@ button[type="submit"]:hover,
 .dark .btn-primary:hover {
   background-color: #f4f4f5 !important;
 }
+
+/* Barra de progreso del insight activo en "Para ti hoy" (avance automático). */
+@keyframes insight-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

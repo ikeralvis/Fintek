@@ -11,6 +11,13 @@ const CreateSchema = z.object({
   name: z.string().trim().min(1, 'Pon un nombre').max(60),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   targetAmount: z.number().positive().nullable(),
+  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+});
+
+const GoalSchema = z.object({
+  pocketId: z.string().uuid(),
+  targetAmount: z.number().positive().nullable(),
+  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
 });
 
 const MoveSchema = z.object({
@@ -38,10 +45,37 @@ export async function createPocket(input: z.input<typeof CreateSchema>) {
     name: parsed.data.name,
     color: parsed.data.color,
     target_amount: parsed.data.targetAmount,
+    // Solo se envía si hay fecha: así crear apartados sigue funcionando aunque aún no se haya
+    // ejecutado sql/pocket_target_date.sql.
+    ...(parsed.data.targetDate ? { target_date: parsed.data.targetDate } : {}),
   });
   if (error) return { error: toActionError(error, 'pockets') };
 
   revalidate(parsed.data.accountId);
+  return { error: null };
+}
+
+/** Cambia el objetivo (importe y fecha opcional) de un apartado existente. */
+export async function updatePocketGoal(accountId: string, input: z.input<typeof GoalSchema>) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado' };
+
+  const parsed = GoalSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues.map(i => i.message).join(', ') };
+
+  const { error } = await supabase
+    .from('account_pockets')
+    .update({
+      target_amount: parsed.data.targetAmount,
+      target_date: parsed.data.targetAmount ? parsed.data.targetDate : null,
+    })
+    .eq('id', parsed.data.pocketId)
+    .eq('user_id', user.id);
+  if (error) return { error: toActionError(error, 'pockets') };
+
+  revalidate(accountId);
+  revalidatePath('/dashboard');
   return { error: null };
 }
 

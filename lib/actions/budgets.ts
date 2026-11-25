@@ -5,6 +5,7 @@ import { toActionError } from '@/lib/actionError';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { startOfMonth } from 'date-fns';
+import { z } from 'zod';
 
 export async function upsertBudget(categoryId: string, amount: number, isSavings: boolean = false) {
     const supabase = await createClient();
@@ -153,5 +154,78 @@ export async function recordRolloverAction(categoryId: string, monthKey: string,
     }
 
     revalidatePath('/dashboard/presupuestos');
+    return { success: true };
+}
+
+// --- Plan del mes (editor "Configura tu mes") ---
+
+const PlanSchema = z.object({
+    monthlyIncome: z.number().min(0).max(10_000_000),
+    cushion: z.number().min(0).max(10_000_000),
+    savingsTarget: z.number().min(0).max(10_000_000),
+    /** Presupuestos de gasto por categoría. amount 0 = quitar el presupuesto de esa categoría. */
+    budgets: z.array(z.object({ categoryId: z.string().uuid(), amount: z.number().min(0).max(10_000_000) })).max(500),
+});
+
+/**
+ * Guarda de una vez el plan completo: ingreso, margen, ahorro previsto y los presupuestos de
+ * gasto. Los presupuestos de ahorro (is_savings) no se tocan.
+ */
+export async function saveBudgetPlan(input: z.input<typeof PlanSchema>) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autorizado' };
+
+    const parsed = PlanSchema.safeParse(input);
+    if (!parsed.success) return { error: 'Datos del plan no válidos' };
+    const { monthlyIncome, cushion, savingsTarget, budgets } = parsed.data;
+
+    const { error: settingsError } = await supabase
+        .from('budget_settings')
+        .upsert(
+            { user_id: user.id, monthly_income: monthlyIncome, cushion, savings_target: savingsTarget, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' }
+        );
+    if (settingsError) return { error: toActionError(settingsError, 'budgets') };
+
+    // Solo categorías del propio usuario (RLS ya lo impide, pero así el error es claro).
+    const ids = budgets.map(b => b.categoryId);
+    const { data: ownCats } = ids.length
+        ? await supabase.from('categories').select('id').eq('user_id', user.id).in('id', ids)
+        : { data: [] as { id: string }[] };
+    const own = new Set((ownCats || []).map(c => c.id));
+
+    const { data: existing, error: loadError } = await supabase
+        .from('budgets').select('id, category_id, is_savings').eq('user_id', user.id);
+    if (loadError) return { error: toActionError(loadError, 'budgets') };
+    const byCat = new Map((existing || []).filter(b => !b.is_savings).map(b => [b.category_id, b.id]));
+    const savingsCats = new Set((existing || []).filter(b => b.is_savings).map(b => b.category_id));
+
+    const toDelete: string[] = [];
+    const toInsert: Record<string, unknown>[] = [];
+    const startDate = startOfMonth(new Date()).toISOString();
+    for (const b of budgets) {
+        if (!own.has(b.categoryId) || savingsCats.has(b.categoryId)) continue;
+        const existingId = byCat.get(b.categoryId);
+        if (b.amount <= 0) {
+            if (existingId) toDelete.push(existingId);
+        } else if (existingId) {
+            const { error } = await supabase.from('budgets').update({ amount: b.amount }).eq('id', existingId).eq('user_id', user.id);
+            if (error) return { error: toActionError(error, 'budgets') };
+        } else {
+            toInsert.push({ user_id: user.id, category_id: b.categoryId, amount: b.amount, is_savings: false, period: 'monthly', start_date: startDate });
+        }
+    }
+    if (toInsert.length) {
+        const { error } = await supabase.from('budgets').insert(toInsert);
+        if (error) return { error: toActionError(error, 'budgets') };
+    }
+    if (toDelete.length) {
+        const { error } = await supabase.from('budgets').delete().in('id', toDelete).eq('user_id', user.id);
+        if (error) return { error: toActionError(error, 'budgets') };
+    }
+
+    revalidatePath('/dashboard/presupuestos');
+    revalidatePath('/dashboard');
     return { success: true };
 }
