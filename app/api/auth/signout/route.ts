@@ -14,5 +14,11 @@ export async function POST(request: Request) {
   // devolviendo 405 y dejando la petición "pendiente de reenvío" (el aviso
   // de F5 para reenviar el formulario). 303 fuerza a que la redirección se
   // siga siempre con GET.
-  return NextResponse.redirect(new URL('/logout', request.url), { status: 303 });
+  const response = NextResponse.redirect(new URL('/logout', request.url), { status: 303 });
+  // Borra de la caché HTTP del navegador las páginas autenticadas (datos financieros) para que
+  // no queden accesibles en un dispositivo compartido. No se usa "storage" porque eliminaría
+  // también el service worker (y con él las notificaciones push) y la config de bloqueo; ni
+  // "cookies", porque signOut() ya elimina las de sesión.
+  response.headers.set('Clear-Site-Data', '"cache"');
+  return response;
 }

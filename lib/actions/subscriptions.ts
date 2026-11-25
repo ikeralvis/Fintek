@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
@@ -106,7 +108,7 @@ export async function createSubscription(formData: {
         return { error: null };
     } catch (err: any) {
         console.error('Error creating subscription:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'subscriptions') };
     }
 }
 
@@ -129,7 +131,7 @@ export async function deleteSubscription(id: string) {
         return { error: null };
     } catch (err: any) {
         console.error('Error deleting subscription:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'subscriptions') };
     }
 }
 
@@ -170,7 +172,7 @@ export async function updateSubscription(id: string, formData: {
         return { error: null };
     } catch (err: any) {
         console.error('Error updating subscription:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'subscriptions') };
     }
 }
 
@@ -253,6 +255,6 @@ export async function processSubscriptions() {
         return { error: null, processed: dueSubs.length };
     } catch (err: any) {
         console.error('Error processing subscriptions:', err);
-        return { error: err.message, processed: 0 };
+        return { error: toActionError(err, 'subscriptions'), processed: 0 };
     }
 }

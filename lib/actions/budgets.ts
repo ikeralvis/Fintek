@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { startOfMonth } from 'date-fns';
@@ -47,7 +49,7 @@ export async function upsertBudget(categoryId: string, amount: number, isSavings
 
     if (error) {
         console.error('Error upserting budget:', error);
-        return { error: error.message };
+        return { error: toActionError(error, 'budgets') };
     }
 
     revalidatePath('/dashboard/presupuestos');
@@ -72,7 +74,7 @@ export async function upsertBudgetSettings(monthlyIncome: number, cushion: numbe
 
     if (error) {
         console.error('Error upserting budget settings:', error);
-        return { error: error.message };
+        return { error: toActionError(error, 'budgets') };
     }
 
     revalidatePath('/dashboard/presupuestos');
@@ -89,7 +91,7 @@ export async function deleteBudget(budgetId: string) {
 
     if (error) {
         console.error('Error deleting budget:', error);
-        return { error: error.message };
+        return { error: toActionError(error, 'budgets') };
     }
 
     revalidatePath('/dashboard/presupuestos');
@@ -120,7 +122,7 @@ export async function getHandledRolloverKeys(): Promise<{
 
     if (error) {
         console.error('Error fetching rollover actions:', error);
-        return { data: [], savings: [], error: error.message };
+        return { data: [], savings: [], error: toActionError(error, 'budgets') };
     }
 
     const rows = data || [];
@@ -147,7 +149,7 @@ export async function recordRolloverAction(categoryId: string, monthKey: string,
 
     if (error) {
         console.error('Error recording rollover action:', error);
-        return { error: error.message };
+        return { error: toActionError(error, 'budgets') };
     }
 
     revalidatePath('/dashboard/presupuestos');

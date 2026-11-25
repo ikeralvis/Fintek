@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 
 export async function getSummaryData(year: number, categoryId?: string) {
@@ -110,7 +112,7 @@ export async function getSummaryData(year: number, categoryId?: string) {
     };
   } catch (err: any) {
     console.error('Error fetching summary data:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'summary') };
   }
 }
 
@@ -147,6 +149,6 @@ export async function getAvailableYears() {
     return { data: Array.from(years).sort((a, b) => b - a), error: null };
   } catch (err: any) {
     console.error('Error fetching available years:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'summary') };
   }
 }

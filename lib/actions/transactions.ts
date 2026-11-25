@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -64,7 +66,7 @@ export async function createTransaction(formData: {
     return { data: transaction, error: null };
   } catch (err: any) {
     console.error('Error creating transaction:', err);
-    return { error: err.message, data: null };
+    return { error: toActionError(err, 'transactions'), data: null };
   }
 }
 
@@ -109,7 +111,7 @@ export async function deleteTransaction(transactionId: string) {
     return { error: null };
   } catch (err: any) {
     console.error('Error deleting transaction:', err);
-    return { error: err.message };
+    return { error: toActionError(err, 'transactions') };
   }
 }
 
@@ -181,7 +183,7 @@ export async function getTransactions(filters?: {
     return { data, error: null };
   } catch (err: any) {
     console.error('Error fetching transactions:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'transactions') };
   }
 }
 
@@ -246,6 +248,6 @@ export async function getTransactionStats(filters?: {
     return { data: stats, error: null };
   } catch (err: any) {
     console.error('Error fetching transaction stats:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'transactions') };
   }
 }

@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import webpush from 'web-push';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -32,7 +34,7 @@ export async function subscribeToPush(subscription: PushSubscriptionJSON) {
     { onConflict: 'endpoint' }
   );
 
-  if (error) return { error: error.message };
+  if (error) return { error: toActionError(error, 'push') };
 
   await supabase.from('notification_settings').upsert(
     { user_id: user.id, push_enabled: true },
@@ -100,7 +102,7 @@ export async function updateNotificationSettings(partial: Partial<{
   );
 
   revalidatePath('/dashboard/configuracion');
-  return { error: error?.message || null };
+  return { error: error ? toActionError(error, 'push') : null };
 }
 
 export async function sendTestPush() {

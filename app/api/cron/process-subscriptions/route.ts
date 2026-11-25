@@ -41,6 +41,12 @@ export async function GET(request: Request) {
             if (type === 'transfer' && (!sub.to_account_id || sub.to_account_id === accountId)) {
                 throw new Error('Transfer without a valid destination account');
             }
+            await assertOwnership(
+                supabase,
+                sub.user_id,
+                type === 'transfer' ? [accountId, sub.to_account_id] : [accountId],
+                sub.category_id || null
+            );
 
             // Si el cron no corrió algún día, se recuperan los cobros atrasados (cada uno con su
             // fecha), con un tope para no generar una avalancha por un dato mal puesto.
@@ -80,37 +86,50 @@ function advance(date: Date, cycle: string): Date {
     return addMonths(date, 1);
 }
 
+/**
+ * Este cron usa la service_role, que se salta RLS: por eso comprueba explícitamente que todas
+ * las cuentas y la categoría referenciadas por la suscripción pertenecen a su dueño. Sin esto,
+ * un usuario podría crear una suscripción que apunte a la cuenta de otro y el cron movería
+ * ese saldo.
+ */
+async function assertOwnership(supabase: any, userId: string, accountIds: string[], categoryId: string | null) {
+    const ids = Array.from(new Set(accountIds.filter(Boolean)));
+    const { data: owned, error } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', userId)
+        .in('id', ids);
+    if (error) throw error;
+    if ((owned || []).length !== ids.length) {
+        throw new Error('Subscription references an account not owned by its user');
+    }
+    if (categoryId) {
+        const { data: cat, error: catError } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('id', categoryId)
+            .maybeSingle();
+        if (catError) throw catError;
+        if (!cat) throw new Error('Subscription references a category not owned by its user');
+    }
+}
+
 async function createOccurrence(supabase: any, sub: any, accountId: string, type: string, date: string) {
     if (type === 'transfer') {
-        // El trigger de saldo no cubre las transferencias: se ajustan ambos saldos a mano,
-        // igual que hace createTransfer en la app.
-        const { error: txError } = await supabase.from('transactions').insert({
-            user_id: sub.user_id,
-            account_id: accountId,
-            related_account_id: sub.to_account_id,
-            category_id: sub.category_id,
-            amount: sub.amount,
-            type: 'transfer',
-            description: `${sub.name} - Transferencia automática`,
-            transaction_date: date,
+        // Atómico: bloquea ambas cuentas, comprueba que son de sub.user_id, inserta la
+        // transacción y ajusta los dos saldos en una sola transacción SQL.
+        const { error } = await supabase.rpc('create_transfer', {
+            p_from_account_id: accountId,
+            p_to_account_id: sub.to_account_id,
+            p_amount: Number(sub.amount),
+            p_transaction_date: date,
+            p_description: `${sub.name} - Transferencia automática`,
+            p_category_id: sub.category_id || null,
+            p_enforce_balance: false,
+            p_user_id: sub.user_id,
         });
-        if (txError) throw txError;
-
-        const { data: accs, error: accError } = await supabase
-            .from('accounts')
-            .select('id, current_balance')
-            .in('id', [accountId, sub.to_account_id]);
-        if (accError) throw accError;
-
-        const amount = Number(sub.amount);
-        for (const acc of accs || []) {
-            const delta = acc.id === accountId ? -amount : amount;
-            const { error } = await supabase
-                .from('accounts')
-                .update({ current_balance: Number(acc.current_balance) + delta, updated_at: new Date().toISOString() })
-                .eq('id', acc.id);
-            if (error) throw error;
-        }
+        if (error) throw error;
         return;
     }
 

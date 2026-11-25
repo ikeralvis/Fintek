@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -74,15 +75,19 @@ export const viewport: Viewport = {
   themeColor: '#0f172a',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Nonce de la CSP generado en proxy.ts. Leer headers() hace que todas las páginas se rendericen
+  // por petición, que es requisito para poder aplicar un nonce distinto en cada respuesta.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${GeistSans.variable} font-sans antialiased text-foreground bg-background`}>
-        <ThemeProvider>
+        <ThemeProvider nonce={nonce}>
           {children}
           <Toaster position="top-center" richColors closeButton />
           <CookieConsent />

@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
@@ -24,7 +26,7 @@ export async function getRecurringTransactions() {
         return { data, error: null };
     } catch (err: any) {
         console.error('Error fetching recurring transactions:', err);
-        return { data: null, error: err.message };
+        return { data: null, error: toActionError(err, 'recurring') };
     }
 }
 
@@ -84,7 +86,7 @@ export async function createRecurringTransaction(formData: {
         return { error: null };
     } catch (err: any) {
         console.error('Error creating recurring transaction:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'recurring') };
     }
 }
 
@@ -107,7 +109,7 @@ export async function deleteRecurringTransaction(id: string) {
         return { error: null };
     } catch (err: any) {
         console.error('Error deleting recurring transaction:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'recurring') };
     }
 }
 
@@ -167,7 +169,7 @@ export async function processRecurringTransaction(id: string) {
         return { error: null };
     } catch (err: any) {
         console.error('Error processing recurring transaction:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'recurring') };
     }
 }
 
@@ -216,6 +218,6 @@ export async function updateRecurringTransaction(
         return { error: null };
     } catch (err: any) {
         console.error('Error updating recurring transaction:', err);
-        return { error: err.message };
+        return { error: toActionError(err, 'recurring') };
     }
 }

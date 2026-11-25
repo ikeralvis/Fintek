@@ -32,6 +32,20 @@ export async function GET(request: Request) {
         const results = [];
 
         for (const rt of recurring) {
+            // service_role se salta RLS: comprobar que la cuenta y la categoría son del dueño
+            // de la recurrente antes de que el trigger toque el saldo de esa cuenta.
+            const [{ data: ownAccount }, { data: ownCategory }] = await Promise.all([
+                supabase.from('accounts').select('id').eq('id', rt.account_id).eq('user_id', rt.user_id).maybeSingle(),
+                rt.category_id
+                    ? supabase.from('categories').select('id').eq('id', rt.category_id).eq('user_id', rt.user_id).maybeSingle()
+                    : Promise.resolve({ data: { id: null } }),
+            ]);
+            if (!ownAccount || !ownCategory) {
+                console.error(`Recurring ${rt.id} references an account/category not owned by its user; skipped`);
+                results.push({ id: rt.id, status: 'error', error: 'ownership_check_failed' });
+                continue;
+            }
+
             const { error: insertError } = await supabase
                 .from('transactions')
                 .insert({

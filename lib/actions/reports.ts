@@ -1,5 +1,7 @@
 "use server";
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 
 type Filters = {
@@ -61,6 +63,6 @@ export async function getCategoryMonthlySummary(filters?: Filters) {
     return { data: { months, monthlyTotals, categories }, error: null };
   } catch (err: any) {
     console.error('Error generating report:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'reports') };
   }
 }

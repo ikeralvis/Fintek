@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
@@ -57,7 +59,7 @@ export async function createAccount(formData: {
     return { data, error: null };
   } catch (err: any) {
     console.error('Error creating account:', err);
-    return { error: err.message, data: null };
+    return { error: toActionError(err, 'accounts'), data: null };
   }
 }
 
@@ -102,7 +104,7 @@ export async function cancelAccount(accountId: string) {
     return { error: null };
   } catch (err: any) {
     console.error('Error cancelling account:', err);
-    return { error: err.message };
+    return { error: toActionError(err, 'accounts') };
   }
 }
 
@@ -145,7 +147,7 @@ export async function deleteAccount(accountId: string) {
     return { error: null };
   } catch (err: any) {
     console.error('Error deleting account:', err);
-    return { error: err.message };
+    return { error: toActionError(err, 'accounts') };
   }
 }
 
@@ -179,7 +181,7 @@ export async function getAccounts() {
     return { data, error: null };
   } catch (err: any) {
     console.error('Error fetching accounts:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'accounts') };
   }
 }
 
@@ -222,6 +224,6 @@ export async function getAccountStats(accountId: string) {
     };
   } catch (err: any) {
     console.error('Error fetching account stats:', err);
-    return { data: null, error: err.message };
+    return { data: null, error: toActionError(err, 'accounts') };
   }
 }

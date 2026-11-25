@@ -1,5 +1,7 @@
 'use server';
 
+import { toActionError } from '@/lib/actionError';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -37,7 +39,7 @@ export async function createPocket(input: z.input<typeof CreateSchema>) {
     color: parsed.data.color,
     target_amount: parsed.data.targetAmount,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: toActionError(error, 'pockets') };
 
   revalidate(parsed.data.accountId);
   return { error: null };
@@ -57,7 +59,7 @@ export async function movePocketMoney(accountId: string, input: z.input<typeof M
     p_amount: parsed.data.amount,
     p_note: parsed.data.note ?? null,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: toActionError(error, 'pockets') };
 
   revalidate(accountId);
   return { error: null };
@@ -70,7 +72,7 @@ export async function deletePocket(accountId: string, pocketId: string) {
   if (!user) return { error: 'No autenticado' };
 
   const { error } = await supabase.from('account_pockets').delete().eq('id', pocketId).eq('user_id', user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: toActionError(error, 'pockets') };
 
   revalidate(accountId);
   return { error: null };

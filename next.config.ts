@@ -1,24 +1,7 @@
 import type { NextConfig } from "next";
 
-// script-src/style-src necesitan 'unsafe-inline': next-themes inyecta un <script> inline
-// para fijar el tema antes de la hidratación (evita el flash de tema incorrecto), y buena
-// parte de la UI usa `style={{...}}` para colores dinámicos (categorías, bancos, gráficos),
-// lo que el navegador trata como atributo `style` sujeto a style-src. En dev además hace
-// falta 'unsafe-eval' para el HMR de webpack.
-const isDev = process.env.NODE_ENV !== "production";
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com",
-  "frame-src 'self' https://challenges.cloudflare.com",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-].join('; ');
+// La Content-Security-Policy NO va aquí: lleva un nonce distinto en cada petición y la genera
+// proxy.ts. Aquí solo quedan las cabeceras estáticas.
 
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
@@ -26,7 +9,9 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  { key: "Content-Security-Policy", value: csp },
+  // Aísla la ventana de otras pestañas/orígenes (XS-leaks) sin romper los popups que abre la
+  // propia app (OAuth).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
 ];
 
 const nextConfig: NextConfig = {
